@@ -1,7 +1,7 @@
 /* ===== 紙芝居エンジン（kamishibai.js）=====
-  Derived from WebSlide by Shiota, MIT. Copyright (c) 2026 ShiotaTakumi; modifications for Kamishibai.
-  許諾文は engine/LICENSE（MIT License）。WebSlide の webslide.js を写し、紙芝居（html/slide.src.html）の
-  見た目・部品・段階表示・クリックの扱いを足したもの。ビルドなしで、ファイルを直接ブラウザで開いて使う。
+  Kamishibai, developed jointly by TonanKamata and ShiotaTakumi. CC0 1.0 Universal (engine/LICENSE).
+  タグで書いた下書きを組む本体に、紙芝居（html/slide.src.html）の見た目・部品・段階表示・クリックの扱いを
+  合わせたもの。ビルドなしで、ファイルを直接ブラウザで開いて使う。
 
   ■ 使い方：下書きの HTML（engine/sample.html を見る）の最初に
       <html lang="ja" theme="Boadilla">            テーマ（themes/ の中のファイルの名前。書かなければ Boadilla）
@@ -16,7 +16,7 @@
                                         （Boadilla では上の見出し帯に、節の名前とページごとの丸が出る）
     <divider>参考資料</divider>          区切りのページ
 
-  ページの中（WebSlide と同じもの）
+  ページの中
     <p>…</p>  <list><item>…</item></list>（item の中に list で 2 段目）
     <block title="…" cite="[…]">…</block>   箱。<alertblock>・<exampleblock> も同じ
     <note>…</note>  <down>…</down>  <columns><column>…</column><column>…</column></columns>
@@ -47,9 +47,9 @@
         （← で戻るときも一緒に消える）。class="reveal" も step と同じ。
         キー S で「全部出す」と切り替える（ページだけを送る。組み上がる図は、ページを開いたときに最後まで動く）。
         選んだほうはブラウザが覚える。
-  大きさ・行間・空き：size="32"・line="1.4"・before="12"・after="12"（pt。WebSlide と同じ）
+  大きさ・行間・空き：size="32"・line="1.4"・before="12"・after="12"（pt）
   テーマ：画面の大きさ（--W・--H）、書体、かっこ・句読点の空き（--jp-pad）はテーマの CSS が決める。
-        Boadilla（16:9、1280 × 720、既定）・Madrid（4:3、960 × 720。書体は WebSlide の fonts/ の CSS があれば使う）
+        Boadilla（16:9、1280 × 720、既定）・Madrid（4:3、960 × 720。書体は fonts/cm-sans.css・fonts/ipa-pgothic.css）
 
   ■ 発表
     → / Space / Enter / クリックで進む。← / 画面の左 1/4 のクリックで戻る。Home / End。S 段階表示の切り替え。
@@ -57,9 +57,9 @@
     ⌘F 全画面、⌘B ページ一覧、⌘K ポインター、⌘E 選択、⌘U キー無効、⌘P 印刷（Windows では Ctrl）。左下の ▷ に同じボタン。
     PDF のボタンは step ごとに分けて印刷する。#s5 を付けると 5 枚目から開く。
 
-  ■ 図のコード（figure.js。WebSlide と同じ）
+  ■ 図のコード（figure.js）
     FIG["svg の id"] = function (svg) { … }    figure("id", function (svg, still) { … })
-    mk・txt・follow・watchStep・fromPrev・RUNNING・ease・camera・shade・lid など（使い方は figure.js と WebSlide の説明）
+    mk・txt・follow・watchStep・fromPrev・RUNNING・ease・camera・shade・lid など（使い方は figure.js）
 
   ■ 配る形（tools/pack_engine.py、make pack SRC=下書き）
     下書きを 1 つの HTML（下書き.dist.html）にまとめる。このファイルは <script data-packed="テーマ名"> として中に入り、
@@ -68,10 +68,9 @@
     auto-render が、KaTeX の代わりの小さな関数から組んだものを受け取って差し込む。直すのは下書きのほう
 
   ■ このフォルダ（engine/）
-    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0、MIT）・fonts/（作る。git の外）
+    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0、MIT License。CC0 の外）・fonts/（作る。git の外）
 */
 var Kamishibai = {};
-var WebSlide = Kamishibai;   // figure.js (copied from WebSlide unchanged) stores its STILL table here
 (function () {
 "use strict";
 
@@ -617,7 +616,7 @@ pdf.addEventListener("click", function () { printSteps(true); pdf.blur(); print(
 tools.appendChild(pdf);
 
 /* Stroke added to Japanese text (--ja-stroke), changed by 0.1pt; remembered by the browser */
-const KEY = "webslide-ja-stroke";
+const KEY = "kamishibai-ja-stroke";
 const base = (function () {
   const v = cssVar("--ja-stroke"), n = parseFloat(v);
   return isNaN(n) ? 0.2 : (/px$/.test(v) ? n * 0.75 : n);

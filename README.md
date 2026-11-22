@@ -1,6 +1,6 @@
-# Kamishibai（旧 WebSlide）
+# Kamishibai
 
-ブラウザで開いて発表するスライドの仕組み。Beamer と同じ見た目（16:9、11pt 相当、UniBlue / AlertOrange、Latin Modern Sans と
+ブラウザで開いて発表するスライドの仕組み。TonanKamata と ShiotaTakumi が共同で開発した。Beamer と同じ見た目（16:9、11pt 相当、UniBlue / AlertOrange、Latin Modern Sans と
 原ノ味角ゴシック）で、PDF ではできない次のことに使う。
 
 - 図の中の要素を段階的に出す（辺を一本ずつ足す、カードを一枚ずつ置く）
@@ -12,7 +12,7 @@
 
 1. **下書き（紙芝居エンジン）**：タグで書いた HTML（`kamishibai.js` を読む）をブラウザで直接開くと、その場でスライドに組む。
    ビルドなしで見られ、配るときは `make pack` で一つのファイルにまとめる。
-   テーマは Boadilla（16:9、既定）と Madrid（4:3、旧 WebSlide の見た目）。書き方は [engine/README.md](engine/README.md)。
+   テーマは Boadilla（16:9、既定）と Madrid（4:3、Beamer の Madrid に倣った見た目）。書き方は [engine/README.md](engine/README.md)。
 2. **従来の形**：`html/slide.src.html` を `make` でビルドして `slide.html` を作る。既にこの形で作った資料を直すときに使う。
 
 ## 準備
@@ -135,9 +135,10 @@ Playwright の WebKit は新しい WebKit で、ある Mac の Safari と同じ�
 
 ## ライセンス
 
-Kamishibai の本体（`engine/` の `kamishibai.js`・`figure.js`・`base.css`・`themes/`・`sample.html`、`html/`、`tools/`、`Makefile`）は
-MIT License です（[LICENSE](LICENSE)）。Kamishibai は WebSlide（ShiotaTakumi）を元にしています。
-中に入れている書体と KaTeX は、下のそれぞれのライセンスのままです。
+Kamishibai は TonanKamata と ShiotaTakumi が共同で開発した。本体（`engine/` の `kamishibai.js`・`figure.js`・`base.css`・`themes/`・`sample.html`、
+`html/`、`tools/`、`Makefile`）は CC0 1.0 Universal で、著作権と隣接する権利を放棄してパブリックドメインに置く（[LICENSE](LICENSE)。
+`engine/` だけを写して使うときのために、同じ本文と次の表の要約を [engine/LICENSE](engine/LICENSE) にも置く）。
+CC0 は中に入れている KaTeX と書体には及ばず、それらは下のそれぞれのライセンスのままである。
 
 | もの | ライセンス | 場所と扱い |
 |---|---|---|

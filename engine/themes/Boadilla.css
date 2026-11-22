@@ -11,7 +11,7 @@
   --theme: #0096c8; --alert: #ff4c00;
   --head: #19a0ce; --head-dim: #8cd0e6;
   --bt: #cceaf4; --bt-ink: #004b64; --bb: #e6f4fa;
-  /* WebSlide の部品（note・表・ボタンなど）が使う色 */
+  /* 部品（note・表・ボタンなど）が使う色 */
   --navy: #0096c8; --blue: #0096c8;
   --sans: "LMSans", "JPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   --font: var(--sans);

@@ -124,7 +124,7 @@
   <later title="補題２（次の頁で証明）" step>奇数次の頂点の個数は偶数</later>
 </slide>
 
-<slide title="WebSlide の部品" sec="部品">
+<slide title="部品" sec="部品">
   <columns>
     <column>
       <table class="tbl">
@@ -154,7 +154,7 @@
 </slide>
 
 <script>
-/* 動く図：目印（.mark）が出たら正 n 角形が大きくなり、バーで n を変えられる（WebSlide の雛形と同じ） */
+/* 動く図：目印（.mark）が出たら正 n 角形が大きくなり、バーで n を変えられる */
 figure("fig-polygon", function (svg, still) {
   const slide = svg.closest("slide"), mark = slide.querySelector(".mark");
   const input = slide.querySelector(".bar input"), value = slide.querySelector(".bar span");

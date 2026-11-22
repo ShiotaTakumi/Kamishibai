@@ -1,6 +1,5 @@
 /* ===== 紙芝居エンジンの見た目のうち、どのテーマにも共通のもの（base.css）。kamishibai.js が読み込む。触らない =====
-   WebSlide（ShiotaTakumi）の webslide/base.css を基に、画面の大きさをテーマで決められるようにし、
-   紙芝居の部品（証明・番号つきの手順・切り替える図など）を足したもの。
+   画面の大きさはテーマが決める。紙芝居の部品（証明・番号つきの手順・切り替える図など）もここにある。
    テーマごとの見た目（色・見出しの帯・下の帯・箇条書きの印・箱・表紙・区切り）は themes/ の中にある */
 body > :is(cover, slide, divider) { display: none }
 /* 固定キャンバス。大きさはテーマが --W・--H で決める（Boadilla は 1280 × 720、Madrid は 960 × 720）。
@@ -16,9 +15,9 @@ body > :is(cover, slide, divider) { display: none }
   --pt20: 26.67px; --pt24: 32px; --pt32: 42.67px; --pt36: 48px; --pt44: 58.67px;
   /* Beamer（12pt）の大きさ：見出し・題目（\Large、34.3pt）、箱の見出し（\large、28.6pt）、下の帯（\tiny、11.9pt） */
   --Large: 45.7px; --large: 38.1px; --tiny: 15.9px;
-  /* 文の書体 WebSlideText：英数字は Computer Modern Sans、日本語は IPA Pゴシック（MS Pゴシックに似せた無料の書体）。
+  /* 文の書体 KamishibaiText：英数字は Computer Modern Sans、日本語は IPA Pゴシック（MS Pゴシックに似せた無料の書体）。
      どちらも fonts/ の中に埋め込んである（fonts/cm-sans.css・fonts/ipa-pgothic.css） */
-  --font: "WebSlideText", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  --font: "KamishibaiText", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
   /* 段階表示（step）で出るまでの時間。0s ですぐ出る（PowerPoint の「表示」と同じ）。.2s などにすると、ふわっと出る */
   --fade: 0s;
   /* 日本語の字（太字でないところ）に足す線の太さ（pt）。ふだんは 0（Beamer と同じ太さ）。

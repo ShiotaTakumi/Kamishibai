@@ -15,7 +15,7 @@ OUT (default: next to SRC as NAME.dist.html) opens from file:// with no network 
     the families the rendered math and the CSS use;
   - the fonts: Boadilla's (Latin Modern Sans and Roman Italic, Harano Aji Gothic from fonts/) cut down
     to the characters of the draft and of the engine's own labels. Madrid's (engine/fonts/cm-sans.css,
-    ipa-pgothic.css, copied from WebSlide) are embedded unchanged when present: IPA P-Gothic is not
+    ipa-pgothic.css) are embedded unchanged when present: IPA P-Gothic is not
     subset, because the IPA Font License puts conditions on modified fonts. Missing font CSS means
     system fonts, as in the draft;
   - images (<img src>, <qr src>, SVG <image href>), other <script src> and <link rel=stylesheet>

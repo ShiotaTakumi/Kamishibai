@@ -1,7 +1,7 @@
 # 紙芝居エンジン（ビルドなしの HTML スライド）
 
-下書きの HTML をブラウザで直接開くと、その場でスライドに組む仕組みです。WebSlide（ShiotaTakumi）の本体に、
-紙芝居（`../html/`）の見た目・部品・段階表示を足しています。`make` で作る従来の紙芝居（`html/slide.src.html` と
+下書きの HTML をブラウザで直接開くと、その場でスライドに組む仕組みです。タグで書いた下書きを組む本体に、
+紙芝居（`../html/`）の見た目・部品・段階表示を合わせています。`make` で作る従来の紙芝居（`html/slide.src.html` と
 `tools/build_html.py`）とは別のもので、そちらには影響しません。
 
 ## 準備
@@ -25,7 +25,7 @@ make engine-fonts        # fonts/ の書体を engine/fonts/kamishibai-fonts.css
 と書き、その後ろに `<cover>`・`<slide title="…" sec="…">`・`<divider>` を並べます。使えるタグ・class・キーの一覧は
 [kamishibai.js](kamishibai.js) の最初の説明にあります。主なもの：
 
-- WebSlide のタグ：`block`・`alertblock`・`exampleblock`・`list`/`item`・`note`・`down`・`columns`/`column`・`figure`・`table.tbl` など
+- 基本のタグ：`block`・`alertblock`・`exampleblock`・`list`/`item`・`note`・`down`・`columns`/`column`・`figure`・`table.tbl` など
 - 箱（`block`・`alertblock`・`exampleblock`）には命題・定義など一つの主張だけを入れ、題は主張の種類（`kamishibai.js` の `BLOCK_KINDS`：定義・定理・補題・系・命題・予想・未解決問題など）で始めます。説明・注意・使い道・頁の参照・図・出典・段階表示は箱の外に書きます。下書きでは題が種類で始まらない箱に赤い破線が出ます。`tools/check_blocks.py` が残りの規則も確かめ、`make pack` は規則に反する下書きをまとめません（前に作った `.dist.html` も消します）
 - 主張の種類（定義・定理・未解決問題など）は、ラベル（`span.label`）でなく箱の題で示します。未解決問題の提起者は題の括弧に人名で並べ（頭文字と姓の間は `&nbsp;`）、問題の番号は `cite` に短い鍵とともに書いて、同じ頁の `<p class="src">` で鍵を解きます：`<block title="未解決問題（M.&nbsp;Demaine、F.&nbsp;Hurtado）" cite="[DO07, Open Problem 25.6]">`。題の帯は 1 行に収めます
 - 頁の番号で参照しません（「頁 4」「次の頁」）。聴衆は頁を戻れないので、定理の番号か内容の名前で言います。箱の中の「頁 n」は `tools/check_blocks.py` が拒みます（箱の外は検査しません）
@@ -54,7 +54,7 @@ make shot SRC=talk/talk.html PAGES="4 12" # 4 頁と 12 頁を 1280×720 の PNG
 | テーマ | 大きさ | 見た目 |
 |---|---|---|
 | Boadilla（既定） | 1280 × 720（16:9） | 紙芝居と同じ（Beamer の Boadilla・miniframes・circles） |
-| Madrid | 960 × 720（4:3） | WebSlide と同じ（Beamer の Madrid） |
+| Madrid | 960 × 720（4:3） | Beamer の Madrid |
 
 テーマは `<html theme="…">` で選び、URL に `?theme=Madrid` を付けると開くときに変えられます。
 画面の大きさ（`--W`・`--H`）はテーマの CSS が決め、画面への合わせ方・一覧の縮小・印刷の用紙はその値に従います。
@@ -107,10 +107,10 @@ node ../tools/check_layout.mjs talk/talk.html                     # 下書きを
 
 ## ファイル
 
-- `kamishibai.js`：本体（WebSlide の webslide.js から）
-- `figure.js`：図を描く道具（WebSlide のまま）
+- `kamishibai.js`：本体
+- `figure.js`：図を描く道具
 - `base.css`・`themes/`：見た目
 - `katex/`：KaTeX 0.19.0（版を上げるときは `make engine-katex` で作り直す）
 - `fonts/`：Boadilla の書体 `kamishibai-fonts.css` は `make engine-fonts` で作る（git の外）。Madrid の書体 `cm-sans.css`・`ipa-pgothic.css` は repository に入っている
 - 配る形を作る道具は `../tools/pack_engine.py`（`make pack`）
-- 許諾は [LICENSE](LICENSE)
+- 許諾は [LICENSE](LICENSE)（本体は CC0 1.0。KaTeX と書体はそれぞれのライセンスのまま）
