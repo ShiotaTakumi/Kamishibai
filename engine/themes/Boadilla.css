@@ -1,0 +1,111 @@
+/* ===== テーマ Boadilla（既定の見た目。kamishibai.js が読み込む）=====
+   16:9 の 1280 × 720 px（＝ Beamer の 453.54 × 255.12 pt。1pt = 2.822 px）。文字の大きさ・余白は
+   Beamer（11pt、Boadilla + miniframes + circles）の実測に合わせた以前からの作り方の原稿（html/slide.src.html）の値。
+   色：UniBlue / AlertOrange / AlmostBlack。書体：欧文 Latin Modern Sans、和文 原ノ味角ゴシック、
+   数式は KaTeX の既定（Computer Modern）。書体は fonts/kamishibai-fonts.css（make engine-fonts で作る）。
+   無いときは Hiragino などの手元の書体で出る */
+:root {
+  --W: 1280px; --H: 720px;
+  --bg: #e4e6e7; --paper: #fefefe;
+  --ink: #262626; --faint: #8a8a8a;
+  --theme: #0096c8; --alert: #ff4c00;
+  --head: #19a0ce; --head-dim: #8cd0e6;
+  --bt: #cceaf4; --bt-ink: #004b64; --bb: #e6f4fa;
+  /* 部品（note・表・ボタンなど）が使う色 */
+  --navy: #0096c8; --blue: #0096c8;
+  --sans: "LMSans", "JPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  --font: var(--sans);
+  /* Beamer 11pt クラスの文字の大きさ（pt × 2.822 px） */
+  --tiny: 16.93px;      /* 6pt：見出し帯の節の名前 */
+  --footnote: 25.4px;   /* 9pt：所属 */
+  --small: 28.22px;     /* 10pt：日付 */
+  --normal: 31.04px;    /* 11pt：本文 */
+  --Large: 40.64px;     /* 14.4pt：frame title */
+  --LARGE: 48.77px;     /* 17.28pt：題名 */
+  /* 原ノ味のかっこ・句読点は全角の幅なので、空きは足さない */
+  --jp-pad: none;
+  /* 段階表示で出るまでの時間 */
+  --fade: .5s;
+}
+@media screen { html, body { background: var(--bg) } }
+body { -webkit-font-smoothing: antialiased; text-spacing-trim: space-all; font-kerning: normal; overflow-wrap: break-word }
+.stage { background: var(--paper); box-shadow: 0 10px 40px rgba(0, 0, 0, .16) }
+.page i { font-family: "LMItalic", serif; font-style: normal; font-size: 1.08em }
+b, strong { font-weight: 700 }
+
+/* ---- ページ：見出し（frame title）の下の残りで、中身を上下の真ん中に置く（Beamer の既定と同じ）---- */
+.page { flex-direction: column; padding: 74px 31px 34px; font-size: var(--normal); line-height: 1.5 }
+.page.on, .thumb .tbox > .page { display: flex }
+@media print { .ppage > .page { display: flex } }
+.ttl { flex: none; font-size: var(--Large); font-weight: 700; color: var(--theme); line-height: 1.24; margin: 0 0 20px -7px }
+.ttl:has(> span:empty) { display: none }
+.page > slide { display: flex; flex-direction: column; margin: auto 0; min-height: 0 }
+.page > slide > * { flex-shrink: 0 }
+p { line-height: 1.6; margin: 0 0 17px }
+/* 下の帯は使わない（ページ番号は右下の .pn） */
+.foot { display: none }
+.pn { display: block; position: absolute; right: 24px; bottom: 10px; font-size: 17px; font-weight: 700; line-height: 1.2;
+  color: var(--faint); font-variant-numeric: tabular-nums }
+.pn .ja { -webkit-text-stroke: 0 }
+
+/* ---- 見出し帯（outer theme miniframes、subsection=false）：節の名前と、ページごとの丸 ---- */
+.hl { position: absolute; left: 0; right: 0; top: 0; height: 43px; background: var(--head);
+  display: flex; justify-content: space-between; padding: 0 30px 0 25px; pointer-events: none; line-height: 1 }
+.hl .hs { display: flex; flex-direction: column; gap: 3px; padding-top: 5px }
+.hl .hn { font-size: var(--tiny); font-weight: 700; line-height: 1; color: var(--head-dim); white-space: nowrap }
+.hl .hs.cur .hn { color: var(--theme) }
+.hl .hf { display: flex; gap: 2.8px }
+.hl .hf i { width: 8.5px; height: 8.5px; border-radius: 50%; box-shadow: inset 0 0 0 1.1px var(--head-dim) }
+.hl .hs.cur .hf i { box-shadow: inset 0 0 0 1.1px #fff }
+.hl .hs.cur .hf i.cur { background: #fff }
+
+/* ---- 数式：KaTeX の既定の書体（Computer Modern）。本文より少しだけ大きく ---- */
+.katex { font-size: 1.05em; font-family: KaTeX_Main }
+.katex .mathnormal { font-family: KaTeX_Math; font-style: italic }
+.katex .text { font-family: var(--font) }
+
+/* ---- 箇条書き（inner theme circles）：丸は左 21.8pt・直径 5.45pt、文は 32.7pt から ---- */
+list, ul.pts { display: flex; flex-direction: column; gap: 11px; margin: 0 0 8px; padding: 0; list-style: none }
+item, ul.pts > li { display: block; position: relative; padding-left: 61.5px; margin: 0; line-height: 1.5 }
+item::before, ul.pts > li::before { content: ""; position: absolute; left: 30.7px; top: .5em; width: 15.4px; height: 15.4px;
+  border-radius: 50%; background: var(--theme) }
+item list { margin: 11px 0 0 }
+item item { padding-left: 40px }
+item item::before { left: 16px; top: .6em; width: 11px; height: 11px }
+/* 証明の中では、印を左に寄せる */
+.pf :is(list > item, ul.pts > li) { padding-left: 34px }
+.pf :is(list > item, ul.pts > li)::before { left: 10px }
+
+/* ---- block（Beamer の block、rounded、影なし。枠は本文の左右へ 4pt 張り出す）。class="blk" でも使える ---- */
+:is(block, alertblock, exampleblock, .blk) { display: block; margin: 12px -12px 0; border-radius: 11px; overflow: hidden;
+  --t: var(--bt); --ti: var(--bt-ink); --b: var(--bb) }
+alertblock { --t: #ffd9c7; --ti: #8a2a00; --b: #fff0e9 }
+exampleblock { --t: #cfeedb; --ti: #0b5e31; --b: #e9f7ef }
+.bt { display: flex; align-items: baseline; gap: .5em; background: var(--t); color: var(--ti); font-weight: 700;
+  padding: 3px 12px; line-height: 1.4 }
+.bt cite { margin-left: auto; font-weight: 400; font-size: .8em }
+.bb { background: var(--b); padding: 6px 12px 8px; line-height: 1.55 }
+.bb p { margin: 0 }
+.bb > :last-child { margin-bottom: 0 }
+
+/* ---- 図 ---- */
+figcaption { font-size: inherit; margin-top: 6px }
+
+/* ---- 表紙（題名・副題、1.5em、著者・所属、3em、日付）---- */
+cover { position: absolute; inset: 0; padding: 0 31px; display: flex; flex-direction: column; justify-content: center }
+.ctitle headline { display: block; font-size: var(--LARGE); font-weight: 700; color: var(--theme); line-height: 1.2 }
+.ctitle subtitle { display: block; font-size: var(--normal); font-weight: 700; color: var(--theme); line-height: 1.3; margin: 4px 0 0 }
+.authors { display: flex; flex-wrap: wrap; column-gap: 1em; font-size: var(--normal); font-weight: 700; line-height: 1.3; margin: 40px 0 0 }
+.authors author { white-space: nowrap }
+.authors sup, .insts sup { font-size: .6em; line-height: 0 }
+.insts { display: flex; flex-wrap: wrap; column-gap: 1em; font-size: var(--footnote); line-height: 1.3; margin: 4px 0 0 }
+.cmeta { font-size: var(--small); line-height: 1.3; margin: 92px 0 0 }
+meeting, date { display: block }
+qr { position: absolute; right: 31px; bottom: 40px; width: 200px }
+qr img { display: block; width: 200px; height: 200px }
+qr .qcap { text-align: center; font-size: var(--footnote) }
+
+/* ---- 区切りのページ ---- */
+divider { position: absolute; inset: 0; padding: 0 31px; display: flex; align-items: center }
+.sbox { flex: 1; margin: 0 -12px; padding: 30px 24px; border-radius: 11px; background: var(--bt); color: var(--bt-ink);
+  text-align: center; font-size: var(--Large); font-weight: 700; line-height: 1.27 }

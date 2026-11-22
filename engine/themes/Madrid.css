@@ -1,6 +1,13 @@
-/* ===== テーマ Madrid（Beamer の Madrid を参考にした見た目）。webslide.js が読み込む =====
+/* ===== テーマ Madrid（Beamer の Madrid を参考にした見た目）。kamishibai.js が読み込む =====
    色と位置は、同じ中身の Beamer（Madrid・12pt）の PDF を 960 × 720 にして測って合わせた */
 :root {
+  /* 画面の大きさ（4:3）。kamishibai.js の fit()・一覧・印刷がこの値を使う */
+  --W: 960px; --H: 720px;
+  /* 文の書体 KamishibaiText（fonts/cm-sans.css・fonts/ipa-pgothic.css。無ければ Hiragino などで出る） */
+  --font: "KamishibaiText", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  /* IPA Pゴシックの半角幅のかっこ・句読点に空きを足す（その書体が読み込まれているときだけ） */
+  --jp-pad: ipa; --jp-pad-family: KamishibaiText;
+  --theme: #3333B2; --bt-ink: #262686; --bb: #E9E9F3; --head-dim: #9A9ADB;
   /* Beamer の structure の色 */
   --navy: #3333B2; --blue: #3333B2;
   /* 下の帯の 3 つの色（左から） */
@@ -38,9 +45,9 @@ item list { margin: 5.6px 0 0 }
 item item { padding-left: 65px; margin-bottom: 0 }
 item item::before { left: 37px; top: calc(.6em - 5.5px); width: 11px; height: 11px }
 
-/* ---- 箱（Beamer の block）。角丸で影を付け、見出しは色の地に白の字。見出しから中身の地へは、少しぼかしてつなぐ。
-   箱は文の左右の端より 12px 外に出す ---- */
-/* 角丸の箱（箱・表紙の題目・区切り）の影（Beamer と同じ形）。箱の右と下に、端で 50% の灰色から 10.5px かけて白になる影を付ける。
+/* ---- block（Beamer の block）。角丸で影を付け、見出しは色の地に白の字。見出しから中身の地へは、少しぼかしてつなぐ。
+   block は文の左右の端より 12px 外に出す ---- */
+/* 角丸の箱（block・表紙の題目・区切り）の影（Beamer と同じ形）。箱の右と下に、端で 50% の灰色から 10.5px かけて白になる影を付ける。
    右の影は箱の上から 12.5px、下の影は箱の左から 11px のところで、同じ割合で薄くなって消える。
    影の芯（箱の右下の部分。角は右下だけ丸める）を箱の後ろに置き、0.5px ずつ広げた影（--shade）を重ねて、一定の割合で薄くする */
 :is(block, alertblock, exampleblock, .ctitle, .sbox)::before { content: ""; position: absolute; left: 21.5px; top: 23px; right: 0; bottom: 0;

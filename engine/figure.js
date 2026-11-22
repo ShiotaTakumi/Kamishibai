@@ -1,4 +1,4 @@
-/* ===== WebSlide の図の道具（figure.js）。webslide.js が読み込む。触らない。使い方は webslide.js の最初の説明にある ===== */
+/* ===== 図の道具（figure.js）。kamishibai.js が読み込む（Kamishibai.STILL は kamishibai.js が用意する Kamishibai に入る）。触らない。使い方は kamishibai.js の最初の説明にある ===== */
 (function () {
 "use strict";
 
@@ -149,6 +149,6 @@ Object.assign(window, { fromPrev: fromPrev, figure: figure, sub: sub, add: add, 
                         shadeRGB: shadeRGB, shade: shade, shadeToWhite: shadeToWhite, MMA_AZ: MMA_AZ, MMA_EL: MMA_EL, camera: camera,
                         RUNNING: RUNNING, follow: follow, watchStep: watchStep });
 
-/* ページの写し（一覧・印刷・PDF）で図を描き直すときに、webslide.js が使う */
-WebSlide.STILL = STILL;
+/* ページの写し（一覧・印刷・PDF）で図を描き直すときに、kamishibai.js が使う */
+Kamishibai.STILL = STILL;
 })();

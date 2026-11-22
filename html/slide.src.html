@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>タイトル</title>
+<!-- Source of ../slide.html. Edit this file, then run: make (or python3 tools/build_html.py).
+     SVG/SVGS/IMG placeholders, \(TeX\) and the FONTS marker in the CSS are filled in by the build. -->
+<style>
+/*FONTS*/
+/* ===== 16:9 固定キャンバス（1280 x 720 px ＝ Beamer 版の 453.54 x 255.12 pt）=====
+   1pt = 720/255.12 = 2.822 px。文字の大きさ・余白は Beamer（11pt、Boadilla + miniframes + circles）の
+   実測に合わせる。画面には transform: scale で合わせる（下の fit()）。
+   色・フォントは Beamer 版に合わせる：UniBlue / AlertOrange / AlmostBlack、
+   欧文 Latin Modern Sans、和文 原ノ味角ゴシック、数式の変数は Latin Modern のイタリック。 */
+:root{
+  color-scheme:light;
+  --bg:#e4e6e7; --paper:#fefefe;
+  --ink:#262626; --muted:#262626; --faint:#8a8a8a;
+  --line2:#262626;
+  --theme:#0096c8; --alert:#ff4c00;
+  --head:#19a0ce; --head-dim:#8cd0e6; --head-dot:#81cbe3;
+  --bt:#cceaf4; --bt-ink:#004b64; --bb:#e6f4fa;
+  --amber:#fdde2a; --red:#b8140b; --ok:#159b52;
+  --sans:"LMSans","JPGothic","LMMath","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+  /* Beamer 11pt クラスの文字の大きさ（pt × 2.822 px） */
+  --tiny:16.93px;      /* 6pt：見出し帯の節の名前 */
+  --footnote:25.4px;   /* 9pt：所属 */
+  --small:28.22px;     /* 10pt：日付 */
+  --normal:31.04px;    /* 11pt：本文 */
+  --Large:40.64px;     /* 14.4pt：frame title */
+  --LARGE:48.77px;     /* 17.28pt：題名 */
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+  line-break:strict;overflow-wrap:break-word;word-break:keep-all;
+  text-spacing-trim:space-all;text-autospace:no-autospace;font-kerning:normal}
+i{font-family:"LMItalic",serif;font-style:normal;font-size:1.08em}
+b,strong{font-weight:700}
+/* 改行は文節の切れ目だけ（ビルドが BudouX で <wbr> を入れ、keep-all でそれ以外を禁じる）。
+   Chrome と Safari で同じ位置で折れるよう、ブラウザごとに異なる機能（auto-phrase・
+   text-wrap:pretty・約物の詰め・和欧間の自動スペース）は使わない。make check（tools/check_layout.mjs）で確認 */
+/* 画面中央に置き、fit() が scale を掛ける（画面より大きくても中央を基準に縮む） */
+.deck{position:fixed;inset:0}
+.stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;margin:-360px 0 0 -640px;
+  background:var(--paper);box-shadow:0 10px 40px rgba(0,0,0,.16);transform-origin:center center}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:74px 31px 34px;overflow:hidden}
+.slide.on{display:flex}
+.slide.mid{justify-content:center}
+/* frame の本文（h2 の後ろ）。Beamer の既定と同じく、frame title の下の残りで上下中央に置く。
+   auto の余白なので、入りきらないときは上に詰まって下にはみ出す（check_layout で見つかる） */
+.fb{display:flex;flex-direction:column;margin:auto 0}
+/* ---- 見出し帯（outer theme miniframes、subsection=false）：節の名前と frame ごとの丸 ---- */
+.hl{position:absolute;left:0;right:0;top:0;height:43px;background:var(--head);
+  display:flex;justify-content:space-between;padding:0 30px 0 25px;pointer-events:none}
+.hl .hs{display:flex;flex-direction:column;gap:3px;padding-top:5px}
+.hl .hn{font-size:var(--tiny);font-weight:700;line-height:1;color:var(--head-dim);white-space:nowrap}
+.hl .hs.cur .hn{color:var(--theme)}
+.hl .hf{display:flex;gap:2.8px}
+.hl .hf i{width:8.5px;height:8.5px;border-radius:50%;box-shadow:inset 0 0 0 1.1px var(--head-dim)}
+.hl .hs.cur .hf i{box-shadow:inset 0 0 0 1.1px #fff}
+.hl .hs.cur .hf i.cur{background:#fff}
+
+
+/* ---- 表紙（Beamer 版の title page：題名・副題、1.5em、著者・所属、3em、日付）---- */
+.slide.title{padding:0 31px}
+h1{font-size:var(--LARGE);font-weight:700;color:var(--theme);line-height:1.2;margin:0}
+.sub{font-size:var(--normal);font-weight:700;color:var(--theme);line-height:1.3;margin:4px 0 0}
+.who{font-size:var(--normal);font-weight:700;line-height:1.3;margin:40px 0 0}
+.who span{white-space:nowrap}
+.who2{font-size:var(--footnote);line-height:1.3;margin:4px 0 0}
+.date{font-size:var(--small);line-height:1.3;margin:92px 0 0}
+
+/* frame title（\Large、左 8.5pt）*/
+h2{font-size:var(--Large);font-weight:700;color:var(--theme);line-height:1.24;margin:0 0 20px -7px}
+p{font-size:var(--normal);line-height:1.6;margin:0 0 17px}
+
+/* ---- 2ページ目以降 ---- */
+.hd{font-size:var(--normal);margin:0 0 10px}
+/* itemize（inner theme circles）：丸は左 21.8pt・直径 5.45pt、文は 32.7pt から */
+ul.pts{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:11px}
+ul.pts li{position:relative;padding-left:61.5px;font-size:var(--normal);line-height:1.5}
+ul.pts li::before{content:"";position:absolute;left:30.7px;top:.5em;width:15.4px;height:15.4px;
+  border-radius:50%;background:var(--theme)}
+/* \alert{}：AlertOrange の太字 */
+.k{color:var(--alert);font-weight:700}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.nb{white-space:nowrap}
+/* 段階表示: クリック / → で 1 つずつ出す（全部出たら次のページへ） */
+.reveal{opacity:0;transform:translateY(8px);transition:opacity .5s ease,transform .5s ease}
+.reveal.on{opacity:1 !important;transform:none !important}
+
+/* ---- 図 ---- */
+.fig{margin:4px 0 0;display:flex;flex-direction:column;align-items:center;gap:10px}
+.fig svg{display:block}
+.cap{font-size:var(--normal);margin:0;text-align:center}
+.figrow{display:flex;justify-content:center;width:100%}
+
+/* ---- 操作ボタン。発表中に読ませる文字ではないので小さくてよい ---- */
+.ctrl{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:16px;
+  width:118px;display:flex;flex-direction:column;align-items:stretch;gap:7px}
+.ctrl button,.tcount{white-space:nowrap}
+.ctrl.below{position:static;transform:none;margin:9px 0 0;width:auto;
+  flex-direction:row;align-items:center;justify-content:center;gap:10px}
+.ctrl button{font:inherit;font-size:15px;font-weight:700;color:#fff;
+  background:var(--theme);border:0;border-radius:7px;padding:5px 14px;cursor:pointer}
+.ctrl button:hover{background:#0082ae}
+.ctrl button.sub2{background:#fff;color:var(--theme);box-shadow:inset 0 0 0 1.5px var(--theme)}
+.ctrl button.sub2:hover{background:var(--bb)}
+.tcount{font-size:15px;font-weight:700;color:var(--faint);
+  font-variant-numeric:tabular-nums;text-align:center}
+
+/* ---- Beamer の block（rounded、影なし。枠は本文の左右へ 4pt 張り出す）---- */
+.blk{margin:12px -12px 0;border-radius:11px;overflow:hidden}
+.blk .bt{background:var(--bt);color:var(--bt-ink);font-size:var(--normal);font-weight:700;
+  padding:3px 12px;line-height:1.4}
+.blk .bb{background:var(--bb);padding:6px 12px 8px}
+.blk .bb p{margin:0;font-size:var(--normal);line-height:1.55}
+
+/* 証明（左の線）・証明の方針（淡い地）・後で証明する主張（破線の枠）。タイトルは .pt */
+.pf{margin:10px -12px 0;border-left:5px solid var(--theme);padding:2px 12px 4px 14px}
+.pf .pt{font-size:var(--normal);font-weight:700;color:var(--bt-ink);line-height:1.4}
+.pf p{margin:0;font-size:var(--normal);line-height:1.5}
+.pf ul.pts li{padding-left:34px}
+.pf ul.pts li::before{left:10px}
+.pf.pl{border-left-color:var(--head-dim);background:#f6f9fb}
+.ph{margin:12px -12px 0;border:2px dashed var(--faint);border-radius:11px;padding:4px 12px 8px}
+.ph .pt{font-size:var(--normal);font-weight:700;color:var(--faint);line-height:1.4}
+.ph p{margin:0;font-size:var(--normal);line-height:1.5;color:#5a5a5a}
+
+
+/* ===== 共通の部品（既存のトークンだけを使う） ===== */
+/* スライド番号（右下） */
+.pn{position:absolute;right:24px;bottom:10px;font-size:17px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
+/* どの変種・設定の話か（section の data-v）を右上に示す */
+.slide[data-v]::before{content:attr(data-v);position:absolute;top:80px;right:31px;font-size:17px;font-weight:700;
+  line-height:1.3;color:var(--theme);border:1.5px solid var(--theme);border-radius:6px;padding:1px 9px}
+/* 番号つきの手順（inner theme circles） */
+ol.nums{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:n}
+ol.nums li{position:relative;padding-left:61.5px;font-size:var(--normal);line-height:1.5;counter-increment:n}
+ol.nums li::before{content:counter(n);position:absolute;left:21px;top:.2em;width:31px;height:31px;
+  border-radius:50%;background:var(--theme);color:#fff;font-size:var(--tiny);font-weight:700;
+  display:flex;align-items:center;justify-content:center}
+ol.nums[start="3"]{counter-reset:n 2}
+/* 丸数字の代わりに文字のラベル（<span class="lb">(i)</span>）を左に置く */
+ol.nums.lab li{padding-left:92px}
+ol.nums.lab li::before{content:none}
+ol.nums.lab .lb{position:absolute;left:8px}
+/* 表（\hline だけの素の表） */
+table.tb{border-collapse:collapse;font-size:var(--normal);line-height:1.35;margin:0 auto;
+  border-top:1px solid var(--line2);border-bottom:1px solid var(--line2)}
+table.tb.nr{border:0}
+.tb th,.tb td{padding:7px 12px;text-align:left;vertical-align:top}
+.tb thead th{font-weight:400;border-bottom:1px solid var(--line2);white-space:nowrap}
+.tb td.c,.tb th.c{text-align:center}
+.tb .v{font-weight:700}
+.tb .lab{color:var(--theme)}
+.note{font-size:var(--normal);margin:0}
+/* 図（静的な SVG・画像） */
+.bd{display:block}
+.flip{position:relative;flex:none}
+/* 切り替える図（.flip.tg、data-flip のボタン）と段階的に組み上がる図（data-anim）：
+   後者は class "cd" の群と "ov" の群を 1 つずつ出す */
+.flip svg.gv{position:absolute;display:block;opacity:0;transition:opacity .45s ease}
+.flip svg.gv.cur{opacity:1}
+.flip.one svg.gv{opacity:1}
+.gv .cd,.gv .ov{opacity:0;transition:opacity .3s ease}
+.gv .cd.in,.gv .ov.in{opacity:1}
+/* 図と文を左右に並べる */
+.side{display:flex;gap:28px;align-items:flex-start}
+.side>.fig{flex:none;width:min-content}
+.side>div:last-child{flex:1;min-width:0}
+</style>
+
+<div class="deck"><div class="stage" id="stage">
+
+<!-- ============ 表紙 ============ -->
+<section class="slide mid title">
+  <h1>一筆書き</h1>
+  <p class="sub">HTML 版スライドの雛形</p>
+  <p class="who"><span>氏名</span></p>
+  <p class="who2">所属</p>
+  <p class="date">October 1, 2026</p>
+</section>
+
+<!-- ============ 本文。data-sec のあるページから次の data-sec の前までが一つの節（見出し帯） ============ -->
+<section class="slide" data-sec="問題">
+  <h2>一筆書きの問題</h2>
+  <ul class="pts">
+    <li>与えられた図形を、同じ線を二度なぞらずに一筆で描けるか</li>
+    <li class="reveal">図形を<span class="k">グラフ</span>と見て、各辺をちょうど一度通る道があるかを問う</li>
+  </ul>
+</section>
+
+<section class="slide">
+  <h2>グラフと次数の定義</h2>
+  <div class="side">
+    <div class="fig"><!--SVG example-steps w420 fpath--></div>
+    <div>
+      <div class="blk"><div class="bt">定義</div><div class="bb">
+        <p>グラフ \(G=(V,E)\) の頂点 \(v\) の<b>次数</b> \(\deg v\) は、\(v\) に接続する辺の数である。</p>
+      </div></div>
+      <ul class="pts" style="margin-top:14px">
+        <li class="reveal" data-cards="2">辺を左から順に足す</li>
+        <li class="reveal" data-cards="*">\(\deg v_0=\deg v_4=1\)、ほかの頂点の次数は 2</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-sec="定理">
+  <h2>定理 1（Euler）</h2>
+  <div class="blk"><div class="bt">定理 1</div><div class="bb">
+    <p>連結なグラフ \(G\) が一筆書きできるための必要十分条件は、次数が奇数の頂点の数が 0 または 2 であることである（多重辺を許し、ループはない）。</p>
+  </div></div>
+  <div class="fig" style="margin-top:18px">
+    <!--SVGS example-yes,example-no w300 fyn-->
+    <div class="ctrl below" data-flip="fyn"><button>できる</button><button class="sub2">できない</button></div>
+    <p class="cap" data-flipcap="fyn" data-caps="奇数次の頂点が 2 個|奇数次の頂点が 4 個">できる：奇数次の頂点が 2 個</p>
+  </div>
+</section>
+
+<section class="slide" data-sec="証明">
+  <h2>定理 1 の証明の方針</h2>
+  <div class="pf pl"><div class="pt">証明の方針</div>
+    <ol class="nums lab">
+      <li><span class="lb">(i)</span>必要性：通り抜ける頂点では入る辺と出る辺が対になる</li>
+      <li class="reveal"><span class="lb">(ii)</span>十分性：辺の数についての帰納法。補題 2 の閉路に、残りの部分の一筆書きを差し込む</li>
+    </ol>
+  </div>
+  <div class="ph reveal"><div class="pt">補題 2（後で証明）</div>
+    <p>連結で辺をもち、全ての頂点の次数が偶数のグラフは閉路をもつ。</p>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>補題 2</h2>
+  <div class="blk"><div class="bt">補題 2</div><div class="bb">
+    <p>連結で辺をもち、全ての頂点の次数が偶数のグラフは閉路をもつ。</p>
+  </div></div>
+  <div class="pf"><div class="pt">証明</div>
+    <p>頂点が重複しない道のうち最長のもの \(v_0v_1\cdots v_k\) をとる。\(\deg v_0\) は正の偶数なので、\(v_0\) には辺 \(v_0v_1\) 以外の辺 \(e\) がある。道が最長なので \(e\) の他端はある \(v_j\) で、\(e\) と \(v_0\cdots v_j\) が閉路をなす。∎</p>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>定理 1 の証明</h2>
+  <div class="pf"><div class="pt">証明</div>
+    <ul class="pts">
+      <li>必要性：一筆書きで通り抜けるたびに、その頂点の次数を 2 つ使う。次数が奇数になりうるのは始点と終点だけ</li>
+      <li class="reveal">十分性：奇数次の頂点が 2 個なら、その 2 点を結ぶ辺を足して 0 個の場合に帰着する。0 個のときは閉じた一筆書きができることを辺の数についての帰納法で示す。補題 2 の閉路 \(C\) の辺を除くと、辺をもつ各連結成分は次数が偶数で辺が少なく、閉じた一筆書きができる。\(C\) をたどり、各成分に初めて着いたところでそれを差し込む。∎</li>
+    </ul>
+  </div>
+</section>
+
+<section class="slide">
+  <h2>小さな量の拡大</h2>
+  <div class="fig">
+    <!--SVG example-zoom w520-->
+    <p class="cap">隙間 \(d\) を拡大し、0 との間を往復させる（SMIL）</p>
+  </div>
+  <p class="reveal" style="margin-top:14px">\(\displaystyle \sum_{v\in V}\deg v = 2|E|\)</p>
+</section>
+
+</div></div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+
+/* ===== 画面に合わせて 1280×720 のキャンバスを拡大縮小 ===== */
+const stage=$("stage");
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform="scale("+s+")";}
+addEventListener("resize",fit); fit();
+
+/* ===== 出口 A / B などを切り替える図（.flip.tg）===== */
+function setFlip(id,k,anim){
+  const f=$(id); if(!f)return;
+  f.querySelectorAll(":scope>img,:scope>svg").forEach((im,i)=>im.classList.toggle("cur",i===k));
+  if(f.dataset.anim!==undefined){const sv=figsOf(f)[k];
+    const a=state(f,k,true),b=state(f,k,false);show(sv,a.t,a.ov,false);show(sv,b.t,b.ov,anim);}
+  document.querySelectorAll('[data-flip="'+id+'"] button').forEach((b,i)=>b.classList.toggle("sub2",i!==k));
+  const c=document.querySelector('[data-flipcap="'+id+'"]');
+  const b=document.querySelectorAll('[data-flip="'+id+'"] button')[k];
+  if(c)c.textContent=b.textContent+"："+c.dataset.caps.split("|")[k];
+}
+const flips=[].slice.call(document.querySelectorAll(".flip.tg"));
+document.querySelectorAll("[data-flip]").forEach(function(ct){
+  ct.querySelectorAll("button").forEach(function(b,i){
+    b.addEventListener("click",function(e){e.stopPropagation();setFlip(ct.dataset.flip,i,true);});});});
+
+/* ===== 段階的に組み上がる図（.flip[data-anim]）=====
+   スライドの .reveal のうち、出ているもので最後に data-cards を持つものの枚数まで、カードを
+   配置順に 1 枚ずつ出す。data-cards は "n"・図ごとの "a|b"・全部の "*"。data-ov の項目が出たら
+   破線の印も出す。data-init は最初から出ている枚数。戻るときは即座に切り替える */
+const anims=[].slice.call(document.querySelectorAll(".flip[data-anim]"));
+const timers=new Map();
+function figsOf(f){return [].slice.call(f.querySelectorAll(":scope>svg.gv"));}
+function pick(v,k,n){if(v===undefined)return null;const p=v.split("|"),x=p[Math.min(k,p.length-1)];
+  return x==="*"?n:parseInt(x,10);}
+/* 図 f の k 番目の、出ている .reveal に対する状態（drop なら最後の data-cards の項目から先を除く） */
+function state(f,k,drop){
+  const n=figsOf(f)[k].querySelectorAll(".cd").length;
+  let on=[].slice.call(f.closest(".slide").querySelectorAll(".reveal.on"));
+  if(drop){let q=-1;on.forEach((e,i)=>{if(e.dataset.cards!==undefined)q=i;});if(q>=0)on=on.slice(0,q);}
+  let t=pick(f.dataset.init,k,n)||0,ov=false;
+  on.forEach(function(e){const c=pick(e.dataset.cards,k,n);if(c!==null)t=c;if(e.dataset.ov)ov=true;});
+  return {t:Math.min(t,n),ov:ov};
+}
+function show(sv,t,ov,anim){
+  clearTimeout(timers.get(sv));
+  const cd=[].slice.call(sv.querySelectorAll(".cd")),o=[].slice.call(sv.querySelectorAll(".ov"));
+  let i=cd.filter(e=>e.classList.contains("in")).length;
+  if(!anim||i>=t){cd.forEach((e,j)=>e.classList.toggle("in",j<t));o.forEach(e=>e.classList.toggle("in",ov));return;}
+  if(!ov)o.forEach(e=>e.classList.remove("in"));
+  const dt=Math.min(180,2500/(t-i));
+  (function step(){if(i<t){cd[i++].classList.add("in");timers.set(sv,setTimeout(step,dt));}
+    else o.forEach(e=>e.classList.toggle("in",ov));})();
+}
+/* 図を今の段階に合わせる（表示中の図だけ anim で動かし、隠れている図は即座に） */
+function syncAnims(sl,anim){anims.forEach(function(f){if(sl&&f.closest(".slide")!==sl)return;
+  const g=figsOf(f);let k=g.findIndex(e=>e.classList.contains("cur"));if(k<0)k=0;
+  g.forEach(function(sv,j){const st=state(f,j,false);show(sv,st.t,st.ov,anim&&j===k);});});}
+function resetFlips(){flips.forEach(f=>setFlip(f.id,0));}
+
+/* ===== ページ送り ===== */
+const slides=[].slice.call(document.querySelectorAll(".slide"));let si=0;
+/* frame title より後ろを .fb に包む（上下中央に置くため） */
+slides.forEach(function(sl){const h=sl.querySelector(":scope>h2");if(!h)return;
+  const fb=document.createElement("div");fb.className="fb";
+  while(h.nextSibling)fb.appendChild(h.nextSibling);sl.appendChild(fb);});
+/* 見出し帯：data-sec のあるスライドから次の節まで。今の節の名前と今の frame の丸を強調 */
+(function(){const secs=[];let cur=null;
+  slides.forEach(function(sl){if(sl.dataset.sec){cur={name:sl.dataset.sec,sl:[]};secs.push(cur);}
+    if(cur)cur.sl.push(sl);});
+  secs.forEach(function(sc){sc.sl.forEach(function(sl){const hl=document.createElement("div");hl.className="hl";
+    secs.forEach(function(t){const hs=document.createElement("div");hs.className="hs"+(t===sc?" cur":"");
+      const hn=document.createElement("div");hn.className="hn";hn.textContent=t.name;
+      const hf=document.createElement("div");hf.className="hf";
+      t.sl.forEach(function(x){const d=document.createElement("i");if(x===sl)d.className="cur";hf.appendChild(d);});
+      hs.appendChild(hn);hs.appendChild(hf);hl.appendChild(hs);});
+    sl.insertBefore(hl,sl.firstChild);});});})();
+/* スライド番号（表紙には出さない） */
+slides.forEach(function(sl,i){if(!i)return;const e=document.createElement("div");e.className="pn";
+  e.textContent=String(i+1);sl.appendChild(e);});
+/* 段階表示（.reveal を 1 つずつ出す）はオプション。既定はオフで、各スライドの文字を最初から全部出し、
+   組み上がる図はスライドを開いたときに最後まで動かす。キー S で切り替え、URL の ?steps でオンにして開く */
+let stepMode=/[?&]steps\b/.test(location.search);
+try{const v=localStorage.getItem("slideSteps");if(v!==null&&!/[?&]steps\b/.test(location.search))stepMode=v==="1";}catch(e){}
+function toast(t){let e=$("toast");if(!e){e=document.createElement("div");e.id="toast";
+  e.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;"+
+    "padding:8px 18px;border-radius:8px;font:16px sans-serif;z-index:9;pointer-events:none;transition:opacity .4s";
+  document.body.appendChild(e);}
+  e.textContent=t;e.style.opacity="1";clearTimeout(e._t);e._t=setTimeout(()=>{e.style.opacity="0";},1200);}
+function paint(){slides.forEach((s,i)=>s.classList.toggle("on",i===si));
+  slides.forEach(function(sl){sl.querySelectorAll(".reveal").forEach(e=>e.classList.remove("on"));});
+  resetFlips();syncAnims(null,false);
+  if(!stepMode){slides[si].querySelectorAll(".reveal").forEach(e=>e.classList.add("on"));syncAnims(slides[si],true);}
+  try{history.replaceState(null,"","#s"+(si+1));}catch(e){}}
+function go(k){if(k<0||k>=slides.length)return;si=k;paint();}
+/* スライド内の段階送り：.reveal を 1 つずつ出してからページを進める。
+   data-with="prev" の要素は直前の .reveal と同時に出る（図と説明文を一緒に出す） */
+function steps(){return [].slice.call(slides[si].querySelectorAll(".reveal"));}
+function next(){
+  if(!stepMode){go(si+1);return;}
+  const all=steps(), i=all.findIndex(e=>!e.classList.contains("on"));
+  if(i<0){go(si+1);return;}
+  all[i].classList.add("on");
+  for(let j=i+1;j<all.length&&all[j].dataset.with==="prev";j++)all[j].classList.add("on");
+  syncAnims(slides[si],true);
+}
+function prev(){
+  if(!stepMode){go(si-1);return;}
+  const all=steps();let i=-1;
+  for(let j=all.length-1;j>=0;j--)if(all[j].classList.contains("on")){i=j;break;}
+  if(i<0){go(si-1);return;}
+  while(i>=0){all[i].classList.remove("on");if(all[i].dataset.with!=="prev")break;i--;}
+  syncAnims(slides[si],false);
+}
+/* 画面の左 1/4 をクリックで戻る、それ以外で進む（ボタンは除く）。
+   文字を選択したとき（ドラッグ・ダブルクリック・トリプルクリック）は送らない：
+   選択を解除するためのクリックでも送らない。
+   ダブルクリックの 1 回目と区別するため、1 回のクリックは少し待ってから送る */
+function selecting(){const s=getSelection();return s&&!s.isCollapsed&&s.toString().trim()!=="";}
+let pend=null, down=null, hadSel=false;
+addEventListener("mousedown",e=>{down=[e.clientX,e.clientY];hadSel=selecting();});
+addEventListener("click",e=>{if(e.target.closest("button,input"))return;
+  clearTimeout(pend);pend=null;
+  const moved=down&&Math.hypot(e.clientX-down[0],e.clientY-down[1])>4;
+  if(e.detail>1||moved||hadSel||selecting())return;
+  const back=e.clientX<innerWidth*0.25;
+  pend=setTimeout(()=>{pend=null;if(selecting())return;if(back)prev();else next();},260);});
+document.addEventListener("keydown",e=>{
+  if(e.target.closest&&e.target.closest("input"))return;
+  if(e.metaKey||e.ctrlKey||e.altKey||e.shiftKey)return;
+  if(e.key==="ArrowRight"||e.key===" "||e.key==="Enter"||e.key==="PageDown"){e.preventDefault();next();}
+  else if(e.key==="ArrowLeft"||e.key==="PageUp"){e.preventDefault();prev();}
+  else if(e.key==="Home"){e.preventDefault();go(0);}
+  else if(e.key==="End"){e.preventDefault();go(slides.length-1);}
+  else if(e.key==="s"||e.key==="S"){e.preventDefault();stepMode=!stepMode;
+    try{localStorage.setItem("slideSteps",stepMode?"1":"0");}catch(x){}
+    paint();toast("段階表示："+(stepMode?"オン":"オフ"));}});
+const h=parseInt((location.hash||"").replace("#s",""),10);si=(h>=1&&h<=slides.length)?h-1:0;paint();
+})();
+</script>
+</html>
