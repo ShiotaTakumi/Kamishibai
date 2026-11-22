@@ -42,14 +42,14 @@
                                         段階的に組み上がる図：class="cd" の群（カード）を 1 つずつ、class="ov" の群をまとめて出す。
                                         init は最初から出ているカードの数。段階の要素に cards="n" を付けると、その段階で n 枚目まで出る
                                         （"*" は全部。ページに組み上がる図が二つあれば "a|b" で図ごとに）。ov を付けた段階で class="ov" の群が出る
-    <figcaption for="fyn" caps="…|…">…</figcaption>   以前の原稿のために表示はするが、make pack は拒む。ボタンの名前で足りる
+    <figcaption for="fyn" caps="…|…">…</figcaption>   開けば表示するが、make pack は拒む。ボタンの名前で足りる
 
   class で使う部品
     qa・qa-label（「入力：」「問い：」のように見出しをそろえた段落）、navy-normal（紺の文字）、label（行の中の小さな枠）、
     pink（桃色の枠の囲み）、frame（絶対配置で図などを囲む赤い枠）、mark（何も出さない段階の印）、
     bar（数を変えるスライダーの行：<div class="bar"><i>n</i><input type="range">…</div>）、play（再生のボタン）、
     sw（横に並べた切り替えのボタン）。bar・play・sw は見た目だけで、動きは図のコードで付ける。two（2 段組）、tb（罫線の少ない表）、nb（改行しない）。
-    以前の書き方の class：fig・cap・blk（block）・pts（箇条書き）・nums・pf（証明）・ph（後で証明する主張）。blk と pts は Boadilla だけで効く
+    class だけで書く書き方の class：fig・cap・blk（block）・pts（箇条書き）・nums・pf（証明）・ph（後で証明する主張）。blk と pts は Boadilla だけで効く
 
   数式：$…$・\(…\)（文の中）、$$…$$・\[…\]（別の行に取って中央）。もう組んである数式（.katex）を含む要素は組み直さない
 

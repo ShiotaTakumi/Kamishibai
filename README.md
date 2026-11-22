@@ -13,7 +13,7 @@ PDF ではできない次のことに使います。
 ビルドなしで見られ、配るときは `make pack` で一つのファイル（配布用ファイル）にまとめます。
 テーマは Boadilla（16:9、既定）と Madrid（4:3、Beamer の Madrid に倣った見た目）です。原稿の書き方は [engine/README.md](engine/README.md) にあります。
 定義・定理・証明を見せるスライドの書き方の規則は [docs/math-slides.md](docs/math-slides.md) にあります。AI にスライドを書かせるときや見直させるときにも、この文書を基本の規則として渡します。
-以前からの作り方（`html/slide.src.html` をビルドする形）も残してあり、最後の節で説明します。
+`html/slide.src.html` を原稿としてビルドし、一つのファイル `slide.html` を作る形もあり、最後の節で説明します。
 
 ## 準備
 
@@ -93,11 +93,11 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 | `tools/engine_katex.py` | 原稿が読む KaTeX（`engine/katex/`）を `tools/node_modules` の KaTeX から作り直す（`make engine-katex`）。KaTeX の版を上げるときは、`npm install --prefix tools katex@版` の後に `make engine-katex` を実行する |
 | `tools/fetch_fonts.py` | 書体の取得（原ノ味：SIL Open Font License、Latin Modern：GUST Font License） |
 | `tools/open_slide.sh` | `make preview`・`make open` の表示（macOS では AppleScript で開いているタブを探す。初回は「ブラウザを操作する許可」を求められる） |
-| `html/slide.src.html`・`tools/build_html.py`・`tools/figs.py` | 以前からの作り方（次の節） |
+| `html/slide.src.html`・`tools/build_html.py`・`tools/figs.py` | ビルドする形（次の節） |
 
-## 以前からの作り方：html/slide.src.html をビルドする形
+## ビルドする形：html/slide.src.html から slide.html を作る
 
-既にこの形で作った資料を直すために残してあります。新しく作るときはエンジンを使います。
+この形の資料は、原稿 `html/slide.src.html` をビルドして一つのファイル `slide.html` にします。新しく作るスライドは、エンジンの原稿で書きます。
 
 ```bash
 make
