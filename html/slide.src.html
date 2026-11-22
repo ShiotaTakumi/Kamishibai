@@ -7,10 +7,10 @@
      SVG/SVGS/IMG placeholders, \(TeX\) and the FONTS marker in the CSS are filled in by the build. -->
 <style>
 /*FONTS*/
-/* ===== 16:9 固定キャンバス（1280 x 720 px ＝ slide.tex の 453.54 x 255.12 pt）=====
+/* ===== 16:9 固定キャンバス（1280 x 720 px ＝ Beamer 版の 453.54 x 255.12 pt）=====
    1pt = 720/255.12 = 2.822 px。文字の大きさ・余白は Beamer（11pt、Boadilla + miniframes + circles）の
    実測に合わせる。画面には transform: scale で合わせる（下の fit()）。
-   色・フォントは slide.tex（Beamer）に合わせる：UniBlue / AlertOrange / AlmostBlack、
+   色・フォントは Beamer 版に合わせる：UniBlue / AlertOrange / AlmostBlack、
    欧文 Latin Modern Sans、和文 原ノ味角ゴシック、数式の変数は Latin Modern のイタリック。 */
 :root{
   color-scheme:light;
@@ -40,7 +40,7 @@ i{font-family:"LMItalic",serif;font-style:normal;font-size:1.08em}
 b,strong{font-weight:700}
 /* 改行は文節の切れ目だけ（ビルドが BudouX で <wbr> を入れ、keep-all でそれ以外を禁じる）。
    Chrome と Safari で同じ位置で折れるよう、ブラウザごとに異なる機能（auto-phrase・
-   text-wrap:pretty・約物の詰め・和欧間の自動スペース）は使わない。tools/check_layout.py で確認 */
+   text-wrap:pretty・約物の詰め・和欧間の自動スペース）は使わない。make check（tools/check_layout.mjs）で確認 */
 /* 画面中央に置き、fit() が scale を掛ける（画面より大きくても中央を基準に縮む） */
 .deck{position:fixed;inset:0}
 .stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;margin:-360px 0 0 -640px;
@@ -63,7 +63,7 @@ b,strong{font-weight:700}
 .hl .hs.cur .hf i.cur{background:#fff}
 
 
-/* ---- 表紙（slide.tex の title page：題名・副題、1.5em、著者・所属、3em、日付）---- */
+/* ---- 表紙（Beamer 版の title page：題名・副題、1.5em、著者・所属、3em、日付）---- */
 .slide.title{padding:0 31px}
 h1{font-size:var(--LARGE);font-weight:700;color:var(--theme);line-height:1.2;margin:0}
 .sub{font-size:var(--normal);font-weight:700;color:var(--theme);line-height:1.3;margin:4px 0 0}
@@ -184,7 +184,7 @@ table.tb.nr{border:0}
   <p class="date">October 1, 2026</p>
 </section>
 
-<!-- ============ 本文。data-sec のある頁から次の data-sec の前までが一つの節（見出し帯） ============ -->
+<!-- ============ 本文。data-sec のあるページから次の data-sec の前までが一つの節（見出し帯） ============ -->
 <section class="slide" data-sec="問題">
   <h2>一筆書きの問題</h2>
   <ul class="pts">
@@ -229,7 +229,7 @@ table.tb.nr{border:0}
       <li class="reveal"><span class="lb">(ii)</span>十分性：辺の数についての帰納法。補題 2 の閉路に、残りの部分の一筆書きを差し込む</li>
     </ol>
   </div>
-  <div class="ph reveal"><div class="pt">補題 2（次の頁で証明）</div>
+  <div class="ph reveal"><div class="pt">補題 2（後で証明）</div>
     <p>連結で辺をもち、全ての頂点の次数が偶数のグラフは閉路をもつ。</p>
   </div>
 </section>

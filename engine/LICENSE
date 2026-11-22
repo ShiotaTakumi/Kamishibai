@@ -6,7 +6,7 @@ related and neighboring rights to Kamishibai to the public domain worldwide,
 under the CC0 1.0 Universal Public Domain Dedication reproduced below.
 
 This dedication does not cover the third-party components bundled with or
-fetched by Kamishibai, which keep their own licenses (see README.md):
+fetched by Kamishibai, which keep their own licenses (see README.md at the top of the Kamishibai repository):
   - KaTeX 0.19.0 (engine/katex/, and the Computer Modern Sans font in
     engine/fonts/cm-sans.css): MIT License; the stretchy-symbol part is under
     the SIL Open Font License 1.1. The license texts are in those files.

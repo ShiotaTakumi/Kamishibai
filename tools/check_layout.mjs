@@ -15,7 +15,7 @@
 //
 // Engines (default chromium,webkit): chromium, webkit and firefox are the builds pinned by
 // Playwright, the same on every machine; install them once with
-//   npx --prefix tools playwright install chromium webkit      (on Linux add --with-deps)
+//   make browsers      (on Linux the first time: tools/node_modules/.bin/playwright install --with-deps chromium webkit)
 // Playwright's WebKit is a recent WebKit, not the Safari of a given Mac. safari is the system
 // WebKit of this Mac (macOS only, needs swiftc from the Xcode command-line tools; screen only).
 import { execFileSync } from "node:child_process";

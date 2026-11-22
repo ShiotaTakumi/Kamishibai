@@ -8,7 +8,7 @@ katex.js  = the licence comments kept from the current file, then dist/katex.min
 katex.css = the licence comment, then dist/katex.min.css with every @font-face src replaced by
             the woff2 font as a data: URI (so the engine opens over file:// with no font folder).
 The version in the first comment of each file is set from node_modules/katex/package.json.
-Run after changing the katex version in tools/package.json and npm install.
+Run after  npm install --prefix tools katex@VERSION  (which updates tools/package.json and the lock).
 """
 import base64
 import json

@@ -19,7 +19,7 @@
 Japanese text gets explicit line-break points: BudouX splits each paragraph into phrases and
 <wbr> goes between them and after Japanese closing punctuation. The page sets
 word-break:keep-all, so Chrome and Safari break lines at the same places. Check with
-tools/check_layout.py.
+make check (tools/check_layout.mjs).
 
 Needs fontTools (pip, see requirements.txt), the font files in fonts/ (tools/fetch_fonts.py, pinned
 versions with checksums), and Node.js with KaTeX and BudouX (npm ci --prefix tools). The output
@@ -200,6 +200,14 @@ def rename_subset(font, filename):
                 fd.FontName = ps + "-" + fd.FontName.split("-")[-1]
 
 
+def license_notices():
+    """CSS comments with the license texts of what goes into the page: the fonts (their copyright
+    notices and licenses, as tools/engine_fonts.py writes them) and KaTeX (MIT License)."""
+    from engine_fonts import license_notice
+    mit = (KATEX.parent / "LICENSE").read_text(encoding="utf-8").replace("*/", "* /")
+    return license_notice([name for _, _, name in FONTS]) + "/* KaTeX\n" + mit + "*/\n"
+
+
 def fonts_css(text):
     """Subset each font to the characters of the page and return @font-face rules."""
     try:
@@ -226,7 +234,7 @@ def render_math(src):
     if not texs:
         return src
     if not (KATEX / "katex.min.js").exists():
-        sys.exit("KaTeX not found: run  npm --prefix tools install")
+        sys.exit("KaTeX not found: run  make deps  (or npm ci --prefix tools)")
     out = subprocess.run(["node", str(ROOT / "tools" / "katex_render.js")], input=json.dumps(texs),
                          capture_output=True, text=True, check=True).stdout
     rendered = iter(json.loads(out))
@@ -251,7 +259,7 @@ def phrases(texts):
     if not texts:
         return []
     if not (ROOT / "tools" / "node_modules" / "budoux").exists():
-        sys.exit("BudouX not found: run  npm --prefix tools install")
+        sys.exit("BudouX not found: run  make deps  (or npm ci --prefix tools)")
     out = subprocess.run(["node", str(ROOT / "tools" / "phrase_breaks.js")], input=json.dumps(texts),
                          capture_output=True, text=True, check=True).stdout
     return json.loads(out)
@@ -352,7 +360,7 @@ def main():
     src = phrase_breaks(src)
     src = render_math(src)
     body = re.sub(r"<style>.*?</style>", "", src, flags=re.S)
-    src = src.replace("/*FONTS*/", fonts_css(body) + "\n" + katex_css(), 1)
+    src = src.replace("/*FONTS*/", license_notices() + fonts_css(body) + "\n" + katex_css(), 1)
     out = re.sub(r"<!--IMG (\S+) (w\d+)-->", image, src)
     left = re.findall(r"<!--(?:SVGS?|IMG) [^>]*-->", out)
     if left:

@@ -1,74 +1,87 @@
-/* ===== 紙芝居エンジン（kamishibai.js）=====
+/* ===== Kamishibai のエンジン（kamishibai.js）=====
   Kamishibai, developed jointly by TonanKamata and ShiotaTakumi. CC0 1.0 Universal (engine/LICENSE).
-  タグで書いた下書きを組む本体に、紙芝居（html/slide.src.html）の見た目・部品・段階表示・クリックの扱いを
-  合わせたもの。ビルドなしで、ファイルを直接ブラウザで開いて使う。
+  タグで書いた HTML の原稿を、ブラウザで直接開いたときにスライドに組む。説明は engine/README.md。
 
-  ■ 使い方：下書きの HTML（engine/sample.html を見る）の最初に
+  ■ 使い方：原稿の HTML（見本は engine/sample.html）の最初に
       <html lang="ja" theme="Boadilla">            テーマ（themes/ の中のファイルの名前。書かなければ Boadilla）
-      <script src="engine/kamishibai.js"></script> この engine/ への相対パス
+      <script src="engine/kamishibai.js"></script> 原稿からこのファイルへの相対パス
     と書き、その後ろにページをタグで並べる。URL に ?theme=Madrid を付けると、そのテーマで開く。
-    書体は engine/fonts/kamishibai-fonts.css（make engine-fonts で作る）。無くても手元の書体で出る。
+    Boadilla の書体は engine/fonts/kamishibai-fonts.css（make engine-fonts で作る）。無ければ手元の書体で出る。
 
   ページ
     <cover>…</cover>                    表紙。<headline>題名</headline> <subtitle>副題</subtitle>
                                         <author aff="所属" presenter>名前</author>（何人でも） <meeting>会の名前</meeting> <date>日付</date>
-    <slide title="見出し" sec="節の名前">…</slide>   ふつうのページ。sec のあるページから、別の名前の sec の前までが一つの節（同じ名前を続けて書いてもよい）
-                                        （Boadilla では上の見出し帯に、節の名前とページごとの丸が出る）
+                                        Madrid の下の帯には、presenter を付けた著者（無ければ最初の著者）・題名・日付が出る。
+                                        author・headline・date に short="…" を付けると、下の帯にはその短い文が出る
+    <slide title="見出し" sec="節の名前">…</slide>   ふつうのページ。sec のあるページから、別の名前の sec の前までが一つの節
+                                        （同じ名前を続けて書いてもよい。Boadilla では上端の帯に、節の名前とページごとの丸が出る）
     <divider>参考資料</divider>          区切りのページ
 
   ページの中
     <p>…</p>  <list><item>…</item></list>（item の中に list で 2 段目）
-    <block title="…" cite="[…]">…</block>   箱。<alertblock>・<exampleblock> も同じ
-    <note>…</note>  <down>…</down>  <columns><column>…</column><column>…</column></columns>
+    <block title="…" cite="[…]">…</block>   block（Beamer の block）。<alertblock>・<exampleblock> も同じ。
+                                        定義・定理などの主張を一つだけ入れ、題は主張の種類（BLOCK_KINDS）で始める
+    <note>…</note>                      緑の枠の囲み（短い注意）
+    <down>…</down>                      赤い下向きの矢印と、その下の文（話の帰結）
+    <columns><column>…</column><column>…</column></columns>   段組み
     <figure><img src="図.png"></figure>   <table class="tbl">…</table>
-                                        図にキャプション（figcaption、「図：…」の文）を付けない。図は頁の文の下に置く
-    class で使う部品：qa / qa-label / navy-normal / label / pink / frame / mark / bar / play / sw
-    文の中：<red> <navy> <b> <cite> <frac><num>…</num><den>…</den></frac> <ruby> <nobr> ➡（赤い矢印）
+                                        図にキャプション（figcaption、p.cap、「図：…」の文）を付けない。図はページの文の下に置く
+    <qr src="qr.png">説明</qr>           表紙の QR コードの画像と、その下の短い説明
+    文の中：<red> <navy> <b> <cite> <frac><num>…</num><den>…</den></frac> <ruby> <nobr>（改行しない） ➡（赤い矢印）
 
-  ページの中（紙芝居の部品）
-    <alert>…</alert>                    強調（\alert。class="k" と同じ）
+  ページの中（証明と図の部品）
+    <alert>…</alert>                    強調（Beamer の \alert）
     <proof title="証明">…</proof>        証明（左の線）。title を省くと「証明」
     <plan title="証明の方針">…</plan>    証明の方針（淡い地）
-    <later title="補題 2（次の頁で証明）">…</later>   後で証明する主張（破線の枠）
-    <nums><item>…</item></nums>         番号つきの手順（丸数字）。<nums labels> と <item label="(i)"> で文字のラベル
+    <later title="補題 2（後で証明）">…</later>   後で証明する主張（破線の枠）
+    <nums start="3"><item>…</item></nums>   番号つきの手順（丸数字。start で始めの番号）。<nums labels> と <item label="(i)"> で文字のラベル
     <side><div>…</div><figure>…</figure></side>   文を左、図を右に並べる（アルゴリズムなど段階を追う説明だけの例外）
     <flip id="fyn"><svg>…</svg><svg>…</svg></flip>  重ねた図を 1 枚ずつ見せる（大きさはいちばん大きな図。width・height でも決められる）
     <switch for="fyn"><button>できる</button><button>できない</button></switch>   図を切り替えるボタン
-    <figcaption for="fyn" caps="…|…">…</figcaption>   旧い書き方（ボタンの名前と caps を出す）。使わない：ボタンの名前で足りる
     <flip id="…" anim init="1"><svg>…<g class="cd">…</g>…<g class="ov">…</g></svg></flip>
-                                        段階的に組み上がる図：class="cd" の群を 1 つずつ、class="ov" の群をまとめて出す。
-                                        init は最初から出ている枚数。step のタグに cards="n"（"*" は全部、図ごとに "a|b"）を付けると、
-                                        その段階で n 枚目まで出る。ov を付けた段階で class="ov" の群が出る
-    class だけでも使える：two（2 段組）・fig・cap・tb（素の表）・blk・pts・nums・pf・ph・nb
+                                        段階的に組み上がる図：class="cd" の群（カード）を 1 つずつ、class="ov" の群をまとめて出す。
+                                        init は最初から出ているカードの数。段階の要素に cards="n" を付けると、その段階で n 枚目まで出る
+                                        （"*" は全部。ページに組み上がる図が二つあれば "a|b" で図ごとに）。ov を付けた段階で class="ov" の群が出る
+    <figcaption for="fyn" caps="…|…">…</figcaption>   以前の原稿のために表示はするが、make pack は拒む。ボタンの名前で足りる
 
-  数式：$…$・\(…\)（文の中）、$$…$$・\[…\]（1 行に取って中央）。もう組んである数式（.katex）を含む要素は組み直さない
+  class で使う部品
+    qa・qa-label（「入力：」「問い：」のように見出しをそろえた段落）、navy-normal（紺の文字）、label（行の中の小さな枠）、
+    pink（桃色の枠の囲み）、frame（絶対配置で図などを囲む赤い枠）、mark（何も出さない段階の印）、
+    bar（数を変えるスライダーの行：<div class="bar"><i>n</i><input type="range">…</div>）、play（再生のボタン）、
+    sw（横に並べた切り替えのボタン）。bar・play・sw は見た目だけで、動きは図のコードで付ける。two（2 段組）、tb（罫線の少ない表）、nb（改行しない）。
+    以前の書き方の class：fig・cap・blk（block）・pts（箇条書き）・nums・pf（証明）・ph（後で証明する主張）。blk と pts は Boadilla だけで効く
+
+  数式：$…$・\(…\)（文の中）、$$…$$・\[…\]（別の行に取って中央）。もう組んである数式（.katex）を含む要素は組み直さない
 
   段階表示：どのタグにも step を付けると、クリック（→）で 1 つずつ出る。with="prev" を付けると直前の step と一緒に出る
-        （← で戻るときも一緒に消える）。class="reveal" も step と同じ。
+        （← で戻るときも一緒に消える）。class="reveal" も step と同じ。既定でオン。
         キー S で「全部出す」と切り替える（ページだけを送る。組み上がる図は、ページを開いたときに最後まで動く）。
         選んだほうはブラウザが覚える。
-  大きさ・行間・空き：size="32"・line="1.4"・before="12"・after="12"（pt）
-  テーマ：画面の大きさ（--W・--H）、書体、かっこ・句読点の空き（--jp-pad）はテーマの CSS が決める。
+  大きさ・行間・空き：size="32"（文字の大きさ、pt）・line="1.4"（行の高さ、文字の大きさの倍数）・before="12"・after="12"（上下の空き、pt）
+  テーマ：画面の大きさ（--W・--H）、書体、括弧・句読点の空き（--jp-pad）はテーマの CSS が決める。
         Boadilla（16:9、1280 × 720、既定）・Madrid（4:3、960 × 720。書体は fonts/cm-sans.css・fonts/ipa-pgothic.css）
 
   ■ 発表
-    → / Space / Enter / クリックで進む。← / 画面の左 1/4 のクリックで戻る。Home / End。S 段階表示の切り替え。
+    → / Space / Enter / PageDown / クリックで進む。← / PageUp / 画面の左 1/4 のクリックで戻る。Home / End。S 段階表示の切り替え。
     クリックは、少し待ってから送る（ダブルクリック・トリプルクリック・ドラッグ・文字の選択とその解除では送らない）。
-    ⌘F 全画面、⌘B ページ一覧、⌘K ポインター、⌘E 選択、⌘U キー無効、⌘P 印刷（Windows では Ctrl）。左下の ▷ に同じボタン。
-    PDF のボタンは step ごとに分けて印刷する。#s5 を付けると 5 枚目から開く。
+    タッチの画面では ◀ ▶ のボタンが出る。
+    ⌘F 全画面、⌘B ページ一覧、⌘K ポインター、⌘P 印刷（Windows では Ctrl）。
+    ⌘E 選択（文字を選べ、クリックでは送らず ← → だけで送る）、⌘U キー操作を止める（キーでもクリックでも送らない）。
+    左下の ▷ に同じボタン。その PDF のボタンは段階ごとに 1 枚ずつ印刷する。#s5 を付けると 5 枚目から開く。
 
   ■ 図のコード（figure.js）
-    FIG["svg の id"] = function (svg) { … }    figure("id", function (svg, still) { … })
-    mk・txt・follow・watchStep・fromPrev・RUNNING・ease・camera・shade・lid など（使い方は figure.js）
+    JavaScript で SVG を描く図。<svg id="…"> に対して FIG["id"] = function (svg) { … } と書くと、ページを開いたときに描く。
+    figure("id", function (svg, still) { … }) は、ページ一覧と印刷の写しでも、その段階に合わせて動きなしで描き直す（still が true）。
+    道具：mk・txt・follow・watchStep・fromPrev・RUNNING・ease・camera・shade・lid など（使い方は figure.js）
 
-  ■ 配る形（tools/pack_engine.py、make pack SRC=下書き）
-    下書きを 1 つの HTML（下書き.dist.html）にまとめる。このファイルは <script data-packed="テーマ名"> として中に入り、
-    data-packed があると CSS・書体・KaTeX・figure.js を読み込まない（どれも同じファイルに入っている）。
-    テーマはその名前に決まり、?theme= は効かない。数式はまとめるときに KaTeX で組んであり、ここでは KaTeX の
-    auto-render が、KaTeX の代わりの小さな関数から組んだものを受け取って差し込む。直すのは下書きのほう
+  ■ 配布用ファイル（tools/pack_engine.py、make pack SRC=原稿）
+    原稿を 1 つの HTML（原稿.dist.html）にまとめる。このファイルは <script data-packed="テーマ名"> として中に入り、
+    CSS・書体・図の道具は同じファイルに入っているので読み込まない。テーマはその名前に決まり、?theme= は効かない。
+    数式はまとめるときに組んである。直すのは原稿のほう
 
   ■ このフォルダ（engine/）
-    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0、MIT License。CC0 の外）・fonts/（作る。git の外）
+    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0、MIT License。CC0 の外）・
+    fonts/（Madrid の書体は同梱。Boadilla の kamishibai-fonts.css は make engine-fonts で作り、git で追跡しない）
 */
 var Kamishibai = {};
 (function () {

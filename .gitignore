@@ -6,3 +6,5 @@ fig/*.svg
 engine/fonts/kamishibai-fonts.css
 *.dist.html
 shots/
+__pycache__/
+.DS_Store

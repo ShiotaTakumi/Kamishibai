@@ -1,7 +1,7 @@
 {
-  "name": "html-slide-tools",
+  "name": "kamishibai-tools",
   "private": true,
-  "description": "Build-time helpers for the HTML slides (KaTeX renders the math and BudouX marks the Japanese phrase breaks, once at build time)",
+  "description": "Helpers of Kamishibai: KaTeX renders the math and BudouX marks the Japanese phrase breaks at build time; Playwright runs the layout checks and screenshots",
   "dependencies": {
     "budoux": "0.9.3",
     "katex": "0.19.0",

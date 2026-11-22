@@ -1,22 +1,22 @@
-/* ===== 紙芝居エンジンの見た目のうち、どのテーマにも共通のもの（base.css）。kamishibai.js が読み込む。触らない =====
-   画面の大きさはテーマが決める。紙芝居の部品（証明・番号つきの手順・切り替える図など）もここにある。
-   テーマごとの見た目（色・見出しの帯・下の帯・箇条書きの印・箱・表紙・区切り）は themes/ の中にある */
+/* ===== Kamishibai のエンジンの見た目のうち、どのテーマにも共通のもの（base.css）。kamishibai.js が読み込む。触らない =====
+   画面の大きさはテーマが決める。証明と図の部品（証明・番号つきの手順・切り替える図など）もここにある。
+   テーマごとの見た目（色・見出しの帯・下の帯・箇条書きの印・block・表紙・区切り）は themes/ の中にある */
 body > :is(cover, slide, divider) { display: none }
 /* 固定キャンバス。大きさはテーマが --W・--H で決める（Boadilla は 1280 × 720、Madrid は 960 × 720）。
    size="…"・before="…" などの pt は PowerPoint と同じく 1pt = 4/3 px */
 :root {
   --W: 1280px; --H: 720px;
-  /* 紙芝居の部品の色（テーマが上書きする） */
+  /* 証明と図の部品の色（テーマが上書きする） */
   --theme: #0096c8; --alert: #ff4c00; --bt-ink: #004b64; --bb: #e6f4fa; --head-dim: #8cd0e6; --faint: #8a8a8a;
   /* 半角幅のかっこ・句読点に空きを足すか（ipa で足す。テーマが決める） */
   --jp-pad: none;
   --red: #FF0000; --ink: #000;
-  /* 文字の大きさ。本文は 24pt を割らない。20pt はキャプション・文献などの下限 */
+  /* 文字の大きさ。本文は 24pt を割らない。20pt は出典・文献などの下限 */
   --pt20: 26.67px; --pt24: 32px; --pt32: 42.67px; --pt36: 48px; --pt44: 58.67px;
-  /* Beamer（12pt）の大きさ：見出し・題目（\Large、34.3pt）、箱の見出し（\large、28.6pt）、下の帯（\tiny、11.9pt） */
+  /* Beamer（12pt）の大きさ：見出し・題目（\Large、34.3pt）、block の見出し（\large、28.6pt）、下の帯（\tiny、11.9pt） */
   --Large: 45.7px; --large: 38.1px; --tiny: 15.9px;
-  /* 文の書体 KamishibaiText：英数字は Computer Modern Sans、日本語は IPA Pゴシック（MS Pゴシックに似せた無料の書体）。
-     どちらも fonts/ の中に埋め込んである（fonts/cm-sans.css・fonts/ipa-pgothic.css） */
+  /* 文の書体の既定 KamishibaiText（Madrid が使う）：英数字は Computer Modern Sans、日本語は IPA Pゴシック（MS Pゴシックに似せた無料の書体）。
+     どちらも fonts/ の中に埋め込んである（fonts/cm-sans.css・fonts/ipa-pgothic.css）。Boadilla は themes/Boadilla.css で替える */
   --font: "KamishibaiText", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
   /* 段階表示（step）で出るまでの時間。0s ですぐ出る（PowerPoint の「表示」と同じ）。.2s などにすると、ふわっと出る */
   --fade: 0s;
@@ -26,7 +26,7 @@ body > :is(cover, slide, divider) { display: none }
 }
 * { box-sizing: border-box }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #222 }
-/* 字の太さは Mac のふつうの描き方のまま（-webkit-font-smoothing: antialiased を付けると、細く見えすぎる） */
+/* 既定では字の太さは Mac のふつうの描き方のまま（IPA Pゴシックに -webkit-font-smoothing: antialiased を付けると、細く見えすぎる）。Boadilla は付ける */
 body { font-family: var(--font); color: var(--ink); line-break: strict }
 .ja { -webkit-text-stroke: var(--ja-stroke) currentColor }
 .deck { position: fixed; inset: 0 }
@@ -83,7 +83,7 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .qa-label { display: inline-block; width: 3.2em; text-indent: 0; white-space: nowrap }
 .qa-label navy { display: inline-block; width: 2em }
 /* ラベル（<span class="label">）。枠は行の高さに収め、前後の行の間隔を変えない。
-   段落・項目・箱の先頭に置くと、続く文は枠の右にそろえて折り返す（.labeled、kamishibai.js が付ける） */
+   段落・項目・block の先頭に置くと、続く文は枠の右にそろえて折り返す（.labeled、kamishibai.js が付ける） */
 .label { display: inline-block; padding: 0 .3em; background: #fff9e6; border: 2px solid #e97132; border-radius: 4px;
   font-size: .85em; line-height: 1.25; white-space: nowrap }
 .labeled { display: grid; grid-template-columns: auto 1fr; column-gap: .45em; align-items: baseline }
@@ -203,7 +203,7 @@ body.op .badge { background: #1A8502 }
   [step] { transition: none }
 }
 
-/* ===== 紙芝居の部品（どのテーマでも使える。色は --theme などのテーマの値） ===== */
+/* ===== 証明と図の部品（どのテーマでも使える。色は --theme などのテーマの値） ===== */
 /* 見出し帯（miniframes）とページ番号は、使うテーマ（Boadilla）だけが出す */
 .hl, .pn { display: none }
 /* \alert{}：<alert>…</alert> と class="k" */
@@ -268,4 +268,4 @@ table.tb.nr { border: 0 }
 
 /* A box whose title names no kind of statement (kamishibai.js, while drafting only; the packed file has none) */
 .bad-box { outline: 4px dashed #d00; outline-offset: 2px }
-.bad-box::before { content: "箱は命題・定義だけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }
+.bad-box::before { content: "block には主張を一つだけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }

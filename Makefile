@@ -28,7 +28,7 @@ fonts/.ok: tools/fetch_fonts.py
 engine-fonts: deps fonts
 	$(VPY) tools/engine_fonts.py
 
-# rebuild engine/katex/ from the KaTeX in tools/node_modules (after changing its version in tools/package.json)
+# rebuild engine/katex/ from the KaTeX in tools/node_modules (after npm install --prefix tools katex@VERSION)
 engine-katex:
 	$(PY) tools/engine_katex.py
 
@@ -45,7 +45,7 @@ preview:
 # screenshots of pages of a draft of the engine (1280x720, page n = #s<n>) into $(SHOTS)/p<n>.png;
 # e.g. make shot SRC=talk/talk.html PAGES="4 12"
 SHOTS ?= shots
-shot: tools/node_modules/.ok
+shot: browsers
 	$(if $(PAGES),,$(error PAGES is empty: e.g. make shot SRC=talk/talk.html PAGES="4 12"))
 	mkdir -p $(SHOTS)
 	node tools/shot.mjs $(SRC) $(SHOTS) $(PAGES)

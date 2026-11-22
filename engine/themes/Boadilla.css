@@ -1,6 +1,6 @@
-/* ===== テーマ Boadilla（紙芝居の既定の見た目。kamishibai.js が読み込む）=====
+/* ===== テーマ Boadilla（既定の見た目。kamishibai.js が読み込む）=====
    16:9 の 1280 × 720 px（＝ Beamer の 453.54 × 255.12 pt。1pt = 2.822 px）。文字の大きさ・余白は
-   Beamer（11pt、Boadilla + miniframes + circles）の実測に合わせた紙芝居の雛形（html/slide.src.html）の値。
+   Beamer（11pt、Boadilla + miniframes + circles）の実測に合わせた以前からの作り方の原稿（html/slide.src.html）の値。
    色：UniBlue / AlertOrange / AlmostBlack。書体：欧文 Latin Modern Sans、和文 原ノ味角ゴシック、
    数式は KaTeX の既定（Computer Modern）。書体は fonts/kamishibai-fonts.css（make engine-fonts で作る）。
    無いときは Hiragino などの手元の書体で出る */
@@ -76,7 +76,7 @@ item item::before { left: 16px; top: .6em; width: 11px; height: 11px }
 .pf :is(list > item, ul.pts > li) { padding-left: 34px }
 .pf :is(list > item, ul.pts > li)::before { left: 10px }
 
-/* ---- 箱（Beamer の block、rounded、影なし。枠は本文の左右へ 4pt 張り出す）。class="blk" でも使える ---- */
+/* ---- block（Beamer の block、rounded、影なし。枠は本文の左右へ 4pt 張り出す）。class="blk" でも使える ---- */
 :is(block, alertblock, exampleblock, .blk) { display: block; margin: 12px -12px 0; border-radius: 11px; overflow: hidden;
   --t: var(--bt); --ti: var(--bt-ink); --b: var(--bb) }
 alertblock { --t: #ffd9c7; --ti: #8a2a00; --b: #fff0e9 }
