@@ -34,7 +34,8 @@ Madrid の書体（Computer Modern Sans と IPA Pゴシック）の CSS は `eng
 
 ### 規則
 
-聴衆が一度で読み取れるページにするため、次の規則を置いています。`make pack` は配布用ファイルを作る前に二つの検査
+聴衆が一度で読み取れるページにするため、次の規則を置いています。ここに挙げるのは機械で確かめる規則で、定義・定理・証明の文の書き方は [docs/math-slides.md](../docs/math-slides.md) にあります。
+`make pack` は配布用ファイルを作る前に二つの検査
 （`tools/check_blocks.py` と `tools/check_figures.py`）を行い、規則に反する原稿からは作りません（前に作った `.dist.html` も消します）。
 
 - block には定義・定理などの主張を一つだけ入れ、題は主張の種類で始めます。種類の一覧は `kamishibai.js` の `BLOCK_KINDS`（定義・定理・補題・系・命題・予想・未解決問題など）です。
