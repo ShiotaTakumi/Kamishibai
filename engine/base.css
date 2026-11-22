@@ -1,8 +1,16 @@
-/* ===== WebSlide の見た目のうち、どのテーマにも共通のもの（base.css）。webslide.js が読み込む。触らない =====
+/* ===== 紙芝居エンジンの見た目のうち、どのテーマにも共通のもの（base.css）。kamishibai.js が読み込む。触らない =====
+   WebSlide（ShiotaTakumi）の webslide/base.css を基に、画面の大きさをテーマで決められるようにし、
+   紙芝居の部品（証明・番号つきの手順・切り替える図など）を足したもの。
    テーマごとの見た目（色・見出しの帯・下の帯・箇条書きの印・箱・表紙・区切り）は themes/ の中にある */
 body > :is(cover, slide, divider) { display: none }
-/* 960 × 720 px（＝ 720 × 540 pt、4:3）の固定キャンバス。1pt = 4/3 px */
+/* 固定キャンバス。大きさはテーマが --W・--H で決める（Boadilla は 1280 × 720、Madrid は 960 × 720）。
+   size="…"・before="…" などの pt は PowerPoint と同じく 1pt = 4/3 px */
 :root {
+  --W: 1280px; --H: 720px;
+  /* 紙芝居の部品の色（テーマが上書きする） */
+  --theme: #0096c8; --alert: #ff4c00; --bt-ink: #004b64; --bb: #e6f4fa; --head-dim: #8cd0e6; --faint: #8a8a8a;
+  /* 半角幅のかっこ・句読点に空きを足すか（ipa で足す。テーマが決める） */
+  --jp-pad: none;
   --red: #FF0000; --ink: #000;
   /* 文字の大きさ。本文は 24pt を割らない。20pt はキャプション・文献などの下限 */
   --pt20: 26.67px; --pt24: 32px; --pt32: 42.67px; --pt36: 48px; --pt44: 58.67px;
@@ -24,7 +32,7 @@ body { font-family: var(--font); color: var(--ink); line-break: strict }
 .ja { -webkit-text-stroke: var(--ja-stroke) currentColor }
 .deck { position: fixed; inset: 0 }
 /* 位置と倍率は fit() が決める。発表モードでは、クリックしても文字を選ばない */
-.stage { position: absolute; left: 0; top: 0; width: 960px; height: 720px;
+.stage { position: absolute; left: 0; top: 0; width: var(--W); height: var(--H);
   background: #fff; overflow: hidden; transform-origin: 0 0; user-select: none; -webkit-user-select: none }
 body.edit .stage { user-select: text; -webkit-user-select: text; cursor: text }
 .page { position: absolute; inset: 0; display: none; font-size: var(--pt24); line-height: 1.2 }
@@ -75,7 +83,12 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .qa { padding-left: 3.2em; text-indent: -3.2em; margin: 0 }
 .qa-label { display: inline-block; width: 3.2em; text-indent: 0; white-space: nowrap }
 .qa-label navy { display: inline-block; width: 2em }
-.label { padding: 0 10px; background: #fff9e6; border: 3px solid #e97132; line-height: 1.5; white-space: nowrap }
+/* ラベル（<span class="label">）。枠は行の高さに収め、前後の行の間隔を変えない。
+   段落・項目・箱の先頭に置くと、続く文は枠の右にそろえて折り返す（.labeled、kamishibai.js が付ける） */
+.label { display: inline-block; padding: 0 .3em; background: #fff9e6; border: 2px solid #e97132; border-radius: 4px;
+  font-size: .85em; line-height: 1.25; white-space: nowrap }
+.labeled { display: grid; grid-template-columns: auto 1fr; column-gap: .45em; align-items: baseline }
+.labeled > .label { justify-self: start }
 .pink { width: fit-content; margin: 8px auto; padding: 0 12px; border: 3px solid #FF2F92; background: #FFF0F7; line-height: 1.4 }
 .frame { position: absolute; border: 5px solid var(--red); border-radius: 21px; pointer-events: none }
 /* 何も表示しない step。行の高さを取らない */
@@ -119,12 +132,12 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .step-back .stage *, .step-back .stage *::before, .step-back .stage *::after { transition: none !important; animation: none !important }
 
 /* ---- 一覧（左に並べる。T） ---- */
-.side { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; overflow-y: auto; display: none; z-index: 10;
+body > .side { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; overflow-y: auto; display: none; z-index: 10;
   background: #333; padding: 12px 12px 64px 36px }
-body.side-on .side { display: block }
+body.side-on > .side { display: block }
 .thumb { position: relative; margin: 0 0 12px; cursor: pointer }
-.thumb .tbox { position: relative; width: 192px; height: 144px; overflow: hidden; background: #fff; outline: 1px solid #555 }
-.thumb .tbox > .page { display: block; width: 960px; height: 720px; transform: scale(.2); transform-origin: 0 0; pointer-events: none }
+.thumb .tbox { position: relative; width: 192px; height: calc(192px * var(--ratio, .75)); overflow: hidden; background: #fff; outline: 1px solid #555 }
+.thumb .tbox > .page { display: block; width: var(--W); height: var(--H); transform: scale(var(--tscale, .2)); transform-origin: 0 0; pointer-events: none }
 .thumb.cur .tbox { outline: 3px solid #4da3ff }
 .thumb .tno { position: absolute; right: 200px; top: 0; font: 13px/1 Arial, sans-serif; color: #ccc }
 
@@ -141,6 +154,10 @@ body.side-on .side { display: block }
 .tools .op { display: none }
 body.tools-open .tools .op { display: block }
 .tools .val { min-width: 52px; font-variant-numeric: tabular-nums }
+/* 段階表示の切り替え（S）を知らせる一言 */
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; padding: 8px 18px; border-radius: 8px;
+  background: rgba(0, 0, 0, .75); color: #fff; font: 16px/1.4 system-ui, sans-serif; pointer-events: none; opacity: 0; transition: opacity .4s }
+.toast.show { opacity: 1 }
 
 /* ---- ポインター（L）と、選択・キー無効の印（E・U） ---- */
 .pointer { position: fixed; z-index: 30; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
@@ -174,14 +191,82 @@ body.op .badge { background: #1A8502 }
 /* ---- 印刷（P）：1 ページ 1 枚。step のあるページは、1 つずつ出る様子を別々のページにする
    （それは PDF のときだけ。Print のときは、step を全部出したページ .all だけを出す） ---- */
 .print { display: none }
-@page { size: 10in 7.5in; margin: 0 }
+/* 用紙の大きさ（@page）は、テーマの --W・--H から kamishibai.js が書き込む */
 @media print {
   html, body { height: auto; overflow: visible; background: #fff }
-  .deck, .side, .tools, .pointer, .badge, .tap-nav { display: none !important }
+  .deck, body > .side, .tools, .pointer, .badge, .tap-nav, .toast { display: none !important }
   .print { display: block }
-  .ppage { position: relative; width: 960px; height: 720px; overflow: hidden; break-after: page }
+  .ppage { position: relative; width: var(--W); height: var(--H); overflow: hidden; break-after: page }
   .ppage:last-child { break-after: auto }
   body:not(.print-steps) .ppage:not(.all) { display: none }
   .ppage > .page { display: block }
   *, *::before, *::after { -webkit-print-color-adjust: exact; print-color-adjust: exact }
   [step] { transition: none }
+}
+
+/* ===== 紙芝居の部品（どのテーマでも使える。色は --theme などのテーマの値） ===== */
+/* 見出し帯（miniframes）とページ番号は、使うテーマ（Boadilla）だけが出す */
+.hl, .pn { display: none }
+/* \alert{}：<alert>…</alert> と class="k" */
+.k { color: var(--alert); font-weight: 700 }
+/* 証明（左の線）・証明の方針（淡い地）・後で証明する主張（破線の枠）。見出しは .pt */
+.pf { display: block; margin: 10px -12px 0; border-left: 5px solid var(--theme); padding: 2px 12px 4px 14px }
+.pf .pt, .ph .pt { font-weight: 700; color: var(--bt-ink); line-height: 1.4 }
+.pf p, .ph p { margin: 0 }
+.pf.pl { border-left-color: var(--head-dim); background: #f6f9fb }
+.ph { display: block; margin: 12px -12px 0; border: 2px dashed var(--faint); border-radius: 11px; padding: 4px 12px 8px }
+.ph .pt { color: var(--faint) }
+.ph > :not(.pt) { color: #5a5a5a }
+/* 番号つきの手順（<nums> と ol.nums）。<nums labels> と <item label="(i)"> では、丸数字の代わりに文字のラベル（.lb） */
+.nums { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0 0 8px; padding: 0; counter-reset: n }
+.nums > :is(li, item) { display: block; position: relative; padding-left: 61.5px; margin: 0; line-height: 1.5; counter-increment: n }
+.nums > :is(li, item)::before { content: counter(n); position: absolute; left: 21px; top: .2em; width: 31px; height: 31px;
+  border-radius: 50%; background: var(--theme); color: #fff; font-size: 17px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; clip-path: none }
+.nums.lab > :is(li, item) { padding-left: 92px }
+.nums.lab > :is(li, item)::before { content: none }
+.nums.lab .lb { position: absolute; left: 8px }
+/* 2 段組（class="two"）と、図と文を左右に並べる <side>（class="side"）。
+   図は文の下に置くのが既定。<side> は段階を追う説明の例外で、文が左、図が右（書いた順によらず図を右に置く） */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start }
+.page .side { display: flex; gap: 28px; align-items: flex-start }
+.page .side > :is(.fig, figure, flip, .flip) { flex: none; order: 2 }
+.page .side > :is(.fig, figure) { width: min-content }
+.page .side > :is(.fig, figure) > svg { max-width: none }
+.page .side > :not(.fig, figure, flip, .flip) { flex: 1; min-width: 0 }
+.nb { white-space: nowrap }
+/* 図（class="fig"）と、図の下の一言（class="cap"） */
+.fig { margin: 4px 0 0; display: flex; flex-direction: column; align-items: center; gap: 10px }
+.fig svg { display: block }
+.cap { margin: 0; text-align: center }
+/* 表（\hline だけの素の表、class="tb"） */
+table.tb { border-collapse: collapse; line-height: 1.35; margin: 0 auto; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink) }
+table.tb.nr { border: 0 }
+.tb th, .tb td { padding: 7px 12px; text-align: left; vertical-align: top }
+.tb thead th { font-weight: 400; border-bottom: 1px solid var(--ink); white-space: nowrap }
+.tb td.c, .tb th.c { text-align: center }
+.tb .v { font-weight: 700 }
+.tb .lab { color: var(--theme) }
+
+/* 切り替える図（<flip>、.flip.tg）と、段階的に組み上がる図（<flip anim>、.flip[data-anim]）。
+   中の図（.gv）は同じ場所に重ねる（枠の大きさは、いちばん大きな図か width・height の指定） */
+.flip { display: grid; place-items: center; position: relative; flex: none; margin: 0 auto }
+.flip > .gv { grid-area: 1 / 1; display: block; opacity: 0; transition: opacity .45s ease }
+.flip > .gv.cur, .flip.one > .gv { opacity: 1 }
+.gv .cd, .gv .ov { opacity: 0; transition: opacity .3s ease }
+.gv .cd.in, .gv .ov.in { opacity: 1 }
+/* 図を切り替えるボタン（<switch for="…">、.ctrl.below[data-flip]）。発表中に読ませる文字ではないので小さくてよい */
+.ctrl { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 16px;
+  width: 118px; display: flex; flex-direction: column; align-items: stretch; gap: 7px }
+.ctrl.below { position: static; transform: none; margin: 9px 0 0; width: auto;
+  flex-direction: row; align-items: center; justify-content: center; gap: 10px }
+.ctrl button { font: inherit; font-size: 15px; font-weight: 700; line-height: 1.4; color: #fff; white-space: nowrap;
+  background: var(--theme); border: 0; border-radius: 7px; padding: 5px 14px; cursor: pointer }
+.ctrl button:hover { filter: brightness(.9) }
+.ctrl button.sub2 { background: #fff; color: var(--theme); box-shadow: inset 0 0 0 1.5px var(--theme) }
+.ctrl button.sub2:hover { background: var(--bb); filter: none }
+.ctrl .ja { -webkit-text-stroke: 0 }
+
+/* A box whose title names no kind of statement (kamishibai.js, while drafting only; the packed file has none) */
+.bad-box { outline: 4px dashed #d00; outline-offset: 2px }
+.bad-box::before { content: "箱は命題・定義だけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }

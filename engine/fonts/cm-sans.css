@@ -1,5 +1,5 @@
 /* Computer Modern Sans（KaTeX 0.18.11 の数式の書体 KaTeX_SansSerif と同じものを埋め込んでいる。許諾文はすぐ下）。
-   文の書体 WebSlideText のうち、英数字と記号の字（unicode-range で分ける。日本語と空白は ipa-pgothic.css）。webslide.js が読み込む。触らない。
+   文の書体 WebSlideText のうち、英数字と記号の字（unicode-range で分ける。日本語と空白は ipa-pgothic.css）。kamishibai.js が読み込む（Madrid テーマ）。触らない。
    この書体にない字（< > \ ` { | }）と、和文でも使う引用符・ダッシュは、日本語の書体で出る */
 /* KaTeX の許諾文
 The MIT License (MIT)

@@ -1,4 +1,5 @@
-/* ===== WebSlide の図の道具（figure.js）。webslide.js が読み込む。触らない。使い方は webslide.js の最初の説明にある ===== */
+/* ===== WebSlide の図の道具（figure.js）。WebSlide（ShiotaTakumi）の webslide/figure.js をそのまま写したもの。
+   kamishibai.js が読み込む（WebSlide.STILL は kamishibai.js が用意する別名 WebSlide = Kamishibai に入る）。触らない。使い方は kamishibai.js の最初の説明にある ===== */
 (function () {
 "use strict";
 

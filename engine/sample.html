@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja" theme="Boadilla">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>紙芝居エンジンの見本</title>
+<!-- 見た目と動きは engine/ フォルダ（書き方は engine/kamishibai.js の最初にある）。このファイルには中身だけを書く。
+     テーマは <html theme="…"> で選ぶ。?theme=Madrid を URL に付けると 4:3 の Madrid で開く -->
+<script src="kamishibai.js"></script>
+
+<cover>
+  <headline>紙芝居エンジンの見本</headline>
+  <subtitle>ビルドなしで開ける HTML スライド</subtitle>
+  <author aff="○○大学" presenter>発表者</author>
+  <author aff="△△大学">共著者</author>
+  <meeting>第○回 ○○研究会</meeting>
+  <date>2026年11月10日</date>
+</cover>
+
+<slide title="問題設定" sec="導入">
+  <block title="問題（オイラー路）" cite="[Eul36]">
+    <p class="qa"><span class="qa-label"><navy>入力</navy>：</span>連結なグラフ $G = (V, E)$</p>
+    <p class="qa"><span class="qa-label"><navy>問い</navy>：</span>すべての辺を<alert>ちょうど 1 回</alert>通る道はあるか</p>
+  </block>
+  <p>文の中の数式は \(\deg(v)\) のようにも書ける。文献は <cite>[Eul36]</cite>。</p>
+  <note>緑の枠の一言 ➡ 結論</note>
+  <p class="src">[Eul36] L.&nbsp;Euler, Solutio problematis ad geometriam situs pertinentis, 1736.</p>
+</slide>
+
+<slide title="箇条書きと段階表示" sec="導入">
+  <list>
+    <item>1 段目の項目</item>
+    <item step>クリックで出る項目
+      <list>
+        <item>2 段目の項目</item>
+        <item>2 段目の項目</item>
+      </list>
+    </item>
+    <item step>次のクリックで出る</item>
+    <item step with="prev">直前の項目と一緒に出る</item>
+  </list>
+  <down step>下向きの矢印の下に、中央寄せの一言</down>
+</slide>
+
+<slide title="切り替える図" sec="図">
+  <block title="定理（Euler）">連結なグラフにオイラー路があるのは、奇数次の頂点が 0 個か 2 個のとき</block>
+  <p>ボタンを押しても、ページは送られない。</p>
+  <!-- 図にキャプションを付けない。切り替える図はボタンの名前でカードを示す -->
+  <figure>
+    <flip id="fyn"><svg width="320" height="220" viewBox="0 0 320 220">
+<line x1="60" y1="40" x2="260" y2="40" stroke="#0096c8" stroke-width="5"/>
+<line x1="260" y1="40" x2="260" y2="180" stroke="#0096c8" stroke-width="5"/>
+<line x1="260" y1="180" x2="60" y2="180" stroke="#0096c8" stroke-width="5"/>
+<line x1="60" y1="180" x2="60" y2="40" stroke="#0096c8" stroke-width="5"/>
+<line x1="60" y1="40" x2="260" y2="180" stroke="#0096c8" stroke-width="5"/>
+<circle cx="60" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg>
+<svg width="320" height="220" viewBox="0 0 320 220">
+<line x1="160" y1="110" x2="160" y2="20" stroke="#0096c8" stroke-width="5"/>
+<line x1="160" y1="110" x2="60" y2="190" stroke="#0096c8" stroke-width="5"/>
+<line x1="160" y1="110" x2="260" y2="190" stroke="#0096c8" stroke-width="5"/>
+<circle cx="160" cy="110" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="160" cy="20" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg></flip>
+    <switch for="fyn"><button>できる</button><button>できない</button></switch>
+  </figure>
+</slide>
+
+<slide title="組み上がる図" sec="図">
+  <!-- 段階を追う説明だけは <side> で文を左、図を右に並べる。ほかの頁は文が上、図が下 -->
+  <side>
+    <div>
+      <p>道を辺ごとに組む</p>
+      <p step cards="2">2 本目の辺</p>
+      <p step cards="*" ov>残りの辺がまとめて出て、最後に印が付く</p>
+    </div>
+    <figure>
+      <flip id="fpath" anim init="1"><svg width="520" height="200" viewBox="0 0 520 200">
+<g class="cd"><line x1="40" y1="140" x2="150" y2="60" stroke="#0096c8" stroke-width="5"/></g>
+<g class="cd"><line x1="150" y1="60" x2="260" y2="140" stroke="#0096c8" stroke-width="5"/></g>
+<g class="cd"><line x1="260" y1="140" x2="370" y2="60" stroke="#0096c8" stroke-width="5"/></g>
+<g class="cd"><line x1="370" y1="60" x2="480" y2="140" stroke="#0096c8" stroke-width="5"/></g>
+<circle cx="40" cy="140" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<text x="40" y="184" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">0</tspan></text>
+<circle cx="150" cy="60" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<text x="150" y="34" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">1</tspan></text>
+<circle cx="260" cy="140" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<text x="260" y="184" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">2</tspan></text>
+<circle cx="370" cy="60" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<text x="370" y="34" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">3</tspan></text>
+<circle cx="480" cy="140" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<text x="480" y="184" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">4</tspan></text>
+<g class="ov"><text x="260" y="30" font-size="22" text-anchor="middle" fill="#ff4c00">道ができた</text></g>
+</svg></flip>
+    </figure>
+  </side>
+</slide>
+
+<slide title="定理と証明" sec="証明">
+  <block title="補題１">$n \ge 1$ のとき $1 + 2 + \cdots + n = n(n+1)/2$</block>
+  <plan>帰納法。$n$ から $n+1$ へ、両辺に $n+1$ を足す。</plan>
+  <proof step>$n = 1$ は明らか。$n$ で成り立てば
+    \[\sum_{i=1}^{n+1} i = \frac{n(n+1)}{2} + (n+1) = \frac{(n+1)(n+2)}{2}.\]
+  </proof>
+</slide>
+
+<slide title="手順" sec="証明">
+  <div class="two">
+    <nums>
+      <item>次数を数える</item>
+      <item>奇数次の頂点を数える</item>
+      <item step>0 個か 2 個なら道を作る</item>
+    </nums>
+    <nums labels>
+      <item label="(i)">連結</item>
+      <item label="(ii)">奇数次が 2 個以下</item>
+    </nums>
+  </div>
+  $$\sum_{v \in V} \deg(v) = 2|E|$$
+  <later title="補題２（次の頁で証明）" step>奇数次の頂点の個数は偶数</later>
+</slide>
+
+<slide title="WebSlide の部品" sec="部品">
+  <columns>
+    <column>
+      <table class="tbl">
+        <tr><th>$n$</th><th>辺</th></tr>
+        <tr><td>3</td><td>3</td></tr>
+        <tr><td>4</td><td>6</td></tr>
+      </table>
+      <p><span class="label">ラベル</span> <span class="pink">ピンク</span> <span class="frame">枠</span></p>
+      <div class="bar"><i>n</i><input type="range" min="3" max="12" value="6"><span>6</span></div>
+    </column>
+    <column>
+      <figure>
+        <svg id="fig-polygon" width="400" height="320"></svg>
+        <span step class="mark"></span>
+      </figure>
+    </column>
+  </columns>
+</slide>
+
+<divider>参考資料</divider>
+
+<slide title="まとめ">
+  <list>
+    <item size="24">小さな字（size="24"）</item>
+    <item>$x \in \mathbb{R}$ を含む行</item>
+  </list>
+</slide>
+
+<script>
+/* 動く図：目印（.mark）が出たら正 n 角形が大きくなり、バーで n を変えられる（WebSlide の雛形と同じ） */
+figure("fig-polygon", function (svg, still) {
+  const slide = svg.closest("slide"), mark = slide.querySelector(".mark");
+  const input = slide.querySelector(".bar input"), value = slide.querySelector(".bar span");
+  let t = 0;
+  function draw() {
+    const n = +input.value, r = 60 + 80 * ease(t), pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+      pts.push((200 + r * Math.cos(a)).toFixed(2) + "," + (160 + r * Math.sin(a)).toFixed(2));
+    }
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    mk("polygon", { points: pts.join(" "), fill: "#e6f4fa", stroke: "#0096c8", "stroke-width": 3, "stroke-linejoin": "round" }, svg);
+    lid(svg, [200, 160], "n", 1, true);
+  }
+  if (still) { t = mark.classList.contains("on") ? 1 : 0; draw(); return; }
+  follow(mark, function (x) { t = x; draw(); }, 1200);
+  input.addEventListener("input", function () { value.textContent = input.value; draw(); });
+  draw();
+});
+</script>

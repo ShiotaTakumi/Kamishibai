@@ -1,0 +1,8 @@
+.venv/
+/fonts/
+tools/node_modules/
+slide.html
+fig/*.svg
+engine/fonts/kamishibai-fonts.css
+*.dist.html
+shots/

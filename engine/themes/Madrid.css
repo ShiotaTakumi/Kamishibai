@@ -1,6 +1,14 @@
-/* ===== テーマ Madrid（Beamer の Madrid を参考にした見た目）。webslide.js が読み込む =====
+/* ===== テーマ Madrid（Beamer の Madrid を参考にした見た目）。kamishibai.js が読み込む =====
+   WebSlide（ShiotaTakumi）の themes/Madrid.css を写し、:root の最初の 4 行（画面の大きさ・書体・かっこの空き・部品の色）を足したもの。
    色と位置は、同じ中身の Beamer（Madrid・12pt）の PDF を 960 × 720 にして測って合わせた */
 :root {
+  /* 画面の大きさ（4:3）。kamishibai.js の fit()・一覧・印刷がこの値を使う */
+  --W: 960px; --H: 720px;
+  /* 文の書体 WebSlideText（fonts/cm-sans.css・fonts/ipa-pgothic.css。無ければ Hiragino などで出る） */
+  --font: "WebSlideText", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+  /* IPA Pゴシックの半角幅のかっこ・句読点に空きを足す（その書体が読み込まれているときだけ） */
+  --jp-pad: ipa; --jp-pad-family: WebSlideText;
+  --theme: #3333B2; --bt-ink: #262686; --bb: #E9E9F3; --head-dim: #9A9ADB;
   /* Beamer の structure の色 */
   --navy: #3333B2; --blue: #3333B2;
   /* 下の帯の 3 つの色（左から） */
