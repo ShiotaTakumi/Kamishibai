@@ -12,7 +12,8 @@
      engine {enter, leave, exportHTML}; the engine's heading "編集 ⌘E" enters edit mode, its "出力" mode calls
      exportHTML for "HTML：1 ファイル" (NAME.dist.html next to the draft, in the order of pack_engine.py's pack(),
      read through the allowed folder; fonts are not subset and KaTeX is whole, and pack's checks are not run).
-   - Older engines (and WebSlide): the "Edit ⌘E" button in the tool panel as in 3.2.
+   - Older engines without the three modes (and WebSlide): page-edit puts its own "Edit ⌘E" button in the tool
+     panel and takes ⌘E itself; where the engine still uses ⌘E for its select mode, ⌘E switches both together.
    - Also editable: text written straight in a slide (e.g. display math after a list), the attributes title,
      cite, label, short, and aff and sec (a name in several places: editing one rewrites every place with that
      name). A footer item without short="…" goes to the cover and edits the text it is taken from.
