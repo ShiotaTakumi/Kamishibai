@@ -97,6 +97,7 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 | `tools/engine_katex.py` | 原稿が読む KaTeX（`engine/katex/`）を `tools/node_modules` の KaTeX から作り直す（`make engine-katex`）。KaTeX の版を上げるときは、`npm install --prefix tools katex@版` の後に `make engine-katex` を実行する |
 | `tools/fetch_fonts.py` | 書体の取得（原ノ味：SIL Open Font License、Latin Modern：GUST Font License） |
 | `tools/open_slide.sh` | `make preview`・`make open` の表示（macOS では AppleScript で開いているタブを探す。初回は「ブラウザを操作する許可」を求められる） |
+| `page-edit/` | 画面の文と題を直して原稿へ書き戻す Chrome の拡張（サーバーなし）。入れ方と使い方は [page-edit/README.md](page-edit/README.md) |
 | `html/slide.src.html`・`tools/build_html.py`・`tools/figs.py` | ビルドする形（次の節） |
 
 ## ビルドする形：html/slide.src.html から slide.html を作る
