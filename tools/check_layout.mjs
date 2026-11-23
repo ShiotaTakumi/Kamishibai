@@ -11,6 +11,9 @@
 //   between screen and print.
 // - the old slide.html (make html): every slide with all .reveal steps shown (layout/measure.js);
 //   line breaks between the engines and boxes outside the 1280x720 canvas.
+// A deck with English (<ja>…</ja><en>…</en>, lang="en", title-en=… ; see engine/kamishibai.js) is
+// checked in Japanese and then in English. A page the engine had to draw smaller to fit is listed
+// with its factor (not a problem); a page that overflows even at the smallest factor is a problem.
 // Exit status 0 when the engines agree and nothing overflows.
 //
 // Engines (default chromium,webkit): chromium, webkit and firefox are the builds pinned by
@@ -34,7 +37,10 @@ const src = resolve(args.find(a => !a.startsWith("--")) || resolve(HERE, "..", "
 const html = readFileSync(src, "utf8");
 const ENGINE = /kamishibai\.js|data-packed=/.test(html);
 const probe = readFileSync(resolve(HERE, "layout", ENGINE ? "engine_probe.js" : "measure.js"), "utf8");
-const withProbe = () => html.replace(/<\/html>\s*$|$/, m => `<script>${probe}</script>${m}`);
+const BI = ENGINE && /<en[\s>]|\blang=["']?en\b|\b(?:title|cite|label|sec|aff|short)-en=/i.test(html);
+let LANG = BI ? "ja" : "";
+const probeFor = () => (LANG ? `window.__layoutLang=${JSON.stringify(LANG)};\n` : "") + probe;
+const withProbe = () => html.replace(/<\/html>\s*$|$/, m => `<script>${probeFor()}</script>${m}`);
 const label = { chromium: "Chromium", webkit: "WebKit", firefox: "Firefox", safari: "Safari (system)" };
 
 function safari() {
@@ -62,9 +68,14 @@ function pdfPages(buf) {
   return { n, boxes };
 }
 
-async function load(page) {
+/* the engine measures how small to draw each page on screen: open in screen media, wait for that,
+   then switch to print when the printed sheets are measured */
+async function load(page, print) {
   await page.goto(pathToFileURL(src).href, { waitUntil: "load" });
-  await page.addScriptTag({ content: probe });
+  await page.waitForFunction(() => window.Kamishibai && window.Kamishibai.size, null, { timeout: 300000 });
+  await page.evaluate(() => window.Kamishibai.ready);
+  if (print) await page.emulateMedia({ media: "print" });
+  await page.addScriptTag({ content: probeFor() });
   await page.waitForSelector("#__layout", { state: "attached", timeout: 300000 });
   return JSON.parse(await page.$eval("#__layout", e => e.textContent));
 }
@@ -84,8 +95,7 @@ async function measure(name) {
     }
     const screen = await load(await browser.newPage(ctx));
     const pp = await browser.newPage(ctx);
-    await pp.emulateMedia({ media: "print" });
-    const print = await load(pp);
+    const print = await load(pp, true);
     screen.sheets = print.sheets; screen.count = print.count;
     screen.problems = screen.problems.concat(print.problems);
     if (name === "chromium") {
@@ -105,8 +115,6 @@ async function measure(name) {
   }
 }
 
-const res = {};
-for (const n of names) res[n] = await measure(n);
 const [ref, ...rest] = names;
 let bad = 0;
 const say = s => { console.log(s); bad++; };
@@ -126,6 +134,8 @@ function compare(A, B, la, lb) {
 }
 
 if (!ENGINE) {
+  const res = {};
+  for (const n of names) res[n] = await measure(n);
   for (const other of rest) compare(res[ref], res[other], label[ref], label[other]);
   for (const n of names) for (const r of res[n]) for (const o of r.overflow) say(`#${r.slide}: ${label[n]}: outside the canvas: ${o}`);
   const R = res[ref];
@@ -134,17 +144,30 @@ if (!ENGINE) {
   process.exit(bad ? 1 : 0);
 }
 
-for (const other of rest) compare(res[ref].pages, res[other].pages, label[ref], label[other]);
-for (const n of names) {
-  const r = res[n], L = label[n];
-  for (const p of r.pages) for (const o of p.overflow) say(`${where(p)}: ${L}: ${o}`);
-  for (const o of r.problems) say(`print: ${L}: ${o}`);
-  if (!r.sheets || !r.sheets.length) continue;
-  for (const p of r.sheets) for (const o of p.overflow) say(`${where(p)}: ${L} print: ${o}`);
-  compare(r.pages.filter(p => !p.state), r.sheets, `${L} screen`, `${L} print`);
+let total = 0;
+for (const L of BI ? ["ja", "en"] : [""]) {
+  LANG = L;
+  const res = {};
+  for (const n of names) res[n] = await measure(n);
+  const before = bad, tag = L ? `[${L}] ` : "";
+  if (L) console.log(`== ${L === "ja" ? "Japanese" : "English"} ==`);
+  for (const other of rest) compare(res[ref].pages, res[other].pages, label[ref], label[other]);
+  for (const n of names) {
+    const r = res[n], Lb = label[n];
+    if (L && r.lang && r.lang !== L) say(`${Lb}: measured in ${r.lang}, not ${L}`);
+    for (const p of r.pages) for (const o of p.overflow) say(`${where(p)}: ${Lb}: ${o}`);
+    for (const p of r.pages) if (!p.state && p.over) say(`${where(p)}: ${Lb}: overflows even when drawn at ${Math.round(p.fit * 100)}%`);
+    for (const o of r.problems) say(`print: ${Lb}: ${o}`);
+    if (!r.sheets || !r.sheets.length) continue;
+    for (const p of r.sheets) for (const o of p.overflow) say(`${where(p)}: ${Lb} print: ${o}`);
+    compare(r.pages.filter(p => !p.state), r.sheets, `${Lb} screen`, `${Lb} print`);
+  }
+  const R = res[ref], pages = R.pages.filter(p => !p.state).length;
+  const small = R.pages.filter(p => !p.state && p.fit != null && p.fit < 1 && !p.over);
+  if (small.length) console.log(`drawn smaller to fit (${label[ref]}): ` + small.map(p => `#${p.slide} ${Math.round(p.fit * 100)}%`).join(", "));
+  console.log(`${tag}${pages} pages (${R.pages.length - pages} more flip states, ${R.count ? R.count.sheets : "?"} printed sheets), ` +
+              `${R.size.join("x")}, ${names.map(n => label[n]).join(" + ")}: ` +
+              (bad > before ? `${bad - before} problem(s)` : "the engines agree, screen and print agree, nothing overflows"));
+  total = bad;
 }
-const R = res[ref], pages = R.pages.filter(p => !p.state).length;
-console.log(`${pages} pages (${R.pages.length - pages} more flip states, ${R.count ? R.count.sheets : "?"} printed sheets), ` +
-            `${R.size.join("x")}, ${names.map(n => label[n]).join(" + ")}: ` +
-            (bad ? `${bad} problem(s)` : "the engines agree, screen and print agree, nothing overflows"));
-process.exit(bad ? 1 : 0);
+process.exit(total ? 1 : 0);

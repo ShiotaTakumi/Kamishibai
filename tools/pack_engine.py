@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack a draft of the runtime engine (engine/kamishibai.js) into ONE self-contained HTML file.
 
-  python3 tools/pack_engine.py SRC [-o OUT] [--theme NAME]      (or: make pack SRC=...)
+  python3 tools/pack_engine.py SRC [-o OUT] [--theme NAME] [--allow DIR]   (or: make pack SRC=...)
 
 SRC is a draft as engine/sample.html (it loads the engine with <script src=".../kamishibai.js">).
 OUT (default: next to SRC as NAME.dist.html) opens from file:// with no network and no other file:
@@ -18,8 +18,14 @@ OUT (default: next to SRC as NAME.dist.html) opens from file:// with no network 
     ipa-pgothic.css) are embedded unchanged when present: IPA P-Gothic is not
     subset, because the IPA Font License puts conditions on modified fonts. Missing font CSS means
     system fonts, as in the draft;
-  - images (<img src>, <qr src>, SVG <image href>), other <script src> and <link rel=stylesheet>
-    of the draft as inline data.
+  - images (<img src>, <qr src>, SVG <image href>), video and audio (<video src poster>, <audio src>,
+    <source src>, <track src>), other <script src> and <link rel=stylesheet> (with the url(...) inside)
+    of the draft as inline data; not inside comments, nor in the code of scripts and styles. Files
+    may come only from the draft's folder, the folder holding engine/, or a folder given with --allow;
+    any other path stops the packing. Other references to files (<a href>, <iframe>, <object>) stay
+    and are warned about: the packed file needs those files next to it. Large videos make a large file.
+
+When packing fails, an older NAME.dist.html is removed, so that it does not pass for the draft.
 
 Japanese phrase breaks (BudouX <wbr>, as tools/build_html.py) are not added: the engine's CSS does not
 set word-break:keep-all, so <wbr> would change nothing, and setting keep-all here only would break
@@ -110,11 +116,40 @@ def attrs(s):
     return out
 
 
-def plain(frag, a):
-    """The engine's plain(): text of an element, <rt> dropped, <br> as a space; short="..." wins."""
-    if "short" in a:
+LATTR = ["title", "cite", "label", "sec", "aff", "short"]  # the engine's attributes with an X-en
+
+
+def drop_lang(frag, L):
+    """frag with the other language's half of each pair dropped, as the engine's plain(e, L): for
+    "ja" every <en> and every lang="en" element right after a lang="ja" one; for "en" every <ja> or
+    lang="ja" element that has its English right after it (Japanese with no English stays)."""
+    pair = r"""(<(ja)\b[^>]*>.*?</ja\s*>|<([A-Za-z][\w-]*)\b[^>]*\slang=["']?ja\b[^>]*>.*?</\3\s*>)""" \
+           r"""(\s*)(<(en)\b[^>]*>.*?</en\s*>|<([A-Za-z][\w-]*)\b[^>]*\slang=["']?en\b[^>]*>.*?</\7\s*>)"""
+    frag = re.sub(pair, lambda m: m.group(4) + m.group(5) if L == "en" else m.group(1) + m.group(4), frag,
+                  flags=re.S | re.I)
+    if L == "ja":
+        frag = re.sub(r"<en\b[^>]*>.*?</en\s*>", "", frag, flags=re.S | re.I)
+    return frag
+
+
+def short_of(a, L, frag):
+    """The engine's shortOf(): short-en="..." for English, else short="..." (for English only when
+    the element holds no English of its own)."""
+    if L == "en" and "short-en" in a:
+        return a["short-en"]
+    if "short" in a and (L != "en" or not re.search(r"<en\b|\slang=[\"']?en\b", frag, re.I)):
         return a["short"]
-    t = re.sub(r"<rt\b.*?</rt\s*>", "", frag, flags=re.S | re.I)
+    return None
+
+
+def plain(frag, a, L="ja"):
+    """The engine's plain(e, L): text of an element in language L, <rt> dropped, <br> as a space;
+    short="..." (short-en="...") wins."""
+    s = short_of(a, L, frag)
+    if s is not None:
+        return s
+    t = drop_lang(frag, L)
+    t = re.sub(r"<rt\b.*?</rt\s*>", "", t, flags=re.S | re.I)
     t = re.sub(r"<br\b[^>]*>", " ", t, flags=re.I)
     t = re.sub(r"<!--.*?-->|<[^>]*>", "", t, flags=re.S)
     return re.sub(r"\s+", " ", html.unescape(t)).strip()
@@ -123,7 +158,8 @@ def plain(frag, a):
 def math_of(src):
     """Every formula the engine's auto-render meets, in document order: the text of the pages
     (outside ignored tags and classes, split at ➡ as the engine does first), and the attributes the
-    engine turns into text (titles, cite, labels, affiliations, the footer of the cover)."""
+    engine turns into text (titles, cite, labels, sections, affiliations, short, each also as X-en,
+    and the footer of the cover in both languages)."""
     texts, stack, run = [], [], []
     opened = {}  # element name -> (offset after its start tag, attributes) for the footer texts
 
@@ -153,20 +189,25 @@ def math_of(src):
                     pass
             if name in ("author", "headline", "date") and name in opened:
                 start, a = opened.pop(name)
-                p = plain(src[start:m.start()], a)
-                texts.append(p)
-                if name == "author" and "aff" in a:
-                    texts.append(p + "  (" + a["aff"] + ")")
+                frag = src[start:m.start()]
+                for L in ("ja", "en"):
+                    p = plain(frag, a, L)
+                    texts.append(p)
+                    f = a.get("aff-en" if L == "en" and "aff-en" in a else "aff")
+                    if name == "author" and f and short_of(a, L, frag) is None:
+                        texts.append(p + "  (" + f + ")")
             continue
         a = attrs(m.group(2))
         if ctx() or name in PAGES:
-            if name == "slide" and "title" in a:
-                texts.append(a["title"])
-            if name in ("block", "alertblock", "exampleblock", "proof", "plan", "later") and "title" in a:
-                texts.extend(re.split(r"[０-９]+", a["title"]))
-            for k in ("cite", "label", "aff"):
-                if k in a:
-                    texts.append(a[k])
+            # every attribute the engine turns into text, in both languages (a superset does no harm:
+            # the table of formulas has each one once); box titles are split at full-width digits
+            for k in LATTR:
+                for v in (a.get(k), a.get(k + "-en")):
+                    if v is None:
+                        continue
+                    texts.append(v)
+                    if k == "title" and name != "slide":
+                        texts.extend(re.split(r"[０-９]+", v))
             if name in ("author", "headline", "date"):
                 opened[name] = (m.end(), a)
         if name in RAW:
@@ -208,14 +249,14 @@ def math_script(items, rendered):
             "  var h = M[(o && o.displayMode ? \"D\" : \"I\") + tex];\n"
             "  if (h === undefined) { el.className = \"katex-missing\"; el.textContent = tex; console.warn(\"kamishibai: math not packed: \" + tex); return; }\n"
             "  el.innerHTML = h;\n} };\n})();\n")
-    ar = (KATEX_DIST / "contrib" / "auto-render.min.js").read_text().strip()
+    ar = (KATEX_DIST / "contrib" / "auto-render.min.js").read_text(encoding="utf-8").strip()
     return stub + "/* KaTeX auto-render (MIT License, Khan Academy and other contributors) */\n" + ar + "\n"
 
 
 def katex_css(engine, rendered, other_css):
     """engine/katex/katex.css with the @font-face rules of the KaTeX families in use only: those the
     rules of katex.css give to the classes of the rendered math, and those named by the theme's CSS."""
-    css = (engine / "katex" / "katex.css").read_text()
+    css = (engine / "katex" / "katex.css").read_text(encoding="utf-8")
     classes = {"katex"}
     for h in rendered:
         for c in re.findall(r'class="([^"]*)"', h):
@@ -259,46 +300,109 @@ def data_uri(path):
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
 
-def local(base, ref):
-    if re.match(r"^(?:[a-z][\w+.-]*:|#|//)", ref, re.I):
-        return None
-    path = (base / html.unescape(ref)).resolve()
-    if not path.is_file():
-        sys.exit(f"missing file: {path}")
-    return path
+class Files:
+    """The files a draft may load: inside the draft's folder, the folder of its engine (the slide
+    folder) or a folder given with --allow. A reference outside them stops the packing, so that a
+    path such as ../../secret.txt never ends up inside a file handed out."""
+
+    def __init__(self, base, roots):
+        self.base, self.roots = base, [r.resolve() for r in roots]
+
+    def get(self, ref, base=None):
+        """The file of ref (relative to base, default the draft's folder), or None for a URL."""
+        if re.match(r"^(?:[a-z][\w+.-]*:|#|//)", ref, re.I) or not ref.strip():
+            return None
+        path = ((base or self.base) / html.unescape(ref).split("#")[0].split("?")[0]).resolve()
+        if not any(path == r or r in path.parents for r in self.roots):
+            sys.exit(f"{ref}: outside the folders a draft may load from ({', '.join(map(str, self.roots))}); "
+                     "copy the file next to the draft, or allow its folder:  --allow DIR  (make pack ALLOW=DIR)")
+        if not path.is_file():
+            sys.exit(f"missing file: {path}")
+        return path
 
 
-def inline_resources(src, base):
-    """Images, scripts and stylesheets the draft loads from files, as inline data."""
-    def ref(m):
-        p = local(base, m.group(3))
-        return m.group(0) if p is None else m.group(1) + m.group(2) + data_uri(p) + m.group(2)
-    src = re.sub(r"""(<(?:img|qr|image|source)\b[^>]*?\s(?:src|href|xlink:href)=)(["'])([^"']*)\2""", lambda m: ref(m), src, flags=re.I)
+# what pack never looks inside: comments, and the text of scripts and styles written in the draft
+OPAQUE = re.compile(r"<!--.*?-->|(<script\b[^>]*>)(.*?)</script\s*>|<style\b[^>]*>.*?</style\s*>", re.S | re.I)
 
-    def script(m):
-        p = local(base, m.group(2))
-        if p is None:
-            return m.group(0)
-        return "<script>" + p.read_text().replace("</script", "<\\/script") + "</script>"
-    src = re.sub(r"""<script\b[^>]*?\ssrc=(["'])([^"']*)\1[^>]*>\s*</script\s*>""", script, src, flags=re.I)
 
-    def link(m):
-        if not re.search(r"""rel=["']?stylesheet""", m.group(0), re.I):
-            return m.group(0)
-        p = local(base, re.search(r"""href=(["'])([^"']*)\1""", m.group(0)).group(2))
-        return m.group(0) if p is None else "<style>" + p.read_text() + "</style>"
-    src = re.sub(r"<link\b[^>]*>", link, src, flags=re.I)
-    for m in re.finditer(r"""\s(?:src|href)=(["'])([^"'#][^"']*)\1""", src):
-        if not m.group(2).startswith("data:") and re.match(r"https?:|//", m.group(2)):
-            print(f"warning: the packed file still loads {m.group(2)}", file=sys.stderr)
-    return src
+def outside_opaque(src, fn, style=None):
+    """src with fn applied to the parts outside comments, scripts and styles; a <script src> with
+    nothing inside is given to fn too (it is a reference, not code), and each <style> to style."""
+    out, last = [], 0
+    for m in OPAQUE.finditer(src):
+        out.append(fn(src[last:m.start()]))
+        tok = m.group(0)
+        if m.group(1) and re.search(r"\ssrc\s*=", m.group(1), re.I) and not m.group(2).strip():
+            tok = fn(tok)
+        elif style and tok[:6].lower() == "<style":
+            tok = style(tok)
+        out.append(tok)
+        last = m.end()
+    out.append(fn(src[last:]))
+    return "".join(out)
+
+
+def css_inline(css, base, files):
+    """url(...) of a stylesheet (relative to the stylesheet's folder) as inline data."""
+    def url(m):
+        p = files.get(m.group(2), base)
+        return m.group(0) if p is None else f'url("{data_uri(p)}")'
+    return re.sub(r"""url\(\s*(["']?)([^"')]+)\1\s*\)""", url, css)
+
+
+def inline_resources(src, files):
+    """Images, media, scripts and stylesheets the draft loads from files, as inline data; outside
+    comments and the code of scripts and styles. Warns about what still loads anything."""
+    def part(t):
+        def media(m):
+            def ref(k):
+                p = files.get(k.group(3))
+                return k.group(0) if p is None else k.group(1) + k.group(2) + data_uri(p) + k.group(2)
+            return re.sub(r"""(\s(?:src|href|xlink:href|poster)\s*=\s*)(["'])([^"']*)\2""", ref, m.group(0), flags=re.I)
+        t = re.sub(r"<(?:img|qr|image|source|video|audio|track)\b[^>]*>", media, t, flags=re.I)
+
+        def script(m):
+            p = files.get(m.group(3))
+            if p is None:
+                return m.group(0)
+            attr = re.sub(r"""\ssrc\s*=\s*(["'])[^"']*\1""", "", m.group(1), flags=re.I)
+            if re.search(r"\s(?:defer|async)\b|\stype\s*=\s*[\"']?module", attr, re.I):
+                # deferred, async and module scripts keep their timing: the code as a data URL
+                return f'<script{attr} src="data:text/javascript;base64,{base64.b64encode(p.read_bytes()).decode()}"></script>'
+            return f"<script{attr}>" + re.sub(r"</(script)", r"<\\/\1", p.read_text(encoding="utf-8"), flags=re.I) + "</script>"
+        t = re.sub(r"""<script\b([^>]*?\ssrc\s*=\s*(["'])([^"']*)\2[^>]*)>\s*</script\s*>""", script, t, flags=re.I)
+
+        def link(m):
+            if not re.search(r"""rel\s*=\s*["']?stylesheet""", m.group(0), re.I):
+                return m.group(0)
+            h = re.search(r"""href\s*=\s*(["'])([^"']*)\1""", m.group(0))
+            p = files.get(h.group(2)) if h else None
+            if p is None:
+                return m.group(0)
+            media = re.search(r"""\smedia\s*=\s*(["'][^"']*["'])""", m.group(0))
+            css = css_inline(p.read_text(encoding="utf-8"), p.parent, files)
+            return (f"<style media={media.group(1)}>" if media else "<style>") + \
+                re.sub(r"</(style)", r"<\\/\1", css, flags=re.I) + "</style>"
+        t = re.sub(r"<link\b[^>]*>", link, t, flags=re.I)
+
+        for m in re.finditer(r"""<(\w+)\b[^>]*?\s(src|href|poster|data|xlink:href)\s*=\s*(["'])([^"']*)\3""", t):
+            tag, v = m.group(1).lower(), m.group(4)
+            if v.startswith(("data:", "#", "javascript:", "mailto:")) or not v.strip():
+                continue
+            if re.match(r"https?:|//", v):
+                print(f"warning: the packed file still loads {v} (<{tag}>; not there offline)", file=sys.stderr)
+            elif not re.match(r"[a-z][\w+.-]*:", v, re.I):
+                print(f"warning: <{tag} {m.group(2)}=\"{v}\"> is not packed (only images, video, audio, scripts and "
+                      "stylesheets are): the packed file needs that file next to it", file=sys.stderr)
+        return t
+    return outside_opaque(src, part, lambda t: css_inline(t, files.base, files))
 
 
 ENGINE_TAG = re.compile(r"""<script\b[^>]*\ssrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*</script\s*>""", re.I)
 
 
-def pack(src_path, theme=None):
-    src = src_path.read_text()
+def pack(src_path, theme=None, allow=()):
+    src = src_path.read_text(encoding="utf-8")
     m = ENGINE_TAG.search(src)
     if not m:
         sys.exit(f"{src_path}: no <script src=\".../kamishibai.js\"> (not a draft of the engine)")
@@ -313,22 +417,23 @@ def pack(src_path, theme=None):
     # the rest of the draft: its own files inline, and the theme on <html> for anyone reading it
     head, tail = src[:m.start()], src[m.end():]
     head = re.sub(r"""(<html\b[^>]*\stheme=)(["']?)[A-Za-z]+\2""", lambda k: f'{k.group(1)}"{theme}"', head, count=1, flags=re.I)
-    own_scripts = bool(re.search(r"<script\b", head + tail, re.I))
-    head, tail = inline_resources(head, src_path.parent), inline_resources(tail, src_path.parent)
+    own_scripts = bool(re.search(r"<script\b", re.sub(r"<!--.*?-->", "", head + tail, flags=re.S), re.I))
+    files = Files(src_path.parent, [src_path.parent, engine.parent, *allow])
+    head, tail = inline_resources(head, files), inline_resources(tail, files)
     draft = head + tail
 
-    js = (engine / "kamishibai.js").read_text()
-    fig = (engine / "figure.js").read_text() if own_scripts else ""
-    base_css = (engine / "base.css").read_text()
-    theme_css = theme_css_path.read_text()
+    js = (engine / "kamishibai.js").read_text(encoding="utf-8")
+    fig = (engine / "figure.js").read_text(encoding="utf-8") if own_scripts else ""
+    base_css = (engine / "base.css").read_text(encoding="utf-8")
+    theme_css = theme_css_path.read_text(encoding="utf-8")
 
     items = math_of(draft)
     version, rendered = render(items) if items else ("", [])
-    ev = re.search(r'version:"([^"]+)"', (engine / "katex" / "katex.js").read_text())
+    ev = re.search(r'version:"([^"]+)"', (engine / "katex" / "katex.js").read_text(encoding="utf-8"))
     if items and ev and ev.group(1) != version:
         print(f"warning: math rendered with KaTeX {version}, the engine has {ev.group(1)}", file=sys.stderr)
-    ar = (KATEX_DIST / "contrib" / "auto-render.min.js").read_text().strip()
-    if ar not in (engine / "katex" / "katex.js").read_text():
+    ar = (KATEX_DIST / "contrib" / "auto-render.min.js").read_text(encoding="utf-8").strip()
+    if ar not in (engine / "katex" / "katex.js").read_text(encoding="utf-8"):
         print("warning: KaTeX's auto-render in tools/node_modules differs from the engine's", file=sys.stderr)
     katex = katex_css(engine, rendered, base_css + theme_css)
 
@@ -342,7 +447,7 @@ def pack(src_path, theme=None):
         for f in THEME_FONT_CSS.get(theme, []):
             p = engine / f
             if p.exists():
-                fonts += p.read_text() + "\n"
+                fonts += p.read_text(encoding="utf-8") + "\n"
             else:
                 print(f"note: {p.relative_to(ROOT) if ROOT in p.parents else p} not found; "
                       f"theme {theme} uses system fonts for it", file=sys.stderr)
@@ -367,20 +472,34 @@ def main():
     ap.add_argument("src", type=Path)
     ap.add_argument("-o", "--out", type=Path)
     ap.add_argument("--theme")
+    ap.add_argument("--allow", type=Path, action="append", default=[], metavar="DIR",
+                    help="a folder outside the draft's and the engine's the draft may load files from")
     a = ap.parse_args()
     src = a.src.resolve()
     out = a.out or src.with_name(src.stem + ".dist.html")
-    boxes, figures = check_blocks.check(src), check_figures.check(src)
-    if boxes or figures:
-        check_blocks.report(boxes)
-        check_figures.report(figures)
+
+    def fail(msg):
         if out.exists():  # an older packed file would pass for this draft
             out.unlink()
             print(f"removed {out}", file=sys.stderr)
-        sys.exit(f"{src}: {len(boxes)} problems in boxes (tools/check_blocks.py), "
-                 f"{len(figures)} with figures (tools/check_figures.py); nothing packed")
-    check_figures.report_warnings(check_figures.warnings(src.read_text()))
-    data, n = pack(src, a.theme)
+        sys.exit(msg)
+    try:
+        boxes, figures = check_blocks.check(src), check_figures.check(src)
+    except SystemExit as e:
+        fail(e.code if isinstance(e.code, str) else f"{src}: nothing packed")
+    if boxes or figures:
+        check_blocks.report(boxes)
+        check_figures.report(figures)
+        fail(f"{src}: {len(boxes)} problems in boxes (tools/check_blocks.py), "
+             f"{len(figures)} with figures (tools/check_figures.py); nothing packed")
+    check_figures.report_warnings(check_figures.warnings(src.read_text(encoding="utf-8")))
+    try:
+        data, n = pack(src, a.theme, a.allow)
+    except SystemExit as e:
+        fail(e.code if isinstance(e.code, str) else f"{src}: nothing packed")
+    except Exception as e:
+        print(f"{src}: nothing packed", file=sys.stderr)
+        fail(f"{type(e).__name__}: {e}")
     out.write_text(data, encoding="utf-8")
     print(f"{out}: {len(data.encode()) / 1024:.0f} KiB, {n} formulas")
 

@@ -1,7 +1,7 @@
 # Kamishibai
 
-ブラウザで開いて発表するスライドの仕組みです。TonanKamata と ShiotaTakumi が共同で開発しました。
-既定のテーマ Boadilla は Beamer と同じ見た目（16:9、11pt 相当、UniBlue / AlertOrange、Latin Modern Sans と原ノ味角ゴシック）で、
+ブラウザで開いて発表するスライドの仕組みです。GitHub の TonanKamata と ShiotaTakumi が共同で開発しました。
+見た目は Beamer のテーマに倣い、既定のテーマ Boadilla は Beamer の Boadilla と同じ見た目（16:9、11pt 相当、Beamer の青と橙、Latin Modern Sans と原ノ味角ゴシック）です。
 PDF ではできない次のことに使います。
 
 - 図の中の要素を段階的に出す（辺を一本ずつ足す、カードを一枚ずつ置く）
@@ -9,11 +9,12 @@ PDF ではできない次のことに使います。
 - 図の中で動かす（SVG の SMIL アニメーション、JavaScript で描く図）
 - 一つの HTML ファイルとして配る（書体と数式を中に入れるので、ネットにつながらなくても同じ表示になる）
 
-スライドは、タグで書いた HTML の原稿をブラウザで直接開くと、その場で組まれます（エンジン、`engine/`）。
+スライドは、タグで書いた HTML の原稿をブラウザで直接開くと、その場で組まれます。原稿を組むこの仕組みを、この文書ではエンジン（`engine/`）と呼びます。
+新しく作るスライドは、このエンジンの原稿で書きます（下の「原稿を書いて配る」）。
 ビルドなしで見られ、配るときは `make pack` で一つのファイル（配布用ファイル）にまとめます。
-テーマは Boadilla（16:9、既定）と Madrid（4:3、Beamer の Madrid に倣った見た目）です。原稿の書き方は [engine/README.md](engine/README.md) にあります。
+テーマはほかに Madrid（4:3、Beamer の Madrid に倣った見た目）があります。原稿の書き方は [engine/README.md](engine/README.md) にあります。
 定義・定理・証明を見せるスライドの書き方の規則は [docs/math-slides.md](docs/math-slides.md) にあります。AI にスライドを書かせるときや見直させるときにも、この文書を基本の規則として渡します。
-`html/slide.src.html` を原稿としてビルドし、一つのファイル `slide.html` を作る形もあり、最後の節で説明します。
+エンジンより前の、`html/slide.src.html` をビルドして `slide.html` を作る形もあります。この形で作った資料を直す人のために、最後の節で説明します。
 
 ## 準備
 
@@ -31,7 +32,7 @@ make deps fonts engine-fonts
 
 入力はすべて版が固定されているので、同じ原稿からはどの機械でも同じ配布用ファイルができます。
 `python3 -m venv` が使えない Python では、`make PY=/path/to/python3` で別の Python を指定します。
-検査に使うブラウザは、検査のコマンドが初回に取得します（`make browsers`）。Linux で初めて検査するときは、ブラウザの依存ライブラリを
+配布用ファイルの組版を検査する `make check-pack`（下の表）が使うブラウザは、初回に自動で取得します（`make browsers`）。Linux で初めて検査するときは、ブラウザの依存ライブラリを
 `tools/node_modules/.bin/playwright install --with-deps chromium webkit` で入れます。
 
 ## 原稿を書いて配る
@@ -41,42 +42,45 @@ make deps fonts engine-fonts
 
 | コマンド | 内容 |
 |---|---|
-| `make preview SRC=talk/talk.html` | 原稿をそのまま、スライド用のブラウザ（既定は Google Chrome）で開く。そのファイルのタブが既に開いていれば、新しいタブを開かずに再読み込みする。別のブラウザは `SLIDE_BROWSER="Brave Browser"` |
-| `make pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイル `talk/talk.dist.html`（git で追跡しない）を作る。数式を組み、書体・画像・エンジンを中に入れた一つのファイルになる。先に原稿の規則（[engine/README.md](engine/README.md) の「規則」）を検査し、反する原稿からは作らず、前に作った `.dist.html` を消す |
-| `make check-pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイルを作り、行の切れ方のエンジン間の一致とはみ出しを検査する（下の「改行と書体」と、[engine/README.md](engine/README.md) の「組版の検査」） |
-| `make order SRC=talk/talk.html` | 定理・補題・定義の読む順の警告（下の「読む順の検査」） |
+| `make preview SRC=talk/talk.html` | 原稿をそのまま、スライド用のブラウザ（既定は Google Chrome）で開く。そのファイルのタブが既に開いていれば、新しいタブを開かずに再読み込みする。別のブラウザは `SLIDE_BROWSER="Brave Browser"`（make の変数でも環境変数でもよい） |
+| `make pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイル `talk/talk.dist.html`（git で追跡しない）を作る。数式を組み、書体・画像・エンジンを中に入れた一つのファイルになる。先に原稿の規則（[engine/README.md](engine/README.md) の「規則」）を検査し、反する原稿からは作らず、前に作った `.dist.html` を消す。原稿のフォルダと `engine/` の外のファイルは `ALLOW=フォルダ` で許したときだけ入れる |
+| `make check-pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイルを作り、行の切れ方のブラウザ間の一致とはみ出しを検査する（下の「改行と書体」と、[engine/README.md](engine/README.md) の「組版の検査」） |
+| `make order SRC=talk/talk.html [GAP=3 SHORT=2]` | 定理・補題・定義の読む順の警告（下の「読む順の検査」） |
+| `make lang SRC=talk/talk.html` | 日本語と英語の対の検査（[engine/README.md](engine/README.md) の「日本語と英語」） |
 | `make shot SRC=talk/talk.html PAGES="4 12"` | 指定したページを 1280×720 の PNG（`shots/p4.png` など、git で追跡しない。置き場は `SHOTS=` で変える）に撮る |
+| `make clean SRC=talk/talk.html` | その原稿の `.dist.html`（と、最後の節のビルドする形の `slide.html`）を消す |
 
+`make lang`・`make order` と、英語の記録を書く `make lang-stamp`（[engine/README.md](engine/README.md) の「日本語と英語」）は Python だけで動き、`make deps` は要りません。
 直すのは原稿で、`.dist.html` は手で直さず作り直します。
 
 ## 改行と書体
 
 文字の大きさは Beamer の 11pt（1pt = 2.822 px）に合わせてあります。
 エンジンは改行をブラウザの通常の規則に任せるので、ブラウザによって行の切れ方が変わり得ます。
-そこで `make check-pack` が、複数のブラウザのエンジンで組んだ行の切れ方を照合します。
+そこで `make check-pack` が、複数のブラウザで組んだ行の切れ方を照合します。
 ブラウザごとに挙動が違う機能（`text-wrap:pretty`、約物の詰め、和欧間の自動スペース）は使いません。
 
-検査で比べるエンジンは `ENGINES=chromium,webkit,firefox,safari` から選べ、既定は Chromium と WebKit です。
+検査で比べるブラウザは `ENGINES=chromium,webkit,firefox,safari` から選べ、既定は Chromium と WebKit です。
 どちらも Playwright が固定した版なので、どの機械でも同じ結果になります。
 ただし Playwright の WebKit は新しい WebKit で、ある Mac の Safari と同じ版とは限りません。実際、WebKit 26.6 は Safari 26.2 と違い、
 `word-break:keep-all` の下で開き括弧（`（`、`(`）の直後で改行することがあります。手元の Safari と合わせたいときは `ENGINES=chromium,safari` も確かめます。
-`safari` はその Mac の Safari と同じシステムの WebKit で、macOS 専用です（Xcode の command-line tools の `swiftc` が要ります。エンジンの原稿では画面だけを検査します）。
+`safari` はその Mac の Safari と同じシステムの WebKit で、macOS 専用です（Xcode の command-line tools の `swiftc` が要ります。Kamishibai の原稿では、印刷と PDF は検査せず画面だけを検査します）。
 Firefox は行の詰め方が異なり、一致しないことが多いので既定には含めません。
 
 ## 読む順の検査
 
 定理・補題で組み立てる発表で、主張を述べる前に使っていないかを調べる検査です。
 `make order SRC=…` は、番号付きの主張ごとに、述べたページ・最初に使ったページ・証明のページを表にし、次を警告します。
-番号付きの主張とは、題が「定理 1」「補題 2・3」「定義 4–6」のように種類と番号で始まる block（エンジンでは `block`・`proof`・`plan`・`later` の `title`）です。
+番号付きの主張とは、題が「定理 1」「補題 2・3」「定義 4–6」のように種類と番号で始まる block（エンジンでは `block`・`proof` などの囲みの `title`）です。
 全角の数字と、種類と数字の間の空白の有無は区別しません。
 
 - `FORWARD`：述べる前に使っている（証明の方針の中での先取りは除く）
-- `EARLY`：述べてから証明が始まるまでに `--gap`（既定 3）ページより多く空いている
-- `DEFERRED`：証明が `--short`（既定 2）ページ以内なのに、証明より前に議論で使っている
+- `EARLY`：述べてから証明が始まるまでに `GAP=`（既定 3）ページより多く空いている
+- `DEFERRED`：証明が `SHORT=`（既定 2）ページ以内なのに、証明より前に議論で使っている
 
 題が「証明」「証明の方針」の block は、同じページの直前の主張か、ページの見出しに「補題 2 の証明」とある主張の証明として数えます。
 調べる種類は既定で「定理・補題・主張・定義」で、`--kinds 定理,補題,命題,系,定義` のように変えられます。
-範囲は `--sec 節の名前の先頭` で絞れます（`python3 tools/check_order.py --help`）。
+範囲は `--sec 節の名前の先頭` で絞れます。`--kinds` と `--sec` は make からは渡せないので、`python3 tools/check_order.py 原稿 --kinds …` と直接実行します（`--help`）。
 
 ## ファイル
 
@@ -84,9 +88,9 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 |---|---|
 | `engine/` | エンジン（`kamishibai.js`・`figure.js`・`base.css`・`themes/`・KaTeX・書体の CSS）と見本の原稿 `sample.html`。説明は [engine/README.md](engine/README.md) |
 | `tools/pack_engine.py` | 原稿を配布用ファイルにまとめる（`make pack`） |
-| `tools/check_blocks.py` | block に主張だけが入っているかの検査。主張の種類は `engine/kamishibai.js` の `BLOCK_KINDS` から読む（`make pack` が呼ぶ） |
-| `tools/check_figures.py` | 図のキャプションと配置の検査、縮めた図の警告（`make pack` が呼ぶ） |
-| `tools/check_layout.mjs` | エンジン間の組版の照合（`tools/layout/` の計測の script を各エンジンで動かす。原稿と `.dist.html` には `engine_probe.js`、`slide.html` には `measure.js`） |
+| `tools/check_blocks.py` | block に主張だけが入っているかの検査。主張の種類の一覧はエンジンと共通（`make pack` が呼ぶ） |
+| `tools/check_figures.py` | 図のキャプションと配置の検査、縮めた図と、読めない `cards`（組み上がる図の指定）の警告（`make pack` が呼ぶ） |
+| `tools/check_layout.mjs` | ブラウザ間の組版の照合（`tools/layout/` の計測の script を各ブラウザで動かす） |
 | `tools/check_order.py` | 番号付きの主張の読む順の検査 |
 | `tools/shot.mjs` | ページを撮る（`make shot`） |
 | `tools/engine_fonts.py` | 原稿が読む書体の CSS を作る（`make engine-fonts`） |
@@ -97,7 +101,7 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 
 ## ビルドする形：html/slide.src.html から slide.html を作る
 
-この形の資料は、原稿 `html/slide.src.html` をビルドして一つのファイル `slide.html` にします。新しく作るスライドは、エンジンの原稿で書きます。
+エンジンより前の形で作った資料を直す人向けの節です。この形の資料は、原稿 `html/slide.src.html` をビルドして一つのファイル `slide.html` にします。新しく作るスライドは、エンジンの原稿で書きます。
 
 ```bash
 make
@@ -110,7 +114,7 @@ make
 |---|---|
 | `make` | `slide.html` を作る |
 | `make open` | `slide.html` を作り、スライド用のブラウザで開く（`make preview` と同じ開き方） |
-| `make check` | Chromium と WebKit（Safari のエンジン）で各ページを組み、行の切れ方が一致することと 1280×720 からはみ出さないことを確かめる。`ENGINES=` は `make check-pack` と同じ |
+| `make check` | Chromium と WebKit（Safari の組版の仕組み）で各ページを組み、行の切れ方が一致することと 1280×720 からはみ出さないことを確かめる。`ENGINES=` は `make check-pack` と同じ |
 | `make order` | 定理・補題・定義の読む順の警告（上の「読む順の検査」） |
 
 改行は BudouX の文節の切れ目だけで起こるように、ビルドが `<wbr>` を入れ、CSS は `word-break:keep-all` にしてあります。
@@ -159,5 +163,4 @@ KaTeX と書体は、それぞれのライセンスのままです。
 
 原ノ味と Latin Modern は、配布用ファイル（`make pack`）と `slide.html`（`make`）には使う字だけに絞って埋め込みます。
 字を絞った書体は改変版に当たるので、書体の中の名前を Kamishibai Gothic JP・Kamishibai Sans などに付け替え
-（予約された書体名を使わない）、元の書体の著作権の表示と許諾文を CSS の注記として同じファイルに入れます
-（`tools/build_html.py` の `rename_subset` と `license_notices`、`tools/engine_fonts.py` の `license_notice`）。
+（予約された書体名を使わない）、元の書体の著作権の表示と許諾文を CSS の注記として同じファイルに入れます。

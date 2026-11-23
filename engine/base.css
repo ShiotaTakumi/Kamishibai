@@ -21,7 +21,7 @@ body > :is(cover, slide, divider) { display: none }
   /* 段階表示（step）で出るまでの時間。0s ですぐ出る（PowerPoint の「表示」と同じ）。.2s などにすると、ふわっと出る */
   --fade: 0s;
   /* 日本語の字（太字でないところ）に足す線の太さ（pt）。ふだんは 0（Beamer と同じ太さ）。
-     細く見えるときは、左下のメニューの「−」「+」で 0.1pt ずつ変えられる */
+     細く見えるときは、左の道具の「A」を押して出る「+」「−」で 0.1pt ずつ変えられる */
   --ja-stroke: 0pt;
 }
 * { box-sizing: border-box }
@@ -79,8 +79,8 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .navy-normal { color: var(--navy) }
 /* 「入力：」「問い：」：ラベルを同じ幅の枠に入れて「：」の位置をそろえ、2 行目以降も枠の後ろにそろえる。
    枠はインラインにして、コピーしたときにラベルと「：」の間で改行されないようにする */
-.qa { padding-left: 3.2em; text-indent: -3.2em; margin: 0 }
-.qa-label { display: inline-block; width: 3.2em; text-indent: 0; white-space: nowrap }
+.qa { padding-left: var(--qa-w, 3.2em); text-indent: calc(-1 * var(--qa-w, 3.2em)); margin: 0 }
+.qa-label { display: inline-block; width: var(--qa-w, 3.2em); text-indent: 0; white-space: nowrap }
 .qa-label navy { display: inline-block; width: 2em }
 /* ラベル（<span class="label">）。枠は行の高さに収め、前後の行の間隔を変えない。
    段落・項目・block の先頭に置くと、続く文は枠の右にそろえて折り返す（.labeled、kamishibai.js が付ける） */
@@ -140,19 +140,39 @@ body.side-on > .side { display: block }
 .thumb.cur .tbox { outline: 3px solid #4da3ff }
 .thumb .tno { position: absolute; right: 200px; top: 0; font: 13px/1 Arial, sans-serif; color: #ccc }
 
-/* ---- 左下のボタン。▷ で出し、◁ でしまう。マウスを止めると ▷ ごと隠れる。画面の操作用なので小さくてよい ---- */
-/* 下のスライドが透けて見づらくならないよう、不透明な板に載せて、影を付けて重ねる */
-.tools { position: fixed; left: 12px; bottom: 12px; z-index: 20; display: flex; gap: 6px; padding: 6px;
-  background: #1e1e1e; border: 1px solid #444; border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+/* ---- 道具欄。ページの左の余白に、幅 40px の縦一列で置く（余白が足りないときは、ページが左を少し空ける。kamishibai.js の fit()）。
+   下の ︿ を押すと上へ開き、︿ の上に「編集」「プレゼン」「出力」のモードの印、その上の別の板に今のモードの道具が並ぶ。
+   道具はアイコンだけで、名前とキーはマウスを載せると出る。マウスを止めると、しまったものは隠れる。
+   しまっていても、編集と出力のモードの間は、そのモードの印だけを ︿ の上に出す。ポインター・選択・キー無効がオンなら、︿ に橙の点が付く ---- */
+/* 欄は二枚の板に分ける。上の板は今のモードの道具（押すと何かが起きる）、下の板はモードの切り替えとつまみ。
+   モードは一段くぼんだ溝の中に並べ、三つのうち一つを選ぶものだと見てわかるようにする。
+   下のスライドが透けて見づらくならないよう、どちらも不透明な板に載せて、影を付けて重ねる */
+.tools { position: fixed; left: 6px; bottom: 12px; z-index: 20; width: 40px; display: flex; flex-direction: column; align-items: center; gap: 6px;
   opacity: 0; visibility: hidden; transition: opacity .3s, visibility .3s }
-.tools.show { opacity: 1; visibility: visible }
-.tools button { font: 600 13px/1 system-ui, sans-serif; color: #fff; background: #2e2e2e;
-  border: 1px solid #555; border-radius: 6px; padding: 7px 10px; cursor: pointer }
-.tools button:hover { background: #3a3a3a }
-.tools button.on { background: #1D82E9; border-color: #1D82E9 }
-.tools .op { display: none }
-body.tools-open .tools .op { display: block }
-.tools .val { min-width: 52px; font-variant-numeric: tabular-nums }
+.tools .grp, .tools .dock { box-sizing: border-box; width: 40px; padding: 4px; background: #1e1e1e; border: 1px solid #444; border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45) }
+.tools .dock { display: flex; flex-direction: column; align-items: center; gap: 4px }
+.tools .modes { padding: 2px; background: #0c0c0c; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .8) }
+.tools.show, body.mode-edit .tools, body.mode-out .tools { opacity: 1; visibility: visible }
+.tools button { position: relative; flex: none; width: 30px; height: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
+  color: #ddd; background: transparent; border: 0; border-radius: 6px; cursor: pointer }
+.tools button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
+.tools button svg .dim { stroke-dasharray: 2 3; opacity: .55 }
+.tools button:hover { background: #343434 }
+.tools button.on { color: #fff; background: #1D82E9 }
+.tools .modes button.on { background: #e07000 }
+.tools button.off { color: #666 }
+.tools .go { color: #fff; background: #1A8502 }
+.tools .go:hover { background: #22a003 }
+.tools .val { font: 600 11px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; color: #ccc }
+.tools .handle.dot::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #ff9b1a }
+.tools .grp, .tools .modes, .tools .sk-wrap, .tools .sk { display: none; flex-direction: column; align-items: center; gap: 2px }
+.tools .sk-wrap { display: flex }
+.tools .sk.open { display: flex; padding: 2px 0; border-radius: 6px; background: #2a2a2a }
+.tools .sep { flex: none; width: 20px; height: 1px; margin: 2px 0; background: #444 }
+body.tools-open .tools .modes, body.mode-edit .tools .modes, body.mode-out .tools .modes { display: flex }
+body:not(.tools-open) .tools .modes > :not(.on) { display: none }
+body.tools-open:not(.mode-edit):not(.mode-out) .tools .g-show, body.tools-open.mode-edit .tools .g-edit, body.tools-open.mode-out .tools .g-out { display: flex }
 /* 段階表示の切り替え（S）を知らせる一言 */
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; padding: 8px 18px; border-radius: 8px;
   background: rgba(0, 0, 0, .75); color: #fff; font: 16px/1.4 system-ui, sans-serif; pointer-events: none; opacity: 0; transition: opacity .4s }
@@ -165,9 +185,8 @@ body.tools-open .tools .op { display: block }
 body.ptr-on .pointer { display: block }
 body.ptr-on, body.ptr-on * { cursor: none !important }
 .badge { position: fixed; right: 12px; top: 12px; z-index: 20; display: none; font: 600 13px/1 system-ui, sans-serif;
-  color: #fff; background: #E5325F; border-radius: 6px; padding: 7px 10px }
-body.edit .badge, body.op .badge { display: block }
-body.op .badge { background: #1A8502 }
+  color: #fff; background: #1A8502; border-radius: 6px; padding: 7px 10px }
+body.op .badge { display: block }
 
 /* ---- 指で触る画面でページを送る ◀ ▶。指で触る画面（hover: none）だけ出す。
    縦に持つと、スライドの下の余白の真ん中に 2 つ並べる。横に持つと、左右の余白の上下の真ん中に 1 つずつ置く ---- */
@@ -187,6 +206,16 @@ body.op .badge { background: #1A8502 }
   .tap-next { left: auto; right: 12px; bottom: auto; top: calc(50% - 22px) }
 }
 
+/* ---- 出力モード（⌘P）：印刷する形を画面に縦に並べて見せる。--pzoom は画面の幅に合わせる倍率（kamishibai.js） ---- */
+body.mode-out { overflow: auto; background: #555 }
+body.mode-out .deck, body.mode-out > .side, body.mode-out .pointer, body.mode-out .badge, body.mode-out .tap-nav { display: none !important }
+body.mode-out .print { display: block; zoom: var(--pzoom, 1); padding: 24px 0 360px }
+body.mode-out .ppage { position: relative; width: var(--W); height: var(--H); overflow: hidden; margin: 0 auto 24px;
+  background: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, .5) }
+body.mode-out:not(.print-steps) .ppage:not(.all) { display: none }
+body.mode-out .ppage > .page { display: block }
+body.mode-out .print [step] { transition: none }
+
 /* ---- 印刷（P）：1 ページ 1 枚。step のあるページは、1 つずつ出る様子を別々のページにする
    （それは PDF のときだけ。Print のときは、step を全部出したページ .all だけを出す） ---- */
 .print { display: none }
@@ -201,6 +230,8 @@ body.op .badge { background: #1A8502 }
   .ppage > .page { display: block }
   *, *::before, *::after { -webkit-print-color-adjust: exact; print-color-adjust: exact }
   [step] { transition: none }
+  body.mode-out .print { zoom: 1; padding: 0 }
+  body.mode-out .ppage { margin: 0; box-shadow: none }
 }
 
 /* ===== 証明と図の部品（どのテーマでも使える。色は --theme などのテーマの値） ===== */
@@ -269,3 +300,23 @@ table.tb.nr { border: 0 }
 /* A box whose title names no kind of statement (kamishibai.js, while drafting only; the packed file has none) */
 .bad-box { outline: 4px dashed #d00; outline-offset: 2px }
 .bad-box::before { content: "block には主張を一つだけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }
+
+/* ---- 日本語と英語（kamishibai.js が対を見つけたときだけ html に .bi が付く）----
+   <p><ja>…</ja><en>…</en></p> または <X lang="ja">…</X><X lang="en">…</X>。対の相手が無いものは両方の言語で出す（.solo） */
+ja, en { display: contents }
+html.bi:not([lang|=en]) .L-en, html.bi[lang|=en] .L-ja:not(.solo) { display: none }
+/* 英語では和文の行分けの規則と字間の詰めを外し、行間を欧文向けに詰める（--en-line、--en-hyphens で変えられる） */
+html.bi[lang|=en] .page { line-break: auto; text-spacing-trim: normal; hyphens: var(--en-hyphens, manual) }
+html.bi[lang|=en] .page :is(p, item, li, .bb) { line-height: var(--en-line, 1.35) }
+/* 「Input:」「Question:」は和文の見出しより長いので、見出しの幅を広げる */
+html.bi[lang|=en] .page { --qa-w: 5.2em }
+html.bi[lang|=en] .qa-label navy { width: auto }
+/* 収まらない頁は言語ごとに縮める（倍率は kamishibai.js が測って --fit-ja・--fit-en に書く。下限 0.85） */
+.page { --fit: var(--fit-ja, 1) }
+html[lang|=en] .page { --fit: var(--fit-en, 1) }
+.page > :is(slide, cover, divider) > * { zoom: var(--fit) }
+/* 直すモードの印：古い訳（赤）、訳の無い文・相手の無い対（橙）、縮めても収まらない頁（赤枠） */
+body.mode-edit :is(ja, en):is(.en-stale, .solo) { display: inline }  /* display: contents のままでは枠が描かれない（隠す規則のほうが強い） */
+body.mode-edit .en-stale { outline: 2px dashed #d00; outline-offset: 2px }
+html[lang|=en] body.mode-edit :is(.untr, .L-ja.solo), body.mode-edit .L-en.solo { outline: 2px dashed #e80; outline-offset: 2px }
+html:not([lang|=en]) body.mode-edit .page.over-ja, html[lang|=en] body.mode-edit .page.over-en { outline: 4px solid #d00; outline-offset: -4px }
