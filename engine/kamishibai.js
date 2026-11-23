@@ -1086,8 +1086,9 @@ let pend = 0, down = null, hadSel = false;
 addEventListener("mousedown", function (e) { down = [e.clientX, e.clientY]; hadSel = selecting(); });
 addEventListener("click", function (e) {
   if (body.classList.contains("edit") || body.classList.contains("op") || body.classList.contains("mode-out") ||
-      e.target.closest("button, input, select, textarea, label, a[href], video, audio, iframe, details, summary, [contenteditable], " +
-                       ".bar, .sw, .ctrl, switch, body > .side, .tools")) return;
+      /* the path of the click, not e.target.closest: a control may replace what was clicked (the handle swaps its icon) */
+      e.composedPath().some(n => n.matches && n.matches("button, input, select, textarea, label, a[href], video, audio, iframe, details, summary, [contenteditable], " +
+                       ".bar, .sw, .ctrl, switch, body > .side, .tools"))) return;
   clearTimeout(pend); pend = 0;
   const moved = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4;
   if (e.detail > 1 || moved || hadSel || selecting()) return;
