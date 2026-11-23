@@ -40,7 +40,7 @@ def drawn(m):
     path = ROOT / "fig" / f"{name}.svg"
     if not path.exists():
         sys.exit(f"missing figure: {path} (run the figure generator first)")
-    svg = path.read_text()
+    svg = path.read_text(encoding="utf-8")
     svg = re.sub(r"<\?xml[^>]*\?>\s*", "", svg)
     x, y, w, h = (float(v) for v in re.search(r'viewBox="([^"]+)"', svg).group(1).split())
     W, H = float(sc[1:]), float(sc[1:]) * h / w
@@ -339,7 +339,7 @@ def phrase_breaks(src):
 
 def katex_css():
     """KaTeX's stylesheet with the fonts in KATEX_FONTS embedded and the others dropped."""
-    css = (KATEX / "katex.min.css").read_text()
+    css = (KATEX / "katex.min.css").read_text(encoding="utf-8")
 
     def face(m):
         name = re.search(r"url\(fonts/(KaTeX_[\w-]+)\.woff2\)", m.group(0)).group(1)
@@ -353,7 +353,7 @@ def katex_css():
 
 
 def main():
-    src = (ROOT / "html" / "slide.src.html").read_text()
+    src = (ROOT / "html" / "slide.src.html").read_text(encoding="utf-8")
     src = re.sub(r"<!--SVGS (\S+) (w\d+) (\S+)-->", toggled, src)
     src = re.sub(r"<!--SVG (\S+) (w\d+)(?: (\S+))?(?: (\d+))?-->", drawn, src)
     check_glyphs(src)
@@ -365,7 +365,7 @@ def main():
     left = re.findall(r"<!--(?:SVGS?|IMG) [^>]*-->", out)
     if left:
         sys.exit(f"unresolved placeholders: {left}")
-    (ROOT / "slide.html").write_text(out)
+    (ROOT / "slide.html").write_text(out, encoding="utf-8")
     print(f"slide.html: {len(out)/1024:.0f} KiB")
 
 

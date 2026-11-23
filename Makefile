@@ -5,8 +5,10 @@ PY ?= python3
 VENV = .venv
 VPY = $(VENV)/bin/python
 ENGINES ?= chromium,webkit
+# the browser of make open / make preview (a make variable or an environment variable; default Google Chrome)
+export SLIDE_BROWSER
 
-.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order clean
+.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order lang lang-stamp clean
 all: html
 
 deps: $(VENV)/.ok tools/node_modules/.ok
@@ -33,10 +35,11 @@ engine-katex:
 	$(PY) tools/engine_katex.py
 
 # a draft of the engine as one HTML file to hand out (next to it as NAME.dist.html; git-ignored);
-# e.g. make pack SRC=talk/talk.html THEME=Madrid
+# e.g. make pack SRC=talk/talk.html THEME=Madrid; files outside the draft's folder and the folder of
+# engine/ need ALLOW=DIR (space-separated for more)
 SRC ?= engine/sample.html
 pack: deps fonts
-	$(VPY) tools/pack_engine.py $(SRC)$(if $(THEME), --theme $(THEME))
+	$(VPY) tools/pack_engine.py $(SRC)$(if $(THEME), --theme $(THEME))$(foreach d,$(ALLOW), --allow $(d))
 
 # show a draft of the engine as it is (no build) in the browser kept for slides; reloads its tab if open
 preview:
@@ -77,10 +80,21 @@ check: html browsers
 check-pack: pack browsers
 	node tools/check_layout.mjs $(basename $(SRC)).dist.html --engines=$(ENGINES)
 
-# warnings on the order of definitions, lemmas and theorems (never fails the build);
-# make order SRC=talk/talk.html reads a draft of the engine instead of html/slide.src.html
-order:
-	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),$(SRC),html/slide.src.html)
+# Japanese/English pairs of a draft: what has no English or an out-of-date one (exit 1 if any);
+# make lang-stamp SRC=… records the Japanese each English was made from (after the English is written).
+# lang, lang-stamp and order need only Python (no make deps)
+lang:
+	$(PY) tools/lang_pairs.py check $(SRC)
 
+lang-stamp:
+	$(PY) tools/lang_pairs.py stamp $(SRC)
+
+# warnings on the order of definitions, lemmas and theorems (never fails the build);
+# make order SRC=talk/talk.html reads a draft of the engine instead of html/slide.src.html;
+# GAP=n and SHORT=n set the thresholds (tools/check_order.py --gap, --short; defaults 3 and 2)
+order:
+	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),$(SRC),html/slide.src.html)$(if $(GAP), --gap $(GAP))$(if $(SHORT), --short $(SHORT))
+
+# slide.html and the packed file of SRC (default engine/sample.dist.html)
 clean:
-	rm -f slide.html
+	rm -f slide.html $(basename $(SRC)).dist.html

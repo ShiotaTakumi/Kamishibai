@@ -41,8 +41,10 @@
     <flip id="…" anim init="1"><svg>…<g class="cd">…</g>…<g class="ov">…</g></svg></flip>
                                         段階的に組み上がる図：class="cd" の群（カード）を 1 つずつ、class="ov" の群をまとめて出す。
                                         init は最初から出ているカードの数。段階の要素に cards="n" を付けると、その段階で n 枚目まで出る
-                                        （"*" は全部。ページに組み上がる図が二つあれば "a|b" で図ごとに）。ov を付けた段階で class="ov" の群が出る
-    <figcaption for="fyn" caps="…|…">…</figcaption>   開けば表示するが、make pack は拒む。ボタンの名前で足りる
+                                        （"*" は全部。一つの flip に SVG が複数あれば "a|b" で 1 枚目の SVG に a、2 枚目に b。
+                                        数でない値は数えず、make pack が警告する）。ov を付けた段階で class="ov" の群が出る
+    <figcaption for="fyn" caps="…|…" caps-en="…|…">…</figcaption>   押したボタンの名前と caps の対応する文を出す（英語では caps-en）。
+                                        開けば表示するが、make pack は拒む。ボタンの名前で足りる
 
   class で使う部品
     qa・qa-label（「入力：」「問い：」のように見出しをそろえた段落）、navy-normal（紺の文字）、label（行の中の小さな枠）、
@@ -64,10 +66,29 @@
   ■ 発表
     → / Space / Enter / PageDown / クリックで進む。← / PageUp / 画面の左 1/4 のクリックで戻る。Home / End。S 段階表示の切り替え。
     クリックは、少し待ってから送る（ダブルクリック・トリプルクリック・ドラッグ・文字の選択とその解除では送らない）。
+    ボタン・入力欄・リンク・動画・音声・iframe・details・summary のクリックでも送らない。
     タッチの画面では ◀ ▶ のボタンが出る。
-    ⌘F 全画面、⌘B ページ一覧、⌘K ポインター、⌘P 印刷（Windows では Ctrl）。
-    ⌘E 選択（文字を選べ、クリックでは送らず ← → だけで送る）、⌘U キー操作を止める（キーでもクリックでも送らない）。
-    左下の ▷ に同じボタン。その PDF のボタンは段階ごとに 1 枚ずつ印刷する。#s5 を付けると 5 枚目から開く。
+    道具はページの左の隙間に縦一列のアイコンで並ぶ（名前はアイコンに指を置くと出る）。下のつまみで上へ開く。上の板に今のモードの道具、
+    下の板にくぼんだ溝に入った三つのモード（編集・プレゼン・出力）とつまみ。畳むと編集・出力のときだけそのモードのアイコンが残り、プレゼンの道具が
+    オンのときはつまみに橙の点が付く。ページは左にこの欄の幅（52px）の隙間を必ず空けて置く。既定はプレゼン。モードのキーをもう一度押すとプレゼンに戻る（Windows では Ctrl）。
+    編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。ページ一覧 ⌘B・日本語の太さ。
+    プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、日本語の太さ、
+      選択 ⌘I（文字を選べ、クリックでは送らず ← → だけで送る）、キー無効 ⌘U（キーでもクリックでも送らない）。選択とキー無効はどちらか一方。
+    出力 ⌘P：印刷の版面を画面に並べる。PDF（段階ごとに 1 枚／全段階を 1 枚に）は印刷の画面から、
+      HTML（1 ファイル）は page-edit があるとき原稿の隣に 原稿.dist.html を書く（無いときは make pack）。
+    #s5 を付けると 5 枚目から開く。
+    ブラウザが覚える設定（段階表示 "kamishibai-steps"・言語 "kamishibai-lang"・日本語の太さ "kamishibai-ja-stroke"）は
+    localStorage に入る。同じオリジン（file:// では多くのブラウザで全てのファイル）の原稿で共通になる。
+
+  ■ 日本語と英語
+    一つの原稿に日本語と英語を並べて書き、どちらか一方を出す。英語は外で作り（手か翻訳）、エンジンは切り替えと組みだけを行う。
+    書き方：文の中は <ja>…</ja><en>…</en>。要素ごとなら lang="ja" の要素のすぐ後に lang="en" の要素（SVG の <g>・<tspan> でもよい）。
+      属性 title・cite・label・sec・aff・short は X-en="…" に英語を書く。英語の無い日本語は両方の言語で出る。
+    切り替え：プレゼンの道具「日本語 ⇄ English」かキー L。URL に ?lang=en。選んだほうはブラウザが覚える。既定は <html lang>。
+    収まらないページは、その言語だけ文字を少しずつ縮めて収める（85% まで）。それでもはみ出すページは make check-pack が報告する。
+    訳の記録：tools/lang_pairs.py stamp（make lang-stamp）が、英語ごとに元の日本語のハッシュを <en ja="…">（属性は X-en-ja）に書く。
+      日本語を直すと、編集モードでその英語に「古い訳」の印が付き、英語の無い日本語にも印が付く。
+      一覧は make lang（tools/lang_pairs.py check）。英語を直したら make lang-stamp で記録を足し、作り直した英語は stamp --force。
 
   ■ 図のコード（figure.js）
     JavaScript で SVG を描く図。<svg id="…"> に対して FIG["id"] = function (svg) { … } と書くと、ページを開いたときに描く。
@@ -138,26 +159,109 @@ pages.forEach(function (pg) {
   });
 });
 
-/* Footer text (Madrid) taken from the cover; short="…" wins. <rt> dropped, <br> -> space */
-function plain(e) {
-  if (e.hasAttribute("short")) return e.getAttribute("short");
+/* ===== Japanese and English (日英) =====
+   A deck may hold both languages; one is shown at a time (button in the panel, key L, ?lang=ja|en,
+   remembered under localStorage "kamishibai-lang"; the default is the html's lang). The English is
+   written outside (by hand or a translator) next to the Japanese:
+     <p><ja>…</ja><en>…</en></p>              inline pair (both tags are display: contents)
+     <div lang="ja">…</div><div lang="en">…</div>   any element (also SVG <tspan>, <g>): the lang="en"
+                                              element right after a lang="ja" one is its English
+     title="…" title-en="…"                   attributes: title, cite, label, sec, aff, short
+   <en ja="hash"> (or title-en-ja="hash") records the Japanese the English was made from
+   (tools/lang_pairs.py stamp); when the Japanese changes, the English is marked as stale in edit mode.
+   Japanese with no English is shown in both languages (marked in edit mode) */
+const norm = s => s.replace(/\s+/g, " ").trim();
+/* FNV-1a (32 bit) of the UTF-8 of the normalized text; the same in tools/lang_pairs.py */
+function hash(s) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(norm(s))) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return ("0000000" + h.toString(16)).slice(-8);
+}
+const LANG0 = /^en\b/i.test(root.getAttribute("lang") || "") ? "en" : "ja";
+const LATTR = ["title", "cite", "label", "sec", "aff", "short"];
+const isJa = e => !!e && (e.tagName === "JA" || /^ja\b/i.test(e.getAttribute("lang") || ""));
+pages.forEach(function (pg) {
+  pg.querySelectorAll("ja").forEach(e => { e.classList.add("L-ja"); e.setAttribute("lang", "ja"); });
+  pg.querySelectorAll("en").forEach(e => { e.classList.add("L-en"); e.setAttribute("lang", "en"); });
+  /* a lang="en" element counts only right after a lang="ja" one (a lone lang="en" span is left alone) */
+  pg.querySelectorAll("[lang|=en]:not(en)").forEach(function (e) {
+    const j = e.previousElementSibling;
+    if (isJa(j)) { e.classList.add("L-en"); j.classList.add("L-ja"); }
+  });
+  pg.querySelectorAll(".L-en").forEach(function (e) {
+    const j = e.previousElementSibling;
+    if (!isJa(j)) { e.classList.add("solo"); return; }
+    if (e.hasAttribute("ja") && e.getAttribute("ja") !== hash(j.textContent)) e.classList.add("en-stale");
+  });
+  pg.querySelectorAll("ja").forEach(function (j) { const n = j.nextElementSibling; if (!n || !n.classList.contains("L-en")) j.classList.add("solo"); });
+});
+const EN_ATTR = LATTR.map(a => "[" + a + "-en]").join(",");
+const hasEn = pages.some(pg => pg.matches(EN_ATTR) || !!pg.querySelector(".L-en, " + EN_ATTR));
+Kamishibai.hasEn = hasEn;
+const LKEY = "kamishibai-lang";
+let lang = LANG0;
+if (hasEn) {
+  let v = (location.search.match(/[?&]lang=(ja|en)\b/) || [])[1];
+  if (!v) try { v = localStorage.getItem(LKEY); } catch (e) {}
+  if (v === "ja" || v === "en") lang = v;
+  root.classList.add("bi");
+  root.setAttribute("lang", lang);
+}
+/* {ja, en, stale} of attribute a of e (def / defEn when e has none); en is null when there is no English */
+function pair(e, a, def, defEn) {
+  const has = e.hasAttribute(a), ja = has ? e.getAttribute(a) : (def || "");
+  const en = e.hasAttribute(a + "-en") ? e.getAttribute(a + "-en") : (has ? null : (defEn || null));
+  const h = e.getAttribute(a + "-en-ja");
+  return { ja: ja, en: en, stale: !!(en != null && h && h !== hash(ja)) };
+}
+const txt = s => document.createTextNode(s);
+/* the node made by make(text) for the Japanese and for the English of p, each in its tag */
+function both(p, make) {
+  if (!hasEn || p.en == null || p.en === p.ja) return make(p.ja);
+  const s = $new("span"), j = document.createElement("ja"), e = document.createElement("en");
+  j.className = "L-ja"; j.setAttribute("lang", "ja");
+  e.className = "L-en" + (p.stale ? " en-stale" : ""); e.setAttribute("lang", "en");
+  j.appendChild(make(p.ja)); e.appendChild(make(p.en));
+  s.append(j, e);
+  return s;
+}
+
+/* Footer text (Madrid) taken from the cover; short="…" (short-en="…") wins. <rt> dropped, <br> -> space */
+function shortOf(e, L) {
+  if (L === "en" && e.hasAttribute("short-en")) return e.getAttribute("short-en");
+  if (e.hasAttribute("short") && (L !== "en" || !e.querySelector(".L-en"))) return e.getAttribute("short");
+  return null;
+}
+function plain(e, L) {
+  const s = shortOf(e, L);
+  if (s != null) return s;
   const c = e.cloneNode(true);
+  c.querySelectorAll(L === "en" ? ".L-ja:not(.solo)" : ".L-en").forEach(r => r.remove());
   c.querySelectorAll("rt").forEach(r => r.remove());
   c.querySelectorAll("br").forEach(b => b.replaceWith(" "));
-  return c.textContent.replace(/\s+/g, " ").trim();
+  return norm(c.textContent);
 }
-const FOOT = { who: "", title: "", date: "" };
+const FOOT = { who: { ja: "", en: null }, title: { ja: "", en: null }, date: { ja: "", en: null } };
 const cov = pages.find(e => e.tagName === "COVER");
 if (cov) {
   const a = cov.querySelector("author[presenter]") || cov.querySelector("author"), h = cov.querySelector("headline"), d = cov.querySelector("date");
-  if (a) FOOT.who = a.hasAttribute("short") ? a.getAttribute("short") : plain(a) + (a.hasAttribute("aff") ? "  (" + a.getAttribute("aff") + ")" : "");
-  if (h) FOOT.title = plain(h);
-  if (d) FOOT.date = plain(d);
+  const who = function (L) {
+    const s = shortOf(a, L);
+    if (s != null) return s;
+    const f = a.getAttribute(L === "en" && a.hasAttribute("aff-en") ? "aff-en" : "aff");
+    return plain(a, L) + (f ? "  (" + f + ")" : "");
+  };
+  ["ja", "en"].forEach(function (L) {
+    if (a) FOOT.who[L] = who(L);
+    if (h) FOOT.title[L] = plain(h, L);
+    if (d) FOOT.date[L] = plain(d, L);
+  });
 }
 function foot(i) {
   const f = $new("div", "foot"), f3 = $new("div", "f3");
-  f3.append($new("span", "fdate", FOOT.date), $new("span", "pageno", (i + 1) + " / " + pages.length));
-  f.append($new("div", "f1", FOOT.who), $new("div", "f2", FOOT.title), f3);
+  const el = (tag, cls, p) => { const x = $new(tag, cls); x.appendChild(both(p, txt)); return x; };
+  f3.append(el("span", "fdate", FOOT.date), $new("span", "pageno", (i + 1) + " / " + pages.length));
+  f.append(el("div", "f1", FOOT.who), el("div", "f2", FOOT.title), f3);
   return f;
 }
 
@@ -187,12 +291,12 @@ function titleSpan(title) {
 /* Kamishibai components written as tags */
 function components(pg) {
   pg.querySelectorAll("alert").forEach(e => e.classList.add("k"));
-  [["proof", "pf", "証明"], ["plan", "pf pl", "証明の方針"], ["later", "ph", ""]].forEach(function (c) {
+  [["proof", "pf", "証明", "Proof"], ["plan", "pf pl", "証明の方針", "Proof sketch"], ["later", "ph", "", ""]].forEach(function (c) {
     pg.querySelectorAll(c[0]).forEach(function (e) {
       c[1].split(" ").forEach(k => e.classList.add(k));
-      const title = e.hasAttribute("title") ? e.getAttribute("title") : c[2];
+      const title = pair(e, "title", c[2], c[3]);
       e.removeAttribute("title");
-      if (title) { const pt = $new("div", "pt"); pt.appendChild(titleSpan(title)); e.prepend(pt); }
+      if (title.ja || title.en) { const pt = $new("div", "pt"); pt.appendChild(both(title, titleSpan)); e.prepend(pt); }
     });
   });
   pg.querySelectorAll("nums").forEach(function (e) {
@@ -201,7 +305,9 @@ function components(pg) {
     if (start > 1) e.style.counterReset = "n " + (start - 1);
     if (e.hasAttribute("labels")) e.classList.add("lab");
     e.querySelectorAll(":scope > item[label]").forEach(function (it) {
-      it.prepend($new("span", "lb", it.getAttribute("label")));
+      const lb = $new("span", "lb");
+      lb.appendChild(both(pair(it, "label"), txt));
+      it.prepend(lb);
     });
   });
   /* A label (<span class="label">) at the start of a paragraph, item or box: the text after it wraps
@@ -240,6 +346,7 @@ function components(pg) {
     c.classList.add("cap");
     c.setAttribute("data-flipcap", c.getAttribute("for"));
     if (c.hasAttribute("caps")) c.setAttribute("data-caps", c.getAttribute("caps"));
+    if (c.hasAttribute("caps-en")) c.setAttribute("data-caps-en", c.getAttribute("caps-en"));
   });
   ["cards", "ov", "with"].forEach(function (a) {
     pg.querySelectorAll("[" + a + "]").forEach(function (e) { e.setAttribute("data-" + a, e.getAttribute(a)); });
@@ -249,10 +356,12 @@ function components(pg) {
 pages.forEach(function (pg, i) {
   const sec = $new("section", "page");
   const tag = pg.tagName;
+  sec.dataset.k = i;   // also on the copies (overview, printing): the shrink of the page is set on all
 
   if (tag === "SLIDE") {
     /* the title is one span (.ttl is flex; .ja spans would scatter it) */
-    sec.appendChild($new("div", "ttl")).appendChild($new("span", null, pg.getAttribute("title") || ""));
+    const tp = pair(pg, "title"), ts = sec.appendChild($new("div", "ttl")).appendChild($new("span"));
+    if (tp.ja || tp.en) ts.appendChild(both(tp, txt));
     pg.removeAttribute("title");   // no tooltip
   }
 
@@ -268,8 +377,12 @@ pages.forEach(function (pg, i) {
     const ct = $new("div", "ctitle"), meta = $new("div", "cmeta"), box = $new("div", "authors"), insts = $new("div", "insts");
     pg.querySelectorAll("headline, subtitle").forEach(e => ct.appendChild(e));
     pg.querySelectorAll("meeting, date").forEach(e => meta.appendChild(e));
-    const authors = pg.querySelectorAll("author"), affs = [];
-    authors.forEach(function (a) { const f = a.getAttribute("aff"); if (f && affs.indexOf(f) < 0) affs.push(f); });
+    const authors = pg.querySelectorAll("author"), affs = [], affP = {};
+    authors.forEach(function (a) {
+      const f = a.getAttribute("aff");
+      if (f && affs.indexOf(f) < 0) affs.push(f);
+      if (f && (!affP[f] || affP[f].en == null)) affP[f] = pair(a, "aff");
+    });
     authors.forEach(function (a) {
       if (affs.length > 1 && a.hasAttribute("aff")) a.appendChild($new("sup", null, String(affs.indexOf(a.getAttribute("aff")) + 1)));
       box.appendChild(a);
@@ -277,7 +390,7 @@ pages.forEach(function (pg, i) {
     affs.forEach(function (f, k) {
       const s = insts.appendChild($new("span"));
       if (affs.length > 1) s.appendChild($new("sup", null, String(k + 1)));
-      s.appendChild(document.createTextNode(f));
+      s.appendChild(both(affP[f], txt));
     });
     pg.prepend(ct, box, insts, meta);
     pg.querySelectorAll("qr").forEach(function (q) {
@@ -289,15 +402,15 @@ pages.forEach(function (pg, i) {
   }
 
   pg.querySelectorAll("block, alertblock, exampleblock").forEach(function (b) {
-    const bt = $new("div", "bt"), bb = $new("div", "bb"), title = b.getAttribute("title") || "";
+    const bt = $new("div", "bt"), bb = $new("div", "bb"), tp = pair(b, "title"), title = tp.ja;
     /* A box holds one statement (BLOCK_KINDS). While drafting, a box whose title names no kind is marked;
        tools/check_blocks.py checks the rest, and tools/pack_engine.py packs no draft that fails it */
     if (!packed && !BLOCK_HEAD.test(title.trim())) {
       b.classList.add("bad-box");
       console.warn("Kamishibai: page " + (i + 1) + ": a box titled \"" + title + "\" is not a statement (" + BLOCK_KINDS.join(", ") + ")");
     }
-    if (title) bt.appendChild(titleSpan(title));
-    if (b.hasAttribute("cite")) bt.appendChild($new("cite", null, b.getAttribute("cite")));
+    if (title || tp.en) bt.appendChild(both(tp, titleSpan));
+    if (b.hasAttribute("cite")) bt.appendChild($new("cite")).appendChild(both(pair(b, "cite"), txt));
     b.removeAttribute("title");
     while (b.firstChild) bb.appendChild(b.firstChild);
     b.append(bt, bb);
@@ -319,7 +432,7 @@ body.prepend(deck);
   pages.forEach(function (pg) {
     if (pg.tagName !== "SLIDE") return;
     /* a new section starts where sec="…" names a different section than the one before */
-    if (pg.hasAttribute("sec") && (!cur || cur.name !== pg.getAttribute("sec"))) { cur = { name: pg.getAttribute("sec"), sl: [] }; secs.push(cur); }
+    if (pg.hasAttribute("sec") && (!cur || cur.name !== pg.getAttribute("sec"))) { cur = { name: pg.getAttribute("sec"), p: pair(pg, "sec"), sl: [] }; secs.push(cur); }
     if (cur) cur.sl.push(pg);
   });
   secs.forEach(function (sc) {
@@ -328,7 +441,9 @@ body.prepend(deck);
       secs.forEach(function (t) {
         const hs = $new("div", "hs" + (t === sc ? " cur" : "")), hf = $new("div", "hf");
         t.sl.forEach(x => hf.appendChild($new("i", x === pg ? "cur" : null)));
-        hs.append($new("div", "hn", t.name), hf);
+        const hn = $new("div", "hn");
+        hn.appendChild(both(t.p, txt));
+        hs.append(hn, hf);
         hl.appendChild(hs);
       });
       pg.parentNode.appendChild(hl);
@@ -337,7 +452,7 @@ body.prepend(deck);
 })();
 
 /* ===== size="32" (pt) ===== */
-stage.querySelectorAll("[size]").forEach(function (e) {
+stage.querySelectorAll("[size]:not(input, select, font, hr, basefont)").forEach(function (e) {
   const pt = parseFloat(e.getAttribute("size"));
   if (pt > 0) e.style.fontSize = (pt * 4 / 3) + "px";
 });
@@ -375,6 +490,15 @@ if (window.renderMathInElement && window.katex) {
   pre.forEach(p => p.classList.remove("ks-pre"));
 }
 
+/* ===== Japanese with no English (in a deck that has English): its element is marked .untr ===== */
+if (hasEn) (function () {
+  const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), jp = /[぀-ヿ㐀-䶿一-鿿]/;
+  while (w.nextNode()) {
+    const t = w.currentNode, p = t.parentElement;
+    if (p && jp.test(t.nodeValue) && !p.closest(".L-ja, .L-en, .katex, script, style")) p.classList.add("untr");
+  }
+})();
+
 /* ===== Japanese brackets and punctuation at full width (theme switch --jp-pad: ipa).
    IPA P-Gothic draws them about half width, so each gets a span with the missing width as padding.
    Applied only when the theme's font (--jp-pad-family, without a unicode-range) is declared, so a
@@ -391,7 +515,7 @@ if (window.renderMathInElement && window.katex) {
   const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), hits = [];
   while (w.nextNode()) {
     const t = w.currentNode, p = t.parentElement;
-    if (p && PUNCT.test(t.nodeValue) && !p.closest(".katex, svg")) hits.push(t);
+    if (p && PUNCT.test(t.nodeValue) && !p.closest(".katex, svg, .L-en")) hits.push(t);
   }
   hits.forEach(function (t) {
     const s = t.nodeValue, frag = document.createDocumentFragment();
@@ -419,7 +543,7 @@ if (window.renderMathInElement && window.katex) {
   const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), hits = [];
   while (w.nextNode()) {
     const t = w.currentNode, p = t.parentElement;
-    if (!p || !has.test(t.nodeValue) || p.closest(".katex, svg")) continue;
+    if (!p || !has.test(t.nodeValue) || p.closest(".katex, svg, .L-en")) continue;
     if (parseInt(getComputedStyle(p).fontWeight, 10) >= 600) continue;
     hits.push(t);
   }
@@ -437,9 +561,14 @@ if (window.renderMathInElement && window.katex) {
 document.fonts.forEach(function (f) { f.load().catch(function () {}); });
 
 /* Show the stage once the fonts are in, but never wait more than 3 s (a missing or slow font CSS
-   must not keep the deck hidden) */
+   must not keep the deck hidden). Before that, the pages that overflow are shrunk (shrinkPages).
+   Kamishibai.ready resolves then, with Kamishibai.fits */
 stage.style.visibility = "hidden";
-Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 3000))]).then(function () { stage.style.visibility = ""; });
+Kamishibai.ready = Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 3000))]).then(function () {
+  try { shrinkPages(); } catch (e) { console.error(e); }
+  finally { stage.style.visibility = ""; }
+  return Kamishibai.fits;
+});
 
 /* ===== Figures ===== */
 const FIG = window.FIG || {};
@@ -458,8 +587,10 @@ const timers = new Map();
 function figsOf(f) { return [].slice.call(f.querySelectorAll(":scope > svg.gv, :scope > img.gv")); }
 function pick(v, k, n) {
   if (v === undefined || v === null) return null;
-  const p = v.split("|"), x = p[Math.min(k, p.length - 1)];
-  return x === "*" ? n : parseInt(x, 10);
+  const p = v.split("|"), x = p[Math.min(k, p.length - 1)].trim();
+  if (x === "*") return n;
+  if (!/^\d+$/.test(x)) { console.warn('kamishibai: cards="' + v + '": not a count ("n", "*", or "a|b" per figure)'); return null; }
+  return parseInt(x, 10);
 }
 /* state of figure k of flip f for the shown steps of its page (drop: without the last data-cards step) */
 function state(f, k, drop) {
@@ -505,7 +636,13 @@ function setFlip(id, k, anim) {
   const btns = stage.querySelectorAll('[data-flip="' + id + '"] button');
   btns.forEach((b, i) => b.classList.toggle("sub2", i !== k));
   const c = stage.querySelector('[data-flipcap="' + id + '"]');
-  if (c && c.dataset.caps !== undefined && btns[k]) c.textContent = btns[k].textContent + "：" + c.dataset.caps.split("|")[k];
+  if (c && c.dataset.caps !== undefined && btns[k]) {
+    f.dataset.k = k;
+    const en = hasEn && lang === "en", b = btns[k].cloneNode(true);
+    b.querySelectorAll(en ? ".L-ja:not(.solo)" : ".L-en").forEach(e => e.remove());
+    const caps = (en && c.dataset.capsEn !== undefined ? c.dataset.capsEn : c.dataset.caps).split("|");
+    c.replaceChildren.apply(c, [].slice.call(b.childNodes).concat([txt((en ? ": " : "：") + (caps[k] || ""))]));
+  }
 }
 const flips = [].slice.call(stage.querySelectorAll(".flip.tg"));
 function resetFlips() { flips.forEach(f => { if (f.id) setFlip(f.id, 0); }); }
@@ -516,6 +653,9 @@ stage.querySelectorAll("[data-flip]").forEach(function (ct) {
 });
 resetFlips();
 syncAnims(stage, false);
+document.addEventListener("kamishibai:lang", function () {
+  flips.forEach(f => { if (f.id && f.dataset.k !== undefined) setFlip(f.id, +f.dataset.k); });
+});
 
 /* ===== Step groups: a step with with="prev" belongs to the group of the step before it ===== */
 function groups(page) {
@@ -526,11 +666,29 @@ function groups(page) {
   return g;
 }
 
-/* Copy of a page (overview and printing): ids removed, the first `shown` steps on */
+/* Copy of a page (overview and printing): the first `shown` steps on. Each id gets a suffix of its
+   copy, and the references inside the copy follow it (url(#…) in attributes and <style>, and
+   href="#…" of SVG elements), so that gradients, markers, clip paths and <use> still draw */
+let copies = 0;
+const URLREF = /url\(\s*(['"]?)#([^'")\s]+)\1\s*\)/g;
 function copyPage(sec, shown) {
-  const c = sec.cloneNode(true);
+  const c = sec.cloneNode(true), sfx = "--c" + (++copies), ids = new Map();
   c.classList.add("on");
-  c.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+  [c].concat([].slice.call(c.querySelectorAll("[id]"))).forEach(function (e) {
+    if (e.id) { ids.set(e.id, e.id + sfx); e.id += sfx; }
+  });
+  if (ids.size) {
+    const fix = v => v.replace(URLREF, (m, q, id) => ids.has(id) ? "url(#" + ids.get(id) + ")" : m);
+    c.querySelectorAll("*").forEach(function (e) {
+      [].slice.call(e.attributes).forEach(function (a) {
+        const v = a.value;
+        if (/^(xlink:)?href$/.test(a.name)) {
+          if (v[0] === "#" && ids.has(v.slice(1)) && e.namespaceURI === "http://www.w3.org/2000/svg") a.value = "#" + ids.get(v.slice(1));
+        } else if (v.indexOf("url(") >= 0) { const w = fix(v); if (w !== v) a.value = w; }
+      });
+      if (e.localName === "style") e.textContent = fix(e.textContent);
+    });
+  }
   c.querySelectorAll(STEP).forEach((e, j) => e.classList.toggle("on", j < shown));
   syncAnims(c, false);
   return c;
@@ -569,98 +727,291 @@ body.querySelectorAll("body > .side svg[data-fig], .print svg[data-fig]").forEac
   draw(svg, true);
 });
 
+/* ===== Shrink to fit: a page whose content runs past its area (all steps shown; steps only fade) is
+   drawn smaller, by 0.02 down to FIT_MIN, through `zoom` on the children of its slide / cover / divider.
+   Measured for each language after the fonts are in; the result is --fit-ja / --fit-en on the page and
+   its copies. A page still overflowing at FIT_MIN gets .over-ja / .over-en (outlined in edit mode) and
+   a warning in the console. Kamishibai.fits = { ja: [{ zoom, over }, …], en: […] } ===== */
+const FIT_MIN = 0.85, FIT_STEP = 0.02;
+Kamishibai.fits = {};
+function overflows(sec) {
+  const ce = sec.querySelector(":scope > :is(cover, slide, divider)");
+  if (!ce) return false;
+  const s = sec.getBoundingClientRect().height / (sec.offsetHeight || 1) || 1;
+  const bottom = ce.getBoundingClientRect().bottom - (parseFloat(getComputedStyle(ce).paddingBottom) || 0) * s;
+  let max = -Infinity;
+  [].forEach.call(ce.children, function (c) {
+    const cs = getComputedStyle(c);
+    if (cs.position === "absolute" || cs.position === "fixed" || cs.display === "none") return;
+    const b = c.getBoundingClientRect();
+    if (b.width || b.height) max = Math.max(max, b.bottom);
+  });
+  return max > bottom + 0.5 * s;
+}
+function shrinkPages() {
+  const cur = root.getAttribute("lang"), fits = {};
+  (hasEn ? ["ja", "en"] : [LANG0]).forEach(function (L) {
+    if (hasEn) root.setAttribute("lang", L);
+    fits[L] = secs.map(function (sec, i) {
+      const on = sec.classList.contains("on");
+      sec.classList.add("on");
+      let z = 1;
+      sec.style.setProperty("--fit", "1");
+      while (z > FIT_MIN + 1e-9 && overflows(sec)) {
+        z = Math.max(FIT_MIN, Math.round((z - FIT_STEP) * 100) / 100);
+        sec.style.setProperty("--fit", String(z));
+      }
+      const over = overflows(sec);
+      sec.style.removeProperty("--fit");
+      sec.classList.toggle("on", on);
+      document.querySelectorAll('.page[data-k="' + i + '"]').forEach(function (p) {
+        if (z < 1) p.style.setProperty("--fit-" + L, String(z)); else p.style.removeProperty("--fit-" + L);
+        p.classList.toggle("over-" + L, over);
+      });
+      if (over) console.warn("Kamishibai: page " + (i + 1) + " (" + L + ") overflows even at " + FIT_MIN);
+      return { zoom: z, over: over };
+    });
+  });
+  if (hasEn) root.setAttribute("lang", cur);
+  Kamishibai.fits = fits;
+}
+
 /* ===== Stage size from the theme (--W, --H): screen fit, thumbnails, paper size ===== */
 const SW = parseFloat(cssVar("--W")) || 1280, SH = parseFloat(cssVar("--H")) || 720;
 Kamishibai.size = [SW, SH];
 root.style.setProperty("--ratio", String(SH / SW));
 root.style.setProperty("--tscale", String(192 / SW));
 document.head.appendChild($new("style", null, "@page { size: " + (SW * .75) + "pt " + (SH * .75) + "pt; margin: 0 }"));
+/* The panel (40px wide) sits in the gap left of the page. When that gap is narrower than GUT, the page
+   gives up just enough room on the left (it moves right by at most GUT / 2) */
+const GUT = 52;
 function fit() {
   const L = body.classList.contains("side-on") ? side.offsetWidth : 0, W = innerWidth - L, H = innerHeight;
-  const s = Math.min(W / SW, H / SH);
-  stage.style.transform = "translate(" + (L + (W - SW * s) / 2) + "px," + (H - SH * s) / 2 + "px) scale(" + s + ")";
+  let s = Math.min(W / SW, H / SH), x = (W - SW * s) / 2;
+  /* in fullscreen the page fills the screen; the panel, shown only while the mouse is near, lies over it */
+  const full = document.fullscreenElement || document.webkitFullscreenElement;
+  if (x < GUT && !full) { s = Math.min(H / SH, (W - GUT) / SW); x = GUT + (W - GUT - SW * s) / 2; }
+  stage.style.transform = "translate(" + (L + x) + "px," + (H - SH * s) / 2 + "px) scale(" + s + ")";
+  /* in 出力 the printed sheets, not the page, leave the gap */
+  if (!tools) return;
+  const left = body.classList.contains("mode-out") ? (root.clientWidth - SW * parseFloat(cssVar("--pzoom") || 1) - 80) / 4 : L + (x - 40) / 2;
+  tools.style.left = Math.max(4, left) + "px";
 }
-addEventListener("resize", fit);
+let tools = null;
+addEventListener("resize", function () { zoomPrint(); fit(); });
+document.addEventListener("fullscreenchange", fit);
+document.addEventListener("webkitfullscreenchange", fit);
 
-/* ===== Fullscreen (⌘F), overview (⌘B), pointer (⌘K), select (⌘E), keys off (⌘U), print (⌘P), PDF ===== */
+/* ===== Three modes, chosen in the panel in the gap left of the page (it opens upward) or by their keys =====
+   プレゼン (default): fullscreen ⌘F, pointer ⌘K, steps S, select ⌘I (text can be selected, clicks do not turn
+     pages, ← → still do), keys off ⌘U (badge at the top right; select and keys off exclude each other).
+   編集 ⌘E: the text is edited on the page by the page-edit extension (Kamishibai.setEditor); without it the
+     heading is gray. Clicks do not turn pages.
+   出力 ⌘P: the printed sheets are shown on the screen; PDF with one sheet per step, PDF with all steps on one
+     sheet (both through the print dialog), or one HTML file (page-edit writes it; without it: make pack).
+   Pages ⌘B and the stroke of Japanese text work in every mode. The key of the current mode, pressed again,
+   goes back to プレゼン */
 function fullscreen() {
   const d = document, el = d.documentElement;
   const exit = d.exitFullscreen || d.webkitExitFullscreen, enter = el.requestFullscreen || el.webkitRequestFullscreen;
   if (d.fullscreenElement || d.webkitFullscreenElement) { if (exit) exit.call(d); }
   else if (enter) enter.call(el);
 }
-const tools = $new("div", "tools"), btn = {};
-function toggle(name) {
-  if (name === "full") { fullscreen(); return; }
-  if (name === "print") { print(); return; }
-  const cls = { side: "side-on", ptr: "ptr-on", edit: "edit", op: "op" }[name];
-  const on = body.classList.toggle(cls);
-  btn[name].classList.toggle("on", on);
-  if (name === "side") { fit(); if (on) showCurrent(); }
-  /* select and keys off exclude each other; the badge shows the key that turns it off */
-  if (on && (name === "edit" || name === "op")) {
-    const other = name === "edit" ? "op" : "edit";
-    body.classList.remove(other);
-    btn[other].classList.remove("on");
-    badge.textContent = mod + (name === "edit" ? "E" : "U");
-  }
-}
-const handle = $new("button", null, "▷");
-handle.addEventListener("click", function () {
-  handle.textContent = body.classList.toggle("tools-open") ? "◁" : "▷";
-  handle.blur();
-});
-tools.appendChild(handle);
 const mac = /Mac|iPhone|iPad/.test(navigator.platform), mod = mac ? "⌘" : "Ctrl+";
-[["side", "Pages", "B"], ["full", "Fullscreen", "F"], ["ptr", "Pointer", "K"], ["edit", "Select", "E"], ["op", "Keys off", "U"], ["print", "Print", "P"]].forEach(function (b) {
-  const el = $new("button", "op", b[1] + " " + mod + b[2]);
-  el.addEventListener("click", function () { toggle(b[0]); el.blur(); });
-  btn[b[0]] = el;
-  tools.appendChild(el);
-});
-
-/* Print (⌘P): all steps shown, one sheet per page. PDF: one sheet per step group.
-   The PDF layout stays until the next key or pointer press (Safari re-lays out in its print dialog) */
-function printSteps(on) { body.classList.toggle("print-steps", on); }
-addEventListener("keydown", function () { printSteps(false); }, true);
-addEventListener("pointerdown", function () { printSteps(false); }, true);
-const pdf = $new("button", "op", "PDF");
-pdf.addEventListener("click", function () { printSteps(true); pdf.blur(); print(); });
-tools.appendChild(pdf);
-
+const st = { mode: "show", side: false, ptr: false, sel: false, op: false, out: "steps" };
+let editor = window.KamishibaiEditor || null;
+tools = $new("div", "tools");
+const lit = {}, vals = [];
+const edText = () => editor && editor.enter ? "文をクリックして直す（Enter で保存、Esc で取り消し）" : "文を直すには拡張機能 page-edit が要ります";
+const canHTML = () => !!(editor && editor.exportHTML) && !Kamishibai.packed;
+const outText = () => st.out !== "html" ? "出力を押し、印刷の画面で「PDF に保存」を選ぶ"
+  : canHTML() ? "出力を押すと、原稿の隣に 名前.dist.html を書く" : "HTML は make pack で作ります（page-edit があればここから出せます）";
+const NAMES = { ptr: "ポインター", sel: "選択", op: "キー無効" };
+function render() {
+  const C = body.classList, show = st.mode === "show";
+  C.toggle("side-on", st.side);
+  C.toggle("ptr-on", show && st.ptr);
+  C.toggle("edit", (show && st.sel) || st.mode === "edit");
+  C.toggle("op", show && st.op);
+  C.toggle("mode-edit", st.mode === "edit");
+  C.toggle("mode-out", st.mode === "out");
+  C.toggle("print-steps", st.mode === "out" && st.out === "steps");
+  const on = { side: st.side, ptr: st.ptr, sel: st.sel, op: st.op, steps: stepMode, lang: hasEn && lang === "en",
+               edit: st.mode === "edit", show: show, out: st.mode === "out",
+               "o-steps": st.out === "steps", "o-all": st.out === "all", "o-html": st.out === "html" };
+  Object.keys(lit).forEach(k => lit[k].forEach(b => b.classList.toggle("on", !!on[k])));
+  lit.edit.forEach(b => b.classList.toggle("off", !(editor && editor.enter)));
+  lit.lang.forEach(b => b.classList.toggle("off", !hasEn));
+  lit["o-html"].forEach(b => b.classList.toggle("off", !canHTML()));
+  outBtn.classList.toggle("off", st.out === "html" && !canHTML());
+  outBtn.title = outText();
+  /* while folded, a dot on the handle tells that pointer, select or keys off is on */
+  const act = show ? Object.keys(NAMES).filter(k => st[k]).map(k => NAMES[k]) : [];
+  handle.classList.toggle("dot", act.length > 0);
+  handle.title = (body.classList.contains("tools-open") ? "道具をしまう" : "道具を開く") + (act.length ? "（オン：" + act.join("・") + "）" : "");
+}
+/* m: "show", "edit" or "out" */
+function setMode(m) {
+  if (m === st.mode) return;
+  if (st.mode === "edit" && editor && editor.leave) editor.leave();
+  st.mode = m;
+  if (m === "out") { openTools(true); zoomPrint(); }
+  render();
+  fit();
+  if (m === "edit") { if (editor && editor.enter) editor.enter(); toast(edText() + langNote(), 3500); }
+  if (m === "out") toast(outText(), 2500);
+}
+function zoomPrint() { root.style.setProperty("--pzoom", String(Math.min(1, (innerWidth - 2 * GUT) / SW))); }
+/* the tools: those of プレゼン first leave another mode */
+function tool(name) {
+  if (name === "edit" && st.mode !== "edit" && !(editor && editor.enter)) {
+    openTools(true); tools.classList.add("show"); toast(edText(), 2500); return;
+  }
+  if (name === "edit" || name === "out") { setMode(st.mode === name ? "show" : name); return; }
+  if (name === "show") { setMode("show"); return; }
+  if (name === "lang") { setLang(lang === "en" ? "ja" : "en"); return; }
+  if (name === "side") { st.side = !st.side; render(); fit(); if (st.side) showCurrent(); return; }
+  if (/^o-/.test(name)) { st.out = name.slice(2); render(); toast(outText(), 2500); return; }
+  setMode("show");
+  if (name === "full") { fullscreen(); return; }
+  if (name === "steps") { toggleSteps(); return; }
+  st[name] = !st[name];
+  if (st[name] && name === "sel") st.op = false;
+  if (st[name] && name === "op") st.sel = false;
+  render();
+}
+function output() {
+  if (st.out === "html") { if (canHTML()) editor.exportHTML(); return; }
+  render();
+  print();
+}
+/* Icons: 24 × 24 line drawings (stroke only) */
+const ICON = {
+  up: "M6 15l6-6 6 6", down: "M6 9l6 6 6-6",
+  edit: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
+  show: "M3 4h18v12H3zM12 16v4M8 20h8M10 7.5l4.5 2.5-4.5 2.5z",
+  out: "M7 9V3h10v6M7 17H4V9h16v8h-3M7 14h10v7H7z",
+  full: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5",
+  ptr: "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M12 2v4M12 18v4M2 12h4M18 12h4",
+  steps: ["M4 6h1M9 6h11M4 12h1M9 12h11", "M4 18h1M9 18h11"],
+  side: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  sel: "M9 4h6M9 20h6M12 4v16",
+  op: "M3 7h18v10H3zM7 11h1M11 11h1M15 11h1M8 14h8M3 3l18 18",
+  stroke: "M5 20l7-16 7 16M8 14h8",
+  lang: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
+  "o-steps": "M8 3h12v14H8zM5 6v15h11",
+  "o-all": "M5 3h14v18H5zM8 7h8M8 11h8M8 15h8",
+  "o-html": "M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14",
+  go: "M12 3v12M7 10l5 5 5-5M4 20h16",
+  plus: "M12 6v12M6 12h12", minus: "M6 12h12"
+};
+function svg(k) {
+  /* an array icon: the first path is drawn solid, the second dashed and faded (not yet shown) */
+  const [d, dim] = [].concat(ICON[k]);
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/>' +
+    (dim ? '<path class="dim" d="' + dim + '"/>' : '') + '</svg>';
+}
+/* name: the tool (tool(name)); tip: the name and key, shown when the mouse rests on it */
+function button(name, tip, icon, cls) {
+  const el = $new("button", cls || "it");
+  el.innerHTML = svg(icon || name);
+  el.title = tip;
+  el.setAttribute("aria-label", tip);
+  el.addEventListener("click", function () { el.blur(); if (name) tool(name); });
+  if (name) (lit[name] = lit[name] || []).push(el);
+  return el;
+}
+const handle = $new("button", "handle");
+handle.innerHTML = svg("up");
+function openTools(open) {
+  body.classList.toggle("tools-open", open);
+  handle.innerHTML = svg(open ? "down" : "up");
+  render();
+  fit();
+}
+handle.addEventListener("click", function () { openTools(!body.classList.contains("tools-open")); handle.blur(); });
 /* Stroke added to Japanese text (--ja-stroke), changed by 0.1pt; remembered by the browser */
 const KEY = "kamishibai-ja-stroke";
 const base = (function () {
   const v = cssVar("--ja-stroke"), n = parseFloat(v);
   return isNaN(n) ? 0.2 : (/px$/.test(v) ? n * 0.75 : n);
 })();
-const val = $new("button", "op val");
+let stroke = base;
 function setStroke(pt, keep) {
   pt = Math.max(0, Math.round(pt * 10) / 10);
   root.style.setProperty("--ja-stroke", pt + "pt");
-  val.textContent = pt.toFixed(1) + "pt";
+  vals.forEach(v => { v.textContent = pt.toFixed(1); });
   try { if (keep) localStorage.setItem(KEY, pt); else localStorage.removeItem(KEY); } catch (e) {}
   return pt;
 }
-let stroke = base;
+/* the stroke button opens + / value / − in the same column */
+function strokeTool() {
+  const wrap = $new("div", "sk-wrap"), sk = $new("div", "sk");
+  const b = button(null, "日本語の文字の太さ（+ と − で 0.1pt ずつ）", "stroke");
+  b.addEventListener("click", function () { b.classList.toggle("on", sk.classList.toggle("open")); });
+  [["plus", 0.1], [null, 0], ["minus", -0.1]].forEach(function (d) {
+    const el = d[0] ? button(null, d[1] > 0 ? "太く" : "細く", d[0]) : $new("button", "it val");
+    if (!d[0]) { vals.push(el); el.title = "日本語の文字に足す線の太さ（pt）。押すとテーマの値に戻る"; }
+    el.addEventListener("click", function () {
+      stroke = d[1] ? setStroke(stroke + d[1], true) : setStroke(base, false);
+      el.blur();
+    });
+    sk.appendChild(el);
+  });
+  wrap.append(b, sk);
+  return wrap;
+}
+function group(cls, items) {
+  const g = $new("div", cls);
+  items.forEach(el => g.appendChild(el));
+  tools.appendChild(g);
+  return g;
+}
+const sep = () => $new("div", "sep");
+const outBtn = button(null, "出力", "go", "it go");
+outBtn.addEventListener("click", output);
+group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), strokeTool()]);
+group("grp g-show", [button("full", "全画面 " + mod + "F"), button("ptr", "ポインター " + mod + "K"), button("steps", "段階表示 S"),
+  button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), sep(), button("sel", "選択 " + mod + "I"), button("op", "キー無効 " + mod + "U"), sep(), strokeTool()]);
+group("grp g-out", [button("o-steps", "PDF：段階ごとに 1 枚"), button("o-all", "PDF：全段階を 1 枚に"), button("o-html", "HTML：1 ファイル"), outBtn]);
+/* the modes and the handle sit on a card of their own, below the card of the current mode's tools */
+const dock = $new("div", "dock");
+dock.append(group("modes", [button("edit", "モード：編集 " + mod + "E（もう一度押すとプレゼンに戻る）"), button("show", "モード：プレゼン"),
+  button("out", "モード：出力 " + mod + "P（もう一度押すとプレゼンに戻る）")]), handle);
+tools.appendChild(dock);
 try { const s = parseFloat(localStorage.getItem(KEY)); if (!isNaN(s)) stroke = s; } catch (e) {}
 stroke = setStroke(stroke, stroke !== base);
-[["−", -0.1], [null, 0], ["+", 0.1]].forEach(function (b) {
-  const el = b[0] ? $new("button", "op", b[0]) : val;
-  el.addEventListener("click", function () {
-    stroke = b[1] ? setStroke(stroke + b[1], true) : setStroke(base, false);
-    el.blur();
-  });
-  tools.appendChild(el);
-});
 body.appendChild(tools);
-const badge = $new("div", "badge", mod + "E"), ptr = $new("div", "pointer"), toastEl = $new("div", "toast");
+const badge = $new("div", "badge", mod + "U"), ptr = $new("div", "pointer"), toastEl = $new("div", "toast");
 body.append(badge, ptr, toastEl);
-function toast(t) {
+/* page-edit hands over { enter, leave, exportHTML } (before the build as window.KamishibaiEditor, or later) */
+Kamishibai.setEditor = function (ed) { editor = ed; render(); };
+Kamishibai.mode = function (m) { if (m !== undefined) setMode(m); return st.mode; };
+/* Language shown: "ja" or "en" (only in a deck that has English); event kamishibai:lang on a change */
+function setLang(L) {
+  if (!hasEn) { toast("このスライドには英語の文がありません", 2000); return; }
+  if (L !== "ja" && L !== "en" || L === lang) return;
+  lang = L;
+  root.setAttribute("lang", L);
+  try { localStorage.setItem(LKEY, L); } catch (e) {}
+  render();
+  toast(L === "en" ? "English" : "日本語");
+  if (st.mode === "edit") { const n = langNote(); if (n) toast(n.trim(), 3000); }
+  document.dispatchEvent(new CustomEvent("kamishibai:lang", { detail: L }));
+}
+Kamishibai.lang = function (L) { if (L !== undefined) setLang(L); return lang; };
+/* in English, what is left to translate (shown on entering edit mode) */
+function langNote() {
+  if (!hasEn || lang !== "en") return "";
+  const n = c => stage.querySelectorAll(c).length;
+  const a = [["古い訳", n(".en-stale")], ["訳なし", n(".untr") + n(".L-ja.solo")], ["収まらない頁", n(".page.over-en")]].filter(x => x[1]);
+  return a.length ? "　英語：" + a.map(x => x[0] + " " + x[1]).join("・") : "";
+}
+function toast(t, ms) {
   toastEl.textContent = t;
   toastEl.classList.add("show");
   clearTimeout(toastEl._t);
-  toastEl._t = setTimeout(function () { toastEl.classList.remove("show"); }, 1200);
+  toastEl._t = setTimeout(function () { toastEl.classList.remove("show"); }, ms || 1200);
 }
 
 let hideTimer = 0;
@@ -680,6 +1031,7 @@ const SKEY = "kamishibai-steps";
 let stepMode = true;
 try { const v = localStorage.getItem(SKEY); if (v !== null) stepMode = v !== "0"; } catch (e) {}
 Kamishibai.stepMode = function () { return stepMode; };
+render();
 let si = 0;
 function showCurrent() {
   [].forEach.call(side.children, (t, i) => t.classList.toggle("cur", i === si));
@@ -720,32 +1072,35 @@ function toggleSteps() {
   stepMode = !stepMode;
   try { localStorage.setItem(SKEY, stepMode ? "1" : "0"); } catch (e) {}
   paint(false);
+  render();
   toast("段階表示：" + (stepMode ? "オン" : "オフ"));
 }
 
 /* ===== Click: left quarter = back, elsewhere = forward.
-   Not in select / keys-off mode, not on controls (buttons, inputs, bars, switches, the overview).
+   Not in select / keys-off mode, not on controls (buttons, inputs, bars, switches, the overview) nor on
+   what a click does something to (links, video, audio, details, frames, editable text).
    Ignored: drags (> 4px), double and triple clicks, clicks while text is selected or that clear a
    selection. A single click waits 260 ms so that it can be told from a double click ===== */
 function selecting() { const s = getSelection(); return !!s && !s.isCollapsed && s.toString().trim() !== ""; }
 let pend = 0, down = null, hadSel = false;
 addEventListener("mousedown", function (e) { down = [e.clientX, e.clientY]; hadSel = selecting(); });
 addEventListener("click", function (e) {
-  if (body.classList.contains("edit") || body.classList.contains("op") ||
-      e.target.closest("button, input, select, textarea, .bar, .sw, .ctrl, switch, body > .side, .tools")) return;
+  if (body.classList.contains("edit") || body.classList.contains("op") || body.classList.contains("mode-out") ||
+      e.target.closest("button, input, select, textarea, label, a[href], video, audio, iframe, details, summary, [contenteditable], " +
+                       ".bar, .sw, .ctrl, switch, body > .side, .tools")) return;
   clearTimeout(pend); pend = 0;
   const moved = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4;
   if (e.detail > 1 || moved || hadSel || selecting()) return;
   const back = e.clientX < innerWidth * 0.25;
   pend = setTimeout(function () { pend = 0; if (selecting()) return; if (back) prev(); else next(); }, 260);
 });
-/* Keys: ⌘ (Ctrl on Windows) + B F K E U toggle; other ⌘ keys go to the browser (⌘P prints).
-   Select mode turns pages with ← → only; keys-off mode never turns pages */
+/* Keys: ⌘ (Ctrl on Windows) + E P switch the mode, + B F K I U toggle; other ⌘ keys go to the browser.
+   Select and edit mode turn pages with ← → only; keys-off and output mode never turn pages */
 document.addEventListener("keydown", function (e) {
   const k = e.key, edit = body.classList.contains("edit");
-  const keys = { KeyB: "side", KeyF: "full", KeyK: "ptr", KeyE: "edit", KeyU: "op" };
-  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code]) { e.preventDefault(); toggle(keys[e.code]); return; }
-  if (e.metaKey || e.ctrlKey || e.altKey || body.classList.contains("op")) return;
+  const keys = { KeyE: "edit", KeyP: "out", KeyB: "side", KeyF: "full", KeyK: "ptr", KeyI: "sel", KeyU: "op" };
+  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code]) { e.preventDefault(); tool(keys[e.code]); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey || body.classList.contains("op") || st.mode === "out") return;
   const t = e.target;
   if (t && t.closest && (t.closest("input, textarea, select") || t.isContentEditable)) return;
   if (body.classList.contains("side-on") && (k === "ArrowDown" || k === "ArrowUp")) {
@@ -758,6 +1113,7 @@ document.addEventListener("keydown", function (e) {
   else if (!edit && k === "Home") { e.preventDefault(); go(0); }
   else if (!edit && k === "End") { e.preventDefault(); go(secs.length - 1); }
   else if (!edit && !e.shiftKey && (k === "s" || k === "S")) { e.preventDefault(); toggleSteps(); }
+  else if (!edit && !e.shiftKey && (k === "l" || k === "L")) { e.preventDefault(); tool("lang"); }
 });
 /* sliders and buttons in a slide give the focus back once used, so keys turn pages again */
 ["change", "pointerup"].forEach(function (t) {
@@ -802,7 +1158,7 @@ function hashPage() {
   const h = parseInt((location.hash || "").replace("#s", ""), 10);
   return (h >= 1 && h <= secs.length) ? h - 1 : 0;
 }
-addEventListener("hashchange", function () { go(hashPage()); });
+addEventListener("hashchange", function () { if (/^#s\d+$/.test(location.hash)) go(hashPage()); });
 Kamishibai.go = go; Kamishibai.next = next; Kamishibai.prev = prev; Kamishibai.current = function () { return si; };
 si = hashPage();
 paint();

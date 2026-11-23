@@ -23,7 +23,7 @@ OUT = ROOT / "engine" / "katex"
 
 def header(path, lines, version):
     """the first `lines` lines of the current file (licence comments), with the version updated"""
-    head = path.read_text().split("\n")[:lines]
+    head = path.read_text(encoding="utf-8").split("\n")[:lines]
     head[0] = re.sub(r"KaTeX \d+\.\d+\.\d+", f"KaTeX {version}", head[0])
     return "\n".join(head)
 
@@ -31,7 +31,7 @@ def header(path, lines, version):
 def comment_lines(path):
     """number of leading lines before the first line that is not part of a comment"""
     n, inside = 0, False
-    for line in path.read_text().split("\n"):
+    for line in path.read_text(encoding="utf-8").split("\n"):
         s = line.strip()
         if not inside and not s.startswith("/*") and s:
             break
@@ -50,17 +50,17 @@ def font(m):
 
 
 def main():
-    version = json.loads((KATEX / "package.json").read_text())["version"]
+    version = json.loads((KATEX / "package.json").read_text(encoding="utf-8"))["version"]
     js_path, css_path = OUT / "katex.js", OUT / "katex.css"
     js = (header(js_path, comment_lines(js_path), version) + "\n"
-          + (DIST / "katex.min.js").read_text().strip() + "\n"
-          + (DIST / "contrib" / "auto-render.min.js").read_text().strip() + "\n")
-    css_body = re.sub(r"src:url\(fonts/[^;}]*", font, (DIST / "katex.min.css").read_text().strip())
+          + (DIST / "katex.min.js").read_text(encoding="utf-8").strip() + "\n"
+          + (DIST / "contrib" / "auto-render.min.js").read_text(encoding="utf-8").strip() + "\n")
+    css_body = re.sub(r"src:url\(fonts/[^;}]*", font, (DIST / "katex.min.css").read_text(encoding="utf-8").strip())
     if "url(fonts/" in css_body:
         raise SystemExit("katex.min.css: a font left unembedded")
     css = header(css_path, comment_lines(css_path), version) + "\n" + css_body + "\n"
-    js_path.write_text(js)
-    css_path.write_text(css)
+    js_path.write_text(js, encoding="utf-8")
+    css_path.write_text(css, encoding="utf-8")
     print(f"engine/katex: KaTeX {version}, katex.js {len(js) // 1024} KiB, katex.css {len(css) // 1024} KiB")
 
 

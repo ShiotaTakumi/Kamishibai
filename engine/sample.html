@@ -4,46 +4,47 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kamishibai の見本</title>
 <!-- 見た目と動きは engine/ フォルダ（書き方は engine/kamishibai.js の最初にある）。このファイルには中身だけを書く。
-     テーマは <html theme="…"> で選ぶ。?theme=Madrid を URL に付けると 4:3 の Madrid で開く -->
+     テーマは <html theme="…"> で選ぶ。?theme=Madrid を URL に付けると 4:3 の Madrid で開く。
+     英語の文を <ja>…</ja><en>…</en> の対で並べると、L キーか ?lang=en で英語版に切り替わる -->
 <script src="kamishibai.js"></script>
 
 <cover>
-  <headline>Kamishibai の見本</headline>
-  <subtitle>ビルドなしで開ける HTML スライド</subtitle>
-  <author aff="○○大学" presenter>発表者</author>
-  <author aff="△△大学">共著者</author>
-  <meeting>第○回 ○○研究会</meeting>
-  <date>2026年11月10日</date>
+  <headline><ja>Kamishibai の見本</ja><en ja="0deaea30">A Kamishibai sample</en></headline>
+  <subtitle><ja>ビルドなしで開ける HTML スライド</ja><en ja="cb802279">HTML slides that open without a build</en></subtitle>
+  <author aff="○○大学" aff-en="○○ University" presenter aff-en-ja="76e144c3"><ja>発表者</ja><en ja="2ff0b0a9">Presenter</en></author>
+  <author aff="△△大学" aff-en="△△ University" aff-en-ja="97febec9"><ja>共著者</ja><en ja="506f8681">Coauthor</en></author>
+  <meeting><ja>第○回 ○○研究会</ja><en ja="6b1c61b5">The ○th ○○ Workshop</en></meeting>
+  <date><ja>2026年11月10日</ja><en ja="1b027fb6">November 10, 2026</en></date>
 </cover>
 
-<slide title="問題設定" sec="導入">
-  <block title="問題（オイラー路）" cite="[Eul36]">
-    <p class="qa"><span class="qa-label"><navy>入力</navy>：</span>連結なグラフ $G = (V, E)$</p>
-    <p class="qa"><span class="qa-label"><navy>問い</navy>：</span>すべての辺を<alert>ちょうど 1 回</alert>通る道はあるか</p>
+<slide title="問題設定" title-en="The problem" sec="導入" sec-en="Introduction" title-en-ja="59519754" sec-en-ja="d04bf5e7">
+  <block title="問題（オイラー路）" title-en="Problem (Euler path)" cite="[Eul36]" title-en-ja="c171d79a">
+    <p class="qa"><ja><span class="qa-label"><navy>入力</navy>：</span>連結なグラフ $G = (V, E)$</ja><en ja="26692de6"><span class="qa-label"><navy>Input</navy>:</span> a connected graph $G = (V, E)$</en></p>
+    <p class="qa"><ja><span class="qa-label"><navy>問い</navy>：</span>すべての辺を<alert>ちょうど 1 回</alert>通る道はあるか</ja><en ja="a2d34e0b"><span class="qa-label"><navy>Question</navy>:</span> is there a walk that uses every edge <alert>exactly once</alert>?</en></p>
   </block>
-  <p>文の中の数式は \(\deg(v)\) のようにも書ける。文献は <cite>[Eul36]</cite>。</p>
-  <note>緑の枠の一言 ➡ 結論</note>
+  <p><ja>文の中の数式は \(\deg(v)\) のようにも書ける。文献は <cite>[Eul36]</cite>。</ja><en ja="1f137314">Inline math can also be written as \(\deg(v)\). A reference: <cite>[Eul36]</cite>.</en></p>
+  <note><ja>緑の枠の一言 ➡ 結論</ja><en ja="f3470e0a">A line in a green box ➡ the conclusion</en></note>
   <p class="src">[Eul36] L.&nbsp;Euler, Solutio problematis ad geometriam situs pertinentis, 1736.</p>
 </slide>
 
-<slide title="箇条書きと段階表示" sec="導入">
+<slide title="箇条書きと段階表示" title-en="Lists and steps" sec="導入" sec-en="Introduction" title-en-ja="0adf06df" sec-en-ja="d04bf5e7">
   <list>
-    <item>1 段目の項目</item>
-    <item step>クリックで出る項目
+    <item><ja>1 段目の項目</ja><en ja="a3f88681">A first-level item</en></item>
+    <item step><ja>クリックで出る項目</ja><en ja="a9e8ce1d">An item that appears on a click</en>
       <list>
-        <item>2 段目の項目</item>
-        <item>2 段目の項目</item>
+        <item><ja>2 段目の項目</ja><en ja="ac003330">A second-level item</en></item>
+        <item><ja>2 段目の項目</ja><en ja="ac003330">A second-level item</en></item>
       </list>
     </item>
-    <item step>次のクリックで出る</item>
-    <item step with="prev">直前の項目と一緒に出る</item>
+    <item step><ja>次のクリックで出る</ja><en ja="12db69ca">Appears on the next click</en></item>
+    <item step with="prev"><ja>直前の項目と一緒に出る</ja><en ja="711d11a9">Appears together with the previous item</en></item>
   </list>
-  <down step>下向きの矢印の下に、中央寄せの一言</down>
+  <down step><ja>下向きの矢印の下に、中央寄せの一言</ja><en ja="7159990a">A centred line below a down arrow</en></down>
 </slide>
 
-<slide title="切り替える図" sec="図">
-  <block title="定理（Euler）">連結なグラフにオイラー路があるのは、奇数次の頂点が 0 個か 2 個のとき</block>
-  <p>ボタンを押しても、ページは送られない。</p>
+<slide title="切り替える図" title-en="Switching figures" sec="図" sec-en="Figures" title-en-ja="c204c125" sec-en-ja="348037d6">
+  <block title="定理（Euler）" title-en="Theorem (Euler)" title-en-ja="df7b35c9"><ja>連結なグラフにオイラー路があるのは、奇数次の頂点が 0 個か 2 個のとき</ja><en ja="f22007cf">A connected graph has an Euler path if and only if it has 0 or 2 vertices of odd degree.</en></block>
+  <p><ja>ボタンを押しても、ページは送られない。</ja><en ja="f12726a9">Pressing a button does not turn the page.</en></p>
   <!-- 図にキャプションを付けない。切り替える図はボタンの名前でカードを示す -->
   <figure>
     <flip id="fyn"><svg width="320" height="220" viewBox="0 0 320 220">
@@ -66,17 +67,17 @@
 <circle cx="60" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
 <circle cx="260" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
 </svg></flip>
-    <switch for="fyn"><button>できる</button><button>できない</button></switch>
+    <switch for="fyn"><button><ja>できる</ja><en ja="9256418d">Yes</en></button><button><ja>できない</ja><en ja="84d986f7">No</en></button></switch>
   </figure>
 </slide>
 
-<slide title="組み上がる図" sec="図">
+<slide title="組み上がる図" title-en="A figure built in steps" sec="図" sec-en="Figures" title-en-ja="3cfa5c31" sec-en-ja="348037d6">
   <!-- 段階を追う説明だけは <side> で文を左、図を右に並べる。ほかのページは文が上、図が下 -->
   <side>
     <div>
-      <p>道を辺ごとに組む</p>
-      <p step cards="2">2 本目の辺</p>
-      <p step cards="*" ov>残りの辺がまとめて出て、最後に印が付く</p>
+      <p><ja>道を辺ごとに組む</ja><en ja="f6764d2f">Build the path edge by edge</en></p>
+      <p step cards="2"><ja>2 本目の辺</ja><en ja="d76989a7">The second edge</en></p>
+      <p step cards="*" ov><ja>残りの辺がまとめて出て、最後に印が付く</ja><en ja="3afeba2b">The remaining edges appear together, then a mark</en></p>
     </div>
     <figure>
       <flip id="fpath" anim init="1"><svg width="520" height="200" viewBox="0 0 520 200">
@@ -94,45 +95,45 @@
 <text x="370" y="34" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">3</tspan></text>
 <circle cx="480" cy="140" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
 <text x="480" y="184" font-size="26" text-anchor="middle" font-family="LMItalic" fill="#262626">v<tspan font-family="LMSans" font-size="18" dy="6">4</tspan></text>
-<g class="ov"><text x="260" y="30" font-size="22" text-anchor="middle" fill="#ff4c00">道ができた</text></g>
+<g class="ov"><text lang="ja" x="260" y="30" font-size="22" text-anchor="middle" fill="#ff4c00">道ができた</text><text lang="en" x="260" y="30" font-size="22" text-anchor="middle" fill="#ff4c00" ja="0f202789">The path is done</text></g>
 </svg></flip>
     </figure>
   </side>
 </slide>
 
-<slide title="定理と証明" sec="証明">
-  <block title="補題１">$n \ge 1$ のとき $1 + 2 + \cdots + n = n(n+1)/2$</block>
-  <plan>帰納法。$n$ から $n+1$ へ、両辺に $n+1$ を足す。</plan>
-  <proof step>$n = 1$ は明らか。$n$ で成り立てば
+<slide title="定理と証明" title-en="A lemma and its proof" sec="証明" sec-en="Proofs" title-en-ja="a9c23f5d" sec-en-ja="1d745431">
+  <block title="補題１" title-en="Lemma 1" title-en-ja="ad82ba3c"><ja>$n \ge 1$ のとき $1 + 2 + \cdots + n = n(n+1)/2$</ja><en ja="012305d9">For $n \ge 1$, $1 + 2 + \cdots + n = n(n+1)/2$.</en></block>
+  <plan><ja>帰納法。$n$ から $n+1$ へ、両辺に $n+1$ を足す。</ja><en ja="05db90a8">Induction: from $n$ to $n+1$, add $n+1$ to both sides.</en></plan>
+  <proof step><ja>$n = 1$ は明らか。$n$ で成り立てば</ja><en ja="9ea11a4d">The case $n = 1$ is clear. If it holds for $n$, then</en>
     \[\sum_{i=1}^{n+1} i = \frac{n(n+1)}{2} + (n+1) = \frac{(n+1)(n+2)}{2}.\]
   </proof>
 </slide>
 
-<slide title="手順" sec="証明">
+<slide title="手順" title-en="Steps" sec="証明" sec-en="Proofs" title-en-ja="f81f15ea" sec-en-ja="1d745431">
   <div class="two">
     <nums>
-      <item>次数を数える</item>
-      <item>奇数次の頂点を数える</item>
-      <item step>0 個か 2 個なら道を作る</item>
+      <item><ja>次数を数える</ja><en ja="16b858e3">Count the degrees</en></item>
+      <item><ja>奇数次の頂点を数える</ja><en ja="4610502f">Count the vertices of odd degree</en></item>
+      <item step><ja>0 個か 2 個なら道を作る</ja><en ja="16aeccd9">If there are 0 or 2, build the path</en></item>
     </nums>
     <nums labels>
-      <item label="(i)">連結</item>
-      <item label="(ii)">奇数次が 2 個以下</item>
+      <item label="(i)"><ja>連結</ja><en ja="d9aae903">Connected</en></item>
+      <item label="(ii)"><ja>奇数次が 2 個以下</ja><en ja="8d298f19">At most 2 vertices of odd degree</en></item>
     </nums>
   </div>
   $$\sum_{v \in V} \deg(v) = 2|E|$$
-  <later title="補題２（後で証明）" step>奇数次の頂点の個数は偶数</later>
+  <later title="補題２（後で証明）" title-en="Lemma 2 (proved later)" step title-en-ja="62ad4b7a"><ja>奇数次の頂点の個数は偶数</ja><en ja="cc82e83e">The number of vertices of odd degree is even.</en></later>
 </slide>
 
-<slide title="部品" sec="部品">
+<slide title="部品" title-en="Parts" sec="部品" sec-en="Parts" title-en-ja="3bacb05a" sec-en-ja="3bacb05a">
   <columns>
     <column>
       <table class="tbl">
-        <tr><th>$n$</th><th>辺</th></tr>
+        <tr><th>$n$</th><th><ja>辺</ja><en ja="42a6ef63">Edges</en></th></tr>
         <tr><td>3</td><td>3</td></tr>
         <tr><td>4</td><td>6</td></tr>
       </table>
-      <p><span class="label">ラベル</span> <span class="pink">ピンク</span> <span class="frame">枠</span></p>
+      <p><ja><span class="label">ラベル</span> <span class="pink">ピンク</span> <span class="frame">枠</span></ja><en ja="738692af"><span class="label">Label</span> <span class="pink">Pink</span> <span class="frame">Frame</span></en></p>
       <div class="bar"><i>n</i><input type="range" min="3" max="12" value="6"><span>6</span></div>
     </column>
     <column>
@@ -144,12 +145,12 @@
   </columns>
 </slide>
 
-<divider>参考資料</divider>
+<divider><ja>参考資料</ja><en ja="6f2a41a7">Appendix</en></divider>
 
-<slide title="まとめ">
+<slide title="まとめ" title-en="Summary" title-en-ja="0b839365">
   <list>
-    <item size="24">小さな字（size="24"）</item>
-    <item>$x \in \mathbb{R}$ を含む行</item>
+    <item size="24"><ja>小さな字（size="24"）</ja><en ja="7803873a">Small type (size="24")</en></item>
+    <item><ja>$x \in \mathbb{R}$ を含む行</ja><en ja="07e21051">A line with $x \in \mathbb{R}$</en></item>
   </list>
 </slide>
 

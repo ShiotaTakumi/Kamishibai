@@ -13,7 +13,10 @@
      - clipped content (an element with overflow other than visible whose content is larger).
    Print media: the printed sheets (.print > .ppage, shown all as for the PDF button): their size,
    that a page with n step groups has n + 1 sheets showing 0, 1, ..., n groups, and for the sheet
-   with all steps the same lines and overflow problems as on screen. */
+   with all steps the same lines and overflow problems as on screen.
+   Language: in a deck with English, window.__layoutLang ("ja" or "en", set before this script) picks
+   the language measured; each page also reports the factor the engine drew it at (fit, from
+   Kamishibai.fits) and whether it overflows even at the smallest factor (over). */
 window.__layout = (async function () {
   const sleep = ms => new Promise(res => setTimeout(res, ms));
   for (let i = 0; i < 1200 && !document.querySelector(".stage > .page"); i++) await sleep(50);
@@ -21,6 +24,9 @@ window.__layout = (async function () {
   await Promise.all(Array.from(document.fonts).map(f => f.load().catch(() => null)));
   await document.fonts.ready;
   const K = window.Kamishibai, [W, H] = K.size;
+  if (K.ready) await K.ready;
+  const LANG = K.hasEn && K.lang ? K.lang(window.__layoutLang || undefined) : "ja";
+  const fitOf = i => ((K.fits || {})[LANG] || [])[i] || { zoom: 1, over: false };
   const STEP = "[step]:not(input)";
   const PRINT = matchMedia("print").matches;
   const stage = document.querySelector(".stage");
@@ -52,7 +58,7 @@ window.__layout = (async function () {
     return r;
   };
   const out = (b, a, t) => b.left < a.left - t || b.top < a.top - t || b.right > a.right + t || b.bottom > a.bottom + t;
-  const isBlock = el => !/^inline/.test(getComputedStyle(el).display) || el.classList.contains("katex-display");
+  const isBlock = el => !/^(inline|contents)/.test(getComputedStyle(el).display) || el.classList.contains("katex-display");
   const placed = el => /^(absolute|fixed)$/.test(getComputedStyle(el).position);
 
   function measure(pg) {
@@ -151,12 +157,13 @@ window.__layout = (async function () {
     return JSON.parse(json);
   }
 
-  const res = { size: [W, H], print: PRINT, pages: [], sheets: [], problems: [] };
+  const res = { size: [W, H], print: PRINT, lang: LANG, hasEn: !!K.hasEn, pages: [], sheets: [], problems: [] };
   if (!PRINT) {
     const secs = [].slice.call(stage.children);
     for (let i = 0; i < secs.length; i++) {
       K.go(i, true);
-      res.pages.push(Object.assign({ slide: i + 1, state: "" }, await settle(() => measure(secs[i]))));
+      const ft = fitOf(i);
+      res.pages.push(Object.assign({ slide: i + 1, state: "", fit: ft.zoom, over: ft.over }, await settle(() => measure(secs[i]))));
       /* every further card of each flip figure with buttons (one figure at a time, the others on card 1) */
       const ctrls = [].slice.call(secs[i].querySelectorAll("[data-flip]"));
       for (const ct of ctrls) {

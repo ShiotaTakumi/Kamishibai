@@ -19,6 +19,8 @@ below MIN_ZOOM where the figure gives no font size. The warning is the signal to
 the page (move text to the talk, split at a meaning boundary), not to shrink further.
 
   shrunk    zoom times the smallest font-size inside the figure's svg is below MIN_TEXT_PX
+  cards     a cards="…" (or init="…" of a build-up figure) that is not a count: "n", "*", or "a|b" per
+            figure; the engine ignores it (and says so in the console)
 
 Usage: python3 tools/check_figures.py DRAFT.html      (exit code 1 when a page breaks a rule; warnings do not)
 """
@@ -90,8 +92,12 @@ def problems(src):
     return out
 
 
+CARDS = re.compile(r"""\s(cards|init)\s*=\s*(["'])(.*?)\2""", re.S | re.I)
+
+
 def warnings(src):
-    """[(page, detail)] for figures shrunk below a readable size; pages are numbered as on screen."""
+    """[(page, kind, detail)] for figures shrunk below a readable size and for malformed cards counts;
+    pages are numbered as on screen."""
     text = re.sub(r"<!--.*?-->", "", src, flags=re.S)
     out = []
     for n, pg in enumerate(PAGE.finditer(text), 1):
@@ -101,14 +107,17 @@ def warnings(src):
             end = body.find("</svg>", m.end())
             fonts = [float(x) for x in FONT.findall(body[m.end():end])] if end >= 0 else []
             if fonts and min(fonts) * z < MIN_TEXT_PX:
-                out.append((n, f"zoom {z:g} draws text at {min(fonts) * z:.1f}px (below {MIN_TEXT_PX:g}px)"))
+                out.append((n, "shrunk", f"zoom {z:g} draws text at {min(fonts) * z:.1f}px (below {MIN_TEXT_PX:g}px)"))
             elif not fonts and z < MIN_ZOOM:
-                out.append((n, f"zoom {z:g} (below {MIN_ZOOM:g})"))
+                out.append((n, "shrunk", f"zoom {z:g} (below {MIN_ZOOM:g})"))
+        for m in CARDS.finditer(body):
+            if not all(re.fullmatch(r"\s*(\d+|\*)\s*", x) for x in m.group(3).split("|")):
+                out.append((n, "cards", f'{m.group(1)}="{m.group(3)}" is not a count ("n", "*", or "a|b" per figure)'))
     return out
 
 
 def check(src_path):
-    return problems(Path(src_path).read_text())
+    return problems(Path(src_path).read_text(encoding="utf-8"))
 
 
 def report(found, out=sys.stderr):
@@ -117,8 +126,9 @@ def report(found, out=sys.stderr):
 
 
 def report_warnings(found, out=sys.stderr):
-    for n, detail in found:
-        print(f"page {n}: shrunk (warning): {detail}; revisit the page structure", file=out)
+    for n, kind, detail in found:
+        tail = "; revisit the page structure" if kind == "shrunk" else ""
+        print(f"page {n}: {kind} (warning): {detail}{tail}", file=out)
 
 
 def main():
@@ -126,7 +136,7 @@ def main():
         sys.exit(__doc__.split("Usage: ")[1])
     found = check(sys.argv[1])
     report(found, sys.stdout)
-    report_warnings(warnings(Path(sys.argv[1]).read_text()), sys.stdout)
+    report_warnings(warnings(Path(sys.argv[1]).read_text(encoding="utf-8")), sys.stdout)
     print(f"{len(found)} problems with figures" if found else "no captions; text above figures, or on their left beside them")
     sys.exit(1 if found else 0)
 

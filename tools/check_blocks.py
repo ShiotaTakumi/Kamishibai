@@ -63,12 +63,12 @@ def problems(src, kinds):
 
 def check(src_path):
     """Problems of the draft at src_path, with the kinds read from the engine it loads."""
-    src = Path(src_path).read_text()
+    src = Path(src_path).read_text(encoding="utf-8")
     m = ENGINE_TAG.search(src)
     if not m:
         sys.exit(f"{src_path}: no <script src=\".../kamishibai.js\"> (not a draft of the engine)")
     engine = (Path(src_path).parent / html.unescape(m.group(2) or "./")).resolve()
-    return problems(src, kinds_of((engine / "kamishibai.js").read_text()))
+    return problems(src, kinds_of((engine / "kamishibai.js").read_text(encoding="utf-8")))
 
 
 def report(found, out=sys.stderr):

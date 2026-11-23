@@ -75,7 +75,7 @@ def main():
     (ROOT / "fig").mkdir(exist_ok=True)
     for name, svg in (("example-steps", steps()), ("example-yes", yes()), ("example-no", no()),
                       ("example-zoom", zoom())):
-        (ROOT / "fig" / f"{name}.svg").write_text(svg + "\n")
+        (ROOT / "fig" / f"{name}.svg").write_text(svg + "\n", encoding="utf-8")
         print(f"fig/{name}.svg")
 
 

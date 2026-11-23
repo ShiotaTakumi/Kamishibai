@@ -118,7 +118,7 @@ def main():
     REF = re.compile(KIND + r' ?(\d+(?:[・–]\d+)*)')
 
     stated, uses, pstart, pend, deps = {}, {}, {}, {}, {}
-    text = a.src.read_text().translate(WIDE)
+    text = a.src.read_text(encoding="utf-8").translate(WIDE)
     if re.search(r'kamishibai\.js', text):
         pages = [(n, html.unescape(h), x, engine_boxes(x)) for n, h, x in engine_slides_of(text, a.sec)]
     else:
