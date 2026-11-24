@@ -340,16 +340,55 @@
   </list>
 </slide>
 
-<slide title="始め方" title-en="Getting started" sec="使い方" sec-en="Usage" title-en-ja="4bb569d9" sec-en-ja="d64f4970">
+<slide title="導入の三段階" title-en="Setting up in three stages" sec="使い方" sec-en="Usage" title-en-ja="27d0e1d0" sec-en-ja="d64f4970">
+  <list>
+    <item><ja>リポジトリ：<a href="https://github.com/ShiotaTakumi/Kamishibai">https://github.com/ShiotaTakumi/Kamishibai</a></ja><en ja="1dddca4a">Repository: <a href="https://github.com/ShiotaTakumi/Kamishibai">https://github.com/ShiotaTakumi/Kamishibai</a></en></item>
+    <item><ja>どの段階で止めても使える</ja><en ja="93f52d21">You can stop at any stage and use it</en></item>
+  </list>
+  <table class="tbl" style="font-size:.74em;white-space:nowrap;margin:14px auto">
+    <tr><th></th><th><ja>できること</ja><en ja="cc900a76">You can</en></th><th><ja>要るもの</ja><en ja="33913ec5">You need</en></th><th><ja>すること</ja><en ja="15d5f401">To do</en></th></tr>
+    <tr><td>1</td><td style="text-align:left"><ja>書いて発表し<br>PDF にする</ja><en ja="9f8653b4">Write, present,<br>print PDF</en></td><td style="text-align:left"><ja>ブラウザ</ja><en ja="e8d3a8f6">A browser</en></td><td style="text-align:left"><ja>clone か ZIP を展開</ja><en ja="f3d7bea6">Clone, or unpack the ZIP</en></td></tr>
+    <tr><td>2</td><td style="text-align:left"><ja>画面で直す</ja><en ja="ee9430d3">Edit on the slide</en></td><td style="text-align:left"><ja>Chromium 系のブラウザ</ja><en ja="4fb6586f">A Chromium browser</en></td><td style="text-align:left"><ja>拡張 page-edit を入れる</ja><en ja="40004812">Install page-edit</en></td></tr>
+    <tr><td>3</td><td style="text-align:left"><ja>一つの HTML で配る<br>検査する</ja><en ja="717f3b33">Pack as one HTML,<br>check</en></td><td style="text-align:left"><ja>Python 3.10+, make<br>Node.js 20+</ja><en ja="0b406c4e">Python 3.10+, make<br>Node.js 20+</en></td><td style="text-align:left"><ja><code>make deps fonts engine-fonts</code></ja><en ja="3c267af2"><code>make deps fonts engine-fonts</code></en></td></tr>
+  </table>
+  <list>
+    <item><ja>Madrid の書体は同梱。Boadilla の書体は段階 3 で入り、それまでは手元の書体で出る</ja><en ja="12db4c2c">Madrid's fonts are included; Boadilla's come with stage 3, with local fonts used until then</en></item>
+    <item><ja>ライセンス：CC0 1.0。作った資料は、クレジットの表記も許可も要らずに公開してよい</ja><en ja="d61fcde1">License: CC0 1.0; slides made with it may be published with no credit and no permission needed</en></item>
+  </list>
+</slide>
+
+<slide title="最初の一枚" title-en="The first slide" sec="使い方" sec-en="Usage" title-en-ja="bbcfd925" sec-en-ja="d64f4970">
   <nums>
-    <item><ja>リポジトリを clone する。Python 3.10 以上、Node.js 20 以上、make が要る</ja><en ja="9011bc9f">Clone the repository; it needs Python 3.10+, Node.js 20+ and make</en></item>
-    <item><ja><code>make deps fonts engine-fonts</code>：依存するパッケージと書体を、版を固定して取得</ja><en ja="f3dfed85"><code>make deps fonts engine-fonts</code>: fetches the packages and fonts at pinned versions</en></item>
-    <item><ja><code>engine/sample.html</code> をコピーして原稿を書く（例 <code>talk/talk.html</code>）</ja><en ja="4404d0f8">Copy <code>engine/sample.html</code> and write the draft (e.g. <code>talk/talk.html</code>)</en></item>
-    <item><ja><code>make preview SRC=talk/talk.html</code>：Chrome で開く。URL の末尾に <code>#s5</code> を付けると 5 頁目から</ja><en ja="dd15b80a"><code>make preview SRC=talk/talk.html</code>: opens it in Chrome; adding <code>#s5</code> to the URL starts at page 5</en></item>
+    <item><ja>置き場（例 <code>my-talks/</code>）で <code>git clone https://github.com/ShiotaTakumi/Kamishibai</code></ja><en ja="fecb98fa">In a folder such as <code>my-talks/</code>: <code>git clone https://github.com/ShiotaTakumi/Kamishibai</code></en></item>
+    <item><ja><code>Kamishibai/engine/sample.html</code> を <code>talk/talk.html</code> へコピー</ja><en ja="b210b31d">Copy <code>Kamishibai/engine/sample.html</code> to <code>talk/talk.html</code></en></item>
+    <item><ja>エンジンを読み込む行を <code>&lt;script src="../Kamishibai/engine/kamishibai.js"&gt;&lt;/script&gt;</code> に直す</ja><en ja="8b2db06d">Change the engine line to <code>&lt;script src="../Kamishibai/engine/kamishibai.js"&gt;&lt;/script&gt;</code></en></item>
+    <item><ja><code>talk.html</code> をブラウザで開き、書き換えては再読み込み。URL の末尾に <code>#s5</code> を付けると 5 頁目から</ja><en ja="1fd9f671">Open <code>talk.html</code> in a browser; edit and reload. Adding <code>#s5</code> to the URL starts at page 5</en></item>
+    <item><ja>配布（段階 3）：<code>Kamishibai/</code> で <code>make pack SRC=../talk/talk.html</code></ja><en ja="ebe0cd18">Hand out (stage 3): in <code>Kamishibai/</code>,<br><code>make pack SRC=../talk/talk.html</code></en></item>
   </nums>
   <list>
-    <item><ja>公開：<a href="https://github.com/ShiotaTakumi/Kamishibai">github.com/ShiotaTakumi/Kamishibai</a></ja><en ja="f43c10fb">Home: <a href="https://github.com/ShiotaTakumi/Kamishibai">github.com/ShiotaTakumi/Kamishibai</a></en></item>
-    <item><ja>ライセンス：CC0 1.0。作った資料は、クレジットの表記も許可も要らずに公開してよい</ja><en ja="d61fcde1">License: CC0 1.0; slides made with it may be published with no credit and no permission needed</en></item>
+    <item><ja>原稿はリポジトリの外にあるので、<code>git pull</code> でエンジンだけを新しくできる</ja><en ja="e8c04927">The draft is outside the repository, so <code>git pull</code> updates the engine alone</en></item>
+  </list>
+  <figure><svg width="640" height="178" viewBox="0 0 640 178" font-size="22" font-family="monospace" fill="#262626">
+<g stroke="#8a8a8a" stroke-width="2" fill="none">
+<path d="M24 32 V 130 M24 62 H 46 M24 130 H 46"/>
+<path d="M66 72 V 96 H 88 M66 140 V 164 H 88"/>
+</g>
+<text x="10" y="24">my-talks/</text>
+<text x="52" y="69">Kamishibai/</text>
+<text x="94" y="103">engine/kamishibai.js, engine/sample.html</text>
+<text x="52" y="137">talk/</text>
+<text x="94" y="171">talk.html</text>
+</svg></figure>
+</slide>
+
+<slide title="AI に書かせて始める" title-en="Starting with an AI" sec="使い方" sec-en="Usage" title-en-ja="93cd21c8" sec-en-ja="d64f4970">
+  <nums>
+    <item><ja>頼み方の例：<br>「https://github.com/ShiotaTakumi/Kamishibai を clone し、<code>docs/math-slides.md</code>（規則）と <code>engine/README.md</code>（書き方）に従い、<code>engine/sample.html</code> を手本に、次の原稿から 10 ページのスライド <code>talk/talk.html</code> を作って」</ja><en ja="f6c9dee0">Ask, for example: “Clone https://github.com/ShiotaTakumi/Kamishibai, follow <code>docs/math-slides.md</code> (rules) and <code>engine/README.md</code> (manual), and, modelled on <code>engine/sample.html</code>, make a deck <code>talk/talk.html</code> of 10 pages from the text below”</en></item>
+    <item><ja>ブラウザで開いて見直し、細かい文は page-edit で直す</ja><en ja="4c6bbad9">Review it in a browser; fix small wording with page-edit</en></item>
+    <item><ja><code>make pack</code> と <code>make check-pack</code> の警告を AI に渡して直させる</ja><en ja="9f4bc7dd">Give the warnings of <code>make pack</code> and <code>make check-pack</code> back to the AI to fix</en></item>
+  </nums>
+  <list>
+    <item><ja>clone できない AI（チャットだけのもの）には、三つのファイルを添える</ja><en ja="fd078825">For an AI that cannot clone (chat only), attach the three files</en></item>
   </list>
 </slide>
 
@@ -386,7 +425,7 @@
     <item><ja>縮めた図の最小の文字が 10px より小さければ警告</ja><en ja="5cf8977b">A warning when a shrunk figure has text smaller than 10px</en></item>
     <item><ja><code>make order</code>：定理・補題・定義の読む順の警告（定義より前の使用など）</ja><en ja="130a66b5"><code>make order</code>: warns on the order of definitions and theorems (e.g. use before definition)</en></item>
   </list>
-  <p><ja>文の書き方の規則は <code>docs/math-slides.md</code>。AI にスライドを書かせる・見直させるときにも基本の規則として渡す</ja><en ja="aa38a783">Writing rules: <code>docs/math-slides.md</code>, also given to AI writers and reviewers</en></p>
+  <p><ja>文の書き方の規則は <code>docs/math-slides.md</code></ja><en ja="3cb8ac50">Writing rules: <code>docs/math-slides.md</code></en></p>
 </slide>
 
 <slide title="組版の検査" title-en="Checking the layout" sec="使い方" sec-en="Usage" title-en-ja="41d6b81b" sec-en-ja="d64f4970">
