@@ -183,9 +183,16 @@
     try { return (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || []; }
     catch (e) { return []; }
   }
+  // A folder kept by an earlier Chrome can come back dead after an update: none of its methods ever settles (seen in
+  // Chrome 158, 2026-11-24). So the first call on a kept folder is given up after a while. Not for calls that show a
+  // prompt, and short enough that the click still allows the folder picker afterwards (5 s in Chrome).
+  const DEAD = {};
+  const answer = p => Promise.race([p, new Promise((ok, no) => setTimeout(() => no(DEAD), 1500))]);
   async function keepDir(d) {
     const list = await keptDirs(), out = [d];
-    for (const x of list) { try { if (!(await x.isSameEntry(d))) out.push(x); } catch (e) { /* stale handle */ } }
+    // the others stay, except this same folder and those that no longer answer
+    const same = await Promise.all(list.map(x => answer(x.isSameEntry(d)).catch(() => true)));
+    list.forEach((x, i) => { if (!same[i]) out.push(x); });
     try { await idb("readwrite", tx => tx.objectStore("dirs").put(out, DIRS)); } catch (e) { /* storage unavailable */ }
   }
   // the open file inside folder d: d's name is one of the folders on the page's path, and the rest of the path
@@ -222,9 +229,14 @@
     // A folder is read only once it is allowed: after Chrome is started again (or every tab of the folder is closed)
     // a kept folder has to be allowed again, and reading it before that fails. Allowed ones first, then ask.
     const asked = [];
-    for (const d of kept) {
+    let dead = "";
+    const state = await Promise.all(kept.map(d => answer(allowed(d, false)).catch(e => e)));
+    for (let i = 0; i < kept.length; i++) {
+      const d = kept[i];
       try {
-        if (!await allowed(d, false)) { asked.push(d); continue; }
+        if (state[i] === DEAD) { dead = d.name; continue; }
+        if (state[i] === false) asked.push(d);
+        if (state[i] !== true) continue;
         const fh = await findIn(d);
         if (fh) return fh;
       } catch (e) { /* folder moved: try the next */ }
@@ -243,7 +255,8 @@
     if (!window.showDirectoryPicker) {
       throw new Error("このブラウザは原稿への書き込みに対応していません。Chrome・Edge・Brave など Chromium 系のブラウザで開いてください");
     }
-    msg("原稿を含むフォルダを選ぶ画面を開いています。フォルダを選ぶと編集が始まります");
+    msg(dead ? "前に選んだフォルダ「" + dead + "」は、今の Chrome では使えなくなっています。もう一度選ぶと編集が始まります"
+             : "原稿を含むフォルダを選ぶ画面を開いています。フォルダを選ぶと編集が始まります");
     const d = await showDirectoryPicker({ id: "page-edit", mode: "readwrite" });
     msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
     const fh = await findIn(d);
