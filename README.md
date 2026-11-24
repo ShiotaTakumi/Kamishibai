@@ -62,6 +62,10 @@ make deps fonts engine-fonts
 | [どの辺展開も重なりを持つ多面体の最小頂点数と最小面数](https://shiotatakumi.github.io/MyPage/contents/261114-Ununfoldable-JOSME-41/) | 第 41 回折り紙の科学・数学・教育研究集会（2026 年 11 月） | 多面体とその辺展開図を JavaScript で描く |
 | [任意の高さをもつ正角柱の辺展開図における重なりの完全分類](https://shiotatakumi.github.io/MyPage/contents/261112-AL210/) | 第 210 回アルゴリズム研究会（2026 年 11 月） | 角柱・展開図・グラフを描き、スライダーとボタンで動かす |
 
+発表の著者は、一つ目が鎌田斗南・塩田拓海・上原隆平、二つ目が鎌田斗南・Jason S. Ku・塩田拓海・上原隆平です。
+スライドは塩田さんのページ [MyPage](https://shiotatakumi.github.io/MyPage/) で公開されているもので、そのページの権利表示は「© 2025 Takumi SHIOTA All Rights Reserved.」です。
+紹介スライドに載せた二つの画面（[intro/example-josme41.png](intro/example-josme41.png)・[intro/example-al210.png](intro/example-al210.png)）は、ここから写して大学の校章を除いたもので、CC0 の対象ではありません。
+
 二つとも、この repository のエンジンではなく、塩田さんが兵庫県立大学の見た目に作った別のエンジン（`uoh-slide.js`）で動きます。
 原稿を `slide`・`list`・`block`・`figure` などのタグで書く点は同じで、次の変え方はこの repository の原稿でも参考になります。
 
@@ -165,18 +169,19 @@ SVG の文字はページの書体で描かれます（`font-family="LMItalic"` 
 
 ## ライセンス
 
-KaTeX と書体（下の表）を除き、この repository のファイル（エンジン、`html/`、`tools/`、`Makefile`、文書）は
+KaTeX と書体、塩田さんの発表スライドの画面（下の表）を除き、この repository のファイル（エンジン、`html/`、`tools/`、`Makefile`、文書）は
 CC0 1.0 Universal で、著作権と隣接する権利を放棄してパブリックドメインに置きます（[LICENSE](LICENSE)）。
 `engine/` だけを写して使うときのために、同じ本文と次の表の要約を [engine/LICENSE](engine/LICENSE) にも置いています。
-KaTeX と書体は、それぞれのライセンスのままです。
+KaTeX と書体、発表スライドの画面は、それぞれのライセンスと権利表示のままです。
 
-| もの | ライセンス | 場所と扱い |
+| もの | ライセンス・権利表示 | 場所と扱い |
 |---|---|---|
 | KaTeX 0.19.0（数式） | MIT。伸びる記号を描く部分（stretchy.js）は SIL Open Font License 1.1 | `engine/katex/`。許諾文はファイルの最初 |
 | IPA Pゴシック（Madrid の日本語の書体） | IPA フォント使用許諾 v1.0 | `engine/fonts/ipa-pgothic.css`。改変せずに丸ごと埋め込み、配布用ファイルでも字を絞らない |
 | Computer Modern Sans（Madrid の英数字の書体。KaTeX の KaTeX_SansSerif と同じもの） | MIT（KaTeX） | `engine/fonts/cm-sans.css` |
 | 原ノ味角ゴシック（Boadilla の日本語の書体） | SIL Open Font License 1.1（予約された書体名 Harano Aji・Source） | repository には入れない。`make fonts` が取得する |
 | Latin Modern Sans・Roman Italic・Math（Boadilla の英数字の書体） | GUST Font License | repository には入れない。`make fonts` が取得する |
+| 塩田さんの発表スライドの画面 | © 2025 Takumi SHIOTA All Rights Reserved. | `intro/example-josme41.png`・`intro/example-al210.png`。元のスライドは「カスタマイズの例」の二つ。この二枚と、二枚を埋め込んだ配布用ファイルの該当部分は CC0 の対象にしない |
 
 原ノ味と Latin Modern は、配布用ファイル（`make pack`）と `slide.html`（`make`）には使う字だけに絞って埋め込みます。
 字を絞った書体は改変版に当たるので、書体の中の名前を Kamishibai Gothic JP・Kamishibai Sans などに付け替え
