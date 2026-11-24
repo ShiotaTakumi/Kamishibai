@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="ja" theme="Madrid">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kamishibai</title>
+<script src="../engine/kamishibai.js"></script>
+<style>
+  code { font-family: inherit; color: var(--bt-ink); white-space: nowrap }
+  a { color: var(--bt-ink) }
+  html qr { right: 30px; bottom: 60px; width: 150px }
+  html qr img { width: 150px; height: 150px }
+  html qr .qcap { position: absolute; left: 0; top: 148px; width: 100%; text-align: center; font-size: var(--footnote, 16px) }
+  .tdemo iframe { border: 1px solid #8a8a8a; display: block; margin: 12px auto 0 }
+  .tprint { display: none; justify-content: center; align-items: center; gap: 30px; height: 327px }
+  .tprint img { height: 230px; border: 1px solid #8a8a8a }
+  @media print { .tdemo iframe { display: none } .tprint { display: flex } .tsw { visibility: hidden } }
+  .mu { position: relative; flex: none; margin-bottom: 28px }
+  .mu img { display: block; border-radius: 12px }
+  .mu .ml { position: absolute; left: 50px; font-size: 13px; line-height: 20px; white-space: nowrap }
+  .mu .mc { position: absolute; left: 0; bottom: -26px; font-size: 14px; font-weight: bold; white-space: nowrap }
+</style>
+
+<cover>
+  <headline><ja>Kamishibai</ja><en ja="ffde6091">Kamishibai</en></headline>
+  <subtitle><ja>ブラウザで開いて発表する HTML スライド</ja><en ja="0d3a79d5">HTML slides you open and present in the browser</en></subtitle>
+  <author short="鎌田・塩田" short-en="Kamata, Shiota" aff="北陸先端科学技術大学院大学" aff-en="Japan Advanced Institute of Science and Technology" aff-en-ja="7b81cdad" short-en-ja="d7af3b24"><ja>鎌田 斗南</ja><en ja="63831681">Tonan Kamata</en></author>
+  <author aff="兵庫県立大学" aff-en="University of Hyogo" aff-en-ja="0bb212ac"><ja>塩田 拓海</ja><en ja="4cf86667">Takumi Shiota</en></author>
+  <date><ja>2026年11月</ja><en ja="fe829179">November 2026</en></date>
+  <qr src="qr.svg"><ja>このスライド</ja><en ja="feefe92d">These slides</en></qr>
+</cover>
+
+<slide title="Kamishibai" title-en="Kamishibai" sec="考え方" sec-en="Idea" title-en-ja="ffde6091" sec-en-ja="e57d25ed">
+  <p><ja>Beamer の良さと PowerPoint の良さを良いところどりした、<br>HTML でサーバーレスで動くスライドソフト</ja><en ja="1ce6d0f1">Slide software that takes the best of Beamer and of PowerPoint,<br>running in HTML with no server</en></p>
+  <table class="tbl" style="font-size:.8em">
+    <tr><th></th><th><ja>数式</ja><en ja="9cb449de">Math</en></th><th><ja>直接編集</ja><en ja="0baaa57c">Direct editing</en></th></tr>
+    <tr><td>Beamer</td><td style="text-align:left"><ja>◯ TeX で組む</ja><en ja="cf042484">◯ typeset by TeX</en></td><td style="text-align:left"><ja>✕ 原稿を直して組み直す</ja><en ja="d3dfe16e">✕ edit the source, then recompile</en></td></tr>
+    <tr><td>PowerPoint</td><td style="text-align:left"><ja>△ 数式エディタで入れる</ja><en ja="d3dae75e">△ entered with the equation editor</en></td><td style="text-align:left"><ja>◯ 画面の上で直す</ja><en ja="ca78fcc3">◯ edit on the slide itself</en></td></tr>
+    <tr><td>Kamishibai</td><td style="text-align:left"><ja>◯ TeX で書き KaTeX で組む</ja><en ja="d16480dc">◯ written in TeX, typeset by KaTeX</en></td><td style="text-align:left"><ja>◯ 画面の上で直し原稿に書き戻す</ja><en ja="fb421d90">◯ edit on the slide, written back to the source</en></td></tr>
+  </table>
+  <list style="font-size:.9em;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,auto);grid-auto-flow:column;gap:2px 24px">
+    <item step style="line-height:1.3;white-space:nowrap"><ja>図を段階的に出せる</ja><en ja="6c7465c4">Reveal a figure step by step</en></item>
+    <item step style="line-height:1.3;white-space:nowrap"><ja>図をボタンで切り替えられる</ja><en ja="942c1a67">Switch figures with buttons</en></item>
+    <item step style="line-height:1.3;white-space:nowrap"><ja>図をアニメーションで動かせる</ja><en ja="d98bd53a">Move a figure by animation</en></item>
+    <item step style="line-height:1.3;white-space:nowrap"><ja>図をスライダーで動かせる</ja><en ja="93ef2853">Move a figure with a slider</en></item>
+    <item step style="line-height:1.3;white-space:nowrap"><ja>日本語と英語を切り替えられる</ja><en ja="7e12461c">Switch Japanese and English</en></item>
+    <item step style="line-height:1.3;white-space:nowrap"><ja>HTML でも PDF でも配れる</ja><en ja="6d3060f0">Hand out as HTML or as PDF</en></item>
+  </list>
+  <figure>
+      <div style="display:flex;gap:56px;align-items:flex-start;justify-content:center">
+        <div>
+          <flip id="fyn2"><svg width="160" height="110" viewBox="0 0 320 220">
+<line x1="60" y1="40" x2="260" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="180" x2="60" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="180" x2="60" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<circle cx="60" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg>
+<svg width="160" height="110" viewBox="0 0 320 220">
+<line x1="160" y1="110" x2="160" y2="20" stroke="#3333B2" stroke-width="5"/>
+<line x1="160" y1="110" x2="60" y2="190" stroke="#3333B2" stroke-width="5"/>
+<line x1="160" y1="110" x2="260" y2="190" stroke="#3333B2" stroke-width="5"/>
+<circle cx="160" cy="110" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="160" cy="20" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg></flip>
+          <switch for="fyn2"><button><ja>図 1</ja><en ja="c82e7d09">Figure 1</en></button><button><ja>図 2</ja><en ja="c52e7850">Figure 2</en></button></switch>
+        </div>
+        <div>
+<svg width="160" height="110" viewBox="0 0 320 220">
+<line x1="60" y1="40" x2="260" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="180" x2="60" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="180" x2="60" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<circle cx="60" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle r="10" fill="#ff4c00"><animateMotion dur="6s" repeatCount="indefinite" path="M60,40 L260,40 L260,180 L60,180 L60,40 L260,180"/></circle>
+</svg>
+        </div>
+        <div class="sl">
+          <svg id="fig-poly2" width="160" height="110" viewBox="0 0 200 138"></svg>
+          <div class="bar" style="width:160px;margin:4px auto 0"><i>n</i><input type="range" min="3" max="12" value="5"><span>5</span></div>
+        </div>
+      </div>
+  </figure>
+</slide>
+
+<slide title="原稿とスライド" title-en="Draft and slides" sec="考え方" sec-en="Idea" title-en-ja="ef924a52" sec-en-ja="e57d25ed">
+  <list>
+    <item><ja>原稿：タグで書いた一つの HTML ファイル</ja><en ja="59464aaa">The draft: one HTML file written in tags</en></item>
+    <item><ja>最初の行 <code>&lt;script src="engine/kamishibai.js"&gt;</code> がエンジン（スライドを組むプログラム）を読み込む</ja><en ja="f842a18a">Its first line <code>&lt;script src="engine/kamishibai.js"&gt;</code> loads the engine, the program that lays out the slides</en></item>
+  </list>
+  <figure>
+    <flip id="fdraft"><svg width="720" height="250" viewBox="0 0 720 250">
+<rect x="2" y="2" width="716" height="246" rx="10" fill="#f4f4f4" stroke="#8a8a8a" stroke-width="2"/>
+<g lang="ja" font-size="24" fill="#262626">
+<text x="30" y="52"><tspan fill="#262686">&lt;script</tspan> src="engine/kamishibai.js"<tspan fill="#262686">&gt;&lt;/script&gt;</tspan></text>
+<text x="30" y="96"><tspan fill="#262686">&lt;slide</tspan> title="定理" sec="例"<tspan fill="#262686">&gt;</tspan></text>
+<text x="70" y="140"><tspan fill="#262686">&lt;block</tspan> title="定理"<tspan fill="#262686">&gt;</tspan>…<tspan fill="#262686">&lt;/block&gt;</tspan></text>
+<text x="70" y="184"><tspan fill="#262686">&lt;list&gt;&lt;item</tspan> step<tspan fill="#262686">&gt;</tspan>…<tspan fill="#262686">&lt;/item&gt;&lt;/list&gt;</tspan></text>
+<text x="30" y="228"><tspan fill="#262686">&lt;/slide&gt;</tspan></text>
+</g>
+<g lang="en" font-size="24" fill="#262626" ja="cee23ff0">
+<text x="30" y="52"><tspan fill="#262686">&lt;script</tspan> src="engine/kamishibai.js"<tspan fill="#262686">&gt;&lt;/script&gt;</tspan></text>
+<text x="30" y="96"><tspan fill="#262686">&lt;slide</tspan> title="Theorem" sec="Example"<tspan fill="#262686">&gt;</tspan></text>
+<text x="70" y="140"><tspan fill="#262686">&lt;block</tspan> title="Theorem"<tspan fill="#262686">&gt;</tspan>…<tspan fill="#262686">&lt;/block&gt;</tspan></text>
+<text x="70" y="184"><tspan fill="#262686">&lt;list&gt;&lt;item</tspan> step<tspan fill="#262686">&gt;</tspan>…<tspan fill="#262686">&lt;/item&gt;&lt;/list&gt;</tspan></text>
+<text x="30" y="228"><tspan fill="#262686">&lt;/slide&gt;</tspan></text>
+</g>
+</svg>
+<svg width="720" height="250" viewBox="0 0 720 250">
+<rect x="196" y="2" width="328" height="246" fill="#fefefe" stroke="#8a8a8a" stroke-width="2"/>
+<rect x="197" y="3" width="326" height="30" fill="#3333B2"/>
+<g lang="ja"><text x="210" y="25" font-size="18" fill="#fefefe">定理</text></g>
+<g lang="en" ja="dcd9c23b"><text x="210" y="25" font-size="18" fill="#fefefe">Theorem</text></g>
+<rect x="212" y="62" width="296" height="28" rx="6" fill="#262686"/>
+<rect x="212" y="84" width="296" height="64" rx="6" fill="#E9E9F3"/>
+<rect x="212" y="84" width="296" height="6" fill="#E9E9F3"/>
+<g lang="ja"><text x="222" y="82" font-size="17" fill="#fefefe">定理</text></g>
+<g lang="en" ja="dcd9c23b"><text x="222" y="82" font-size="17" fill="#fefefe">Theorem</text></g>
+<rect x="224" y="102" width="240" height="11" rx="3" fill="#b9b9b9"/>
+<rect x="224" y="124" width="170" height="11" rx="3" fill="#b9b9b9"/>
+<circle cx="226" cy="190" r="6" fill="#3333B2"/>
+<rect x="240" y="184" width="210" height="11" rx="3" fill="#b9b9b9"/>
+<rect x="197" y="236" width="109" height="11" fill="#191959"/>
+<rect x="306" y="236" width="109" height="11" fill="#262686"/>
+<rect x="415" y="236" width="108" height="11" fill="#3333B2"/>
+</svg></flip>
+    <switch for="fdraft"><button><ja>原稿</ja><en ja="bda0da7d">Draft</en></button><button><ja>スライド</ja><en ja="696a08fc">Slide</en></button></switch>
+  </figure>
+</slide>
+
+<slide title="原稿・発表・配布の流れ" title-en="Draft, talk and handout" sec="考え方" sec-en="Idea" title-en-ja="ea34d804" sec-en-ja="e57d25ed">
+  <list>
+    <item><ja>直すのは原稿だけ</ja><en ja="696da220">Only the draft is ever edited</en></item>
+    <item step cards="2"><ja>発表：原稿をそのままブラウザで開き、その場で組む。ビルドもアプリも不要</ja><en ja="5df9a3bc">Talk: open the draft in the browser, laid out on the spot; no build, no app</en></item>
+    <item step cards="3"><ja>配布：配布用の一つのファイルを作るコマンド <code>make pack</code></ja><en ja="e7ebe213">Handout: <code>make pack</code>, the command that builds one file to hand out</en></item>
+    <item step cards="4"><ja>書き戻し：画面で直した文を原稿へ戻す Chrome の拡張 page-edit</ja><en ja="7e69fb4b">Write-back: page-edit, a Chrome extension returning on-screen fixes to the draft</en></item>
+  </list>
+  <figure>
+    <flip id="fflow" anim init="1"><svg width="880" height="229" viewBox="0 0 960 250">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#262626"/></marker>
+<marker id="aho" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ff4c00"/></marker></defs>
+<g class="cd">
+<rect x="20" y="105" width="180" height="80" rx="8" fill="#D6D6EF" stroke="#3333B2" stroke-width="3"/>
+<g lang="ja"><text x="110" y="140" font-size="26" text-anchor="middle" fill="#262686">原稿</text></g>
+<g lang="en" ja="bda0da7d"><text x="110" y="140" font-size="26" text-anchor="middle" fill="#262686">Draft</text></g>
+<text x="110" y="170" font-size="20" text-anchor="middle" fill="#262686">.html</text>
+</g>
+<g class="cd">
+<line x1="200" y1="130" x2="288" y2="92" stroke="#262626" stroke-width="3" marker-end="url(#ah)"/>
+<rect x="290" y="62" width="290" height="56" rx="8" fill="#fefefe" stroke="#262626" stroke-width="2"/>
+<g lang="ja"><text x="435" y="99" font-size="22" text-anchor="middle" fill="#262626">ブラウザ（その場で組む）</text></g>
+<g lang="en" ja="2cbb514f"><text x="435" y="99" font-size="22" text-anchor="middle" fill="#262626">Browser (lays out)</text></g>
+<line x1="580" y1="90" x2="648" y2="90" stroke="#262626" stroke-width="3" marker-end="url(#ah)"/>
+<rect x="650" y="62" width="150" height="56" rx="8" fill="#fefefe" stroke="#262626" stroke-width="2"/>
+<g lang="ja"><text x="725" y="99" font-size="22" text-anchor="middle" fill="#262626">発表</text></g>
+<g lang="en" ja="47577f0e"><text x="725" y="99" font-size="22" text-anchor="middle" fill="#262626">Talk</text></g>
+</g>
+<g class="cd">
+<line x1="200" y1="160" x2="288" y2="198" stroke="#262626" stroke-width="3" marker-end="url(#ah)"/>
+<rect x="290" y="172" width="290" height="56" rx="8" fill="#fefefe" stroke="#262626" stroke-width="2"/>
+<text x="435" y="209" font-size="22" text-anchor="middle" fill="#262626">make pack</text>
+<line x1="580" y1="200" x2="648" y2="200" stroke="#262626" stroke-width="3" marker-end="url(#ah)"/>
+<rect x="650" y="172" width="150" height="56" rx="8" fill="#fefefe" stroke="#262626" stroke-width="2"/>
+<text x="725" y="209" font-size="22" text-anchor="middle" fill="#262626">.dist.html</text>
+<line x1="800" y1="200" x2="838" y2="200" stroke="#262626" stroke-width="3" marker-end="url(#ah)"/>
+<rect x="840" y="172" width="100" height="56" rx="8" fill="#fefefe" stroke="#262626" stroke-width="2"/>
+<g lang="ja"><text x="890" y="209" font-size="22" text-anchor="middle" fill="#262626">配る</text></g>
+<g lang="en" ja="6cff5b30"><text x="890" y="209" font-size="22" text-anchor="middle" fill="#262626">Hand out</text></g>
+</g>
+<g class="cd">
+<path d="M 330 62 C 300 10, 150 10, 110 100" fill="none" stroke="#ff4c00" stroke-width="3" stroke-dasharray="8 5" marker-end="url(#aho)"/>
+<g lang="ja"><text x="225" y="22" font-size="20" text-anchor="middle" fill="#ff4c00">page-edit：書き戻し</text></g>
+<g lang="en" ja="5dcbc31c"><text x="225" y="22" font-size="20" text-anchor="middle" fill="#ff4c00">page-edit: write-back</text></g>
+</g>
+</svg></flip>
+  </figure>
+</slide>
+
+<slide title="テーマ" title-en="Themes" sec="機能" sec-en="Features" title-en-ja="e1e7f0ad" sec-en-ja="9812f9fb">
+  <list>
+    <item><ja>見た目は Beamer のテーマから選べる：Boadilla（既定、16:9）と Madrid（4:3）</ja><en ja="76c6d9e5">The look is chosen from Beamer themes: Boadilla (default, 16:9) and Madrid (4:3)</en></item>
+    <item><ja>選び方：<code>&lt;html theme="Madrid"&gt;</code> と書くか、URL に <code>?theme=Madrid</code> を付ける</ja><en ja="956b71a6">To choose: write <code>&lt;html theme="Madrid"&gt;</code>, or add <code>?theme=Madrid</code> to the URL</en></item>
+  </list>
+  <figure>
+    <div class="tdemo"><ja><iframe src="theme-demo.html?theme=Boadilla&amp;lang=ja" width="612" height="315" title="Boadilla"></iframe><div class="tprint"><img src="theme-Boadilla-ja.png" alt="Boadilla"><img src="theme-Madrid-ja.png" alt="Madrid"></div></ja><en ja="811c9dc5"><iframe src="theme-demo.html?theme=Boadilla&amp;lang=en" width="612" height="315" title="Boadilla"></iframe><div class="tprint"><img src="theme-Boadilla-en.png" alt="Boadilla"><img src="theme-Madrid-en.png" alt="Madrid"></div></en></div>
+    <div class="ctrl below tsw"><button>Boadilla</button><button class="sub2">Madrid</button></div>
+  </figure>
+</slide>
+
+<slide title="左の道具の列" title-en="The tool column on the left" sec="機能" sec-en="Features" title-en-ja="080023af" sec-en-ja="9812f9fb">
+  <list style="font-size:.8em">
+    <item style="white-space:nowrap"><ja>マウスを動かすと頁の左に出る。ボタンに重ねると名前とキーが出る</ja><en ja="005c4633">Appears as the mouse moves; hovering a button shows its name and key</en></item>
+    <item style="white-space:nowrap"><ja>下のカード：モードの切り替えと取っ手。既定はプレゼン</ja><en ja="6679eb60">Lower card: the modes and the handle; present is the default</en></item>
+    <item style="white-space:nowrap"><ja>上のカード：今のモードの道具</ja><en ja="b2cf91e5">Upper card: the tools of the current mode</en></item>
+    <item style="white-space:nowrap"><ja>選択：文字を選べて、← → だけで送る</ja><en ja="0aa5ef08">Select: text can be selected; only ← → advance</en></item>
+    <item style="white-space:nowrap"><ja>キー無効：キーでもクリックでも送らない</ja><en ja="bbd354d7">Lock: neither keys nor clicks advance</en></item>
+    <item style="white-space:nowrap"><ja>取っ手の橙の点：ポインター・選択・キー無効のどれかがオン</ja><en ja="e0788de5">An orange dot on the handle: pointer, select or lock is on</en></item>
+    <item style="white-space:nowrap"><ja>Windows では ⌘ を Ctrl に読み替える</ja><en ja="c155be57">On Windows, read Ctrl for ⌘</en></item>
+  </list>
+  <figure style="display:flex;gap:20px;align-items:flex-start;justify-content:center;margin:8px 0 0">
+      <div class="mu" style="width:150px;height:142px"><img src="menu-dock.png" width="40" height="142" alt="">
+        <span class="ml" style="top:12px"><ja>編集 ⌘E</ja><en ja="475ee1b2">Edit ⌘E</en></span>
+        <span class="ml" style="top:44px"><ja>プレゼン</ja><en ja="6ea90b78">Present</en></span>
+        <span class="ml" style="top:76px"><ja>出力 ⌘P</ja><en ja="6c437ccb">Output ⌘P</en></span>
+        <span class="ml" style="top:112px"><ja>開く・しまう</ja><en ja="0b0f0140">Open, fold</en></span>
+        <span class="mc"><ja>下のカード（共通）</ja><en ja="759163aa">Lower card (all modes)</en></span></div>
+      <div class="mu" style="width:196px;height:72px"><img src="menu-edit.png" width="40" height="72" alt="">
+        <span class="ml" style="top:10px"><ja>頁一覧 ⌘B</ja><en ja="53fb6a88">Page list ⌘B</en></span>
+        <span class="ml" style="top:42px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+        <span class="mc"><ja>上のカード：編集</ja><en ja="8691d2b5">Upper card: edit</en></span></div>
+      <div class="mu" style="width:196px;height:278px"><img src="menu-show.png" width="40" height="278" alt="">
+        <span class="ml" style="top:10px"><ja>全画面 ⌘F</ja><en ja="db569ca7">Full screen ⌘F</en></span>
+        <span class="ml" style="top:42px"><ja>ポインター ⌘K</ja><en ja="c05c10cf">Pointer ⌘K</en></span>
+        <span class="ml" style="top:74px"><ja>段階表示 S</ja><en ja="ebdae1a2">Steps S</en></span>
+        <span class="ml" style="top:106px"><ja>頁一覧 ⌘B</ja><en ja="53fb6a88">Page list ⌘B</en></span>
+        <span class="ml" style="top:138px"><ja>日本語 ⇄ English L</ja><en ja="e2d4426e">Japanese ⇄ English L</en></span>
+        <span class="ml" style="top:177px"><ja>選択 ⌘I</ja><en ja="f23d1d96">Select ⌘I</en></span>
+        <span class="ml" style="top:209px"><ja>キー無効 ⌘U</ja><en ja="1274a1a0">Lock ⌘U</en></span>
+        <span class="ml" style="top:248px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+        <span class="mc"><ja>上のカード：プレゼン</ja><en ja="d4121740">Upper card: present</en></span></div>
+      <div class="mu" style="width:180px;height:136px"><img src="menu-out.png" width="40" height="136" alt="">
+        <span class="ml" style="top:10px"><ja>PDF：段階ごとに 1 枚</ja><en ja="e7dda93a">PDF: a sheet per step</en></span>
+        <span class="ml" style="top:42px"><ja>PDF：全段階を 1 枚に</ja><en ja="82678659">PDF: all steps on one</en></span>
+        <span class="ml" style="top:74px"><ja>HTML：1 ファイル</ja><en ja="6d30a5c7">HTML: one file</en></span>
+        <span class="ml" style="top:106px"><ja>出力する</ja><en ja="851c04d0">Write it out</en></span>
+        <span class="mc"><ja>上のカード：出力</ja><en ja="e895c54f">Upper card: output</en></span></div>
+  </figure>
+</slide>
+
+<slide title="段階表示" title-en="Steps" sec="機能" sec-en="Features" title-en-ja="989564e7" sec-en-ja="9812f9fb">
+  <list>
+    <item><ja>どの要素にも <code>step</code> を付けると、クリックか → で一つずつ出る</ja><en ja="fd25f038">Put <code>step</code> on any element and it appears one at a time, on a click or →</en></item>
+    <item step><ja><code>&lt;item step&gt;</code> の項目（この行）</ja><en ja="8e9f1adf">An item written <code>&lt;item step&gt;</code> (this line)</en></item>
+    <item step with="prev"><ja><code>with="prev"</code> の要素は直前の段階と一緒に出る（この行）</ja><en ja="9c3d19f5">An element with <code>with="prev"</code> appears together with the previous step (this line)</en></item>
+    <item step><ja>キー S：「全部出す」に切り替わり、頁だけを送る</ja><en ja="7f2d7ed0">Key S: switches to showing everything at once, turning only pages</en></item>
+  </list>
+</slide>
+
+<slide title="切り替える図" title-en="Switching figures" sec="機能" sec-en="Features" title-en-ja="c204c125" sec-en-ja="9812f9fb">
+  <block title="定理（Euler）" title-en="Theorem (Euler)" title-en-ja="df7b35c9"><ja>$G$ を連結なグラフとする。<br>このとき $G$ にオイラー路がある $\iff$ $G$ の奇数次の頂点は 0 個か 2 個</ja><en ja="d6582913">Let $G$ be a connected graph.<br>Then $G$ has an Euler path $\iff$ $G$ has 0 or 2 vertices of odd degree.</en></block>
+  <list>
+    <item><ja><code>&lt;switch&gt;</code> のボタンで <code>&lt;flip&gt;</code> の中の SVG を一枚ずつ見せる。頁は送らない</ja><en ja="5dc88158">The buttons of <code>&lt;switch&gt;</code> show the SVGs in <code>&lt;flip&gt;</code> one at a time, without turning the page</en></item>
+  </list>
+  <figure>
+    <flip id="fyn"><svg width="320" height="220" viewBox="0 0 320 220">
+<line x1="60" y1="40" x2="260" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="260" y1="180" x2="60" y2="180" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="180" x2="60" y2="40" stroke="#3333B2" stroke-width="5"/>
+<line x1="60" y1="40" x2="260" y2="180" stroke="#3333B2" stroke-width="5"/>
+<circle cx="60" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="40" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="180" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg>
+<svg width="320" height="220" viewBox="0 0 320 220">
+<line x1="160" y1="110" x2="160" y2="20" stroke="#3333B2" stroke-width="5"/>
+<line x1="160" y1="110" x2="60" y2="190" stroke="#3333B2" stroke-width="5"/>
+<line x1="160" y1="110" x2="260" y2="190" stroke="#3333B2" stroke-width="5"/>
+<circle cx="160" cy="110" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="160" cy="20" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="60" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="260" cy="190" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+</svg></flip>
+    <switch for="fyn"><button><ja>できる</ja><en ja="9256418d">Yes</en></button><button><ja>できない</ja><en ja="84d986f7">No</en></button></switch>
+  </figure>
+</slide>
+
+<slide title="組み上がる図" title-en="Figures built in steps" sec="機能" sec-en="Features" title-en-ja="3cfa5c31" sec-en-ja="9812f9fb">
+  <side>
+    <div>
+      <p><ja>図を部分ごとに、段階に合わせて出す</ja><en ja="480f812d">Show a figure part by part, in step with the talk</en></p>
+      <p><ja><code>&lt;flip anim&gt;</code> の中の SVG で、<code>class="cd"</code> を付けたグループ一つが一つの部分（ここではカードと呼ぶ）</ja><en ja="ac281f87">In an SVG inside <code>&lt;flip anim&gt;</code>, each group marked <code>class="cd"</code> is one part, called a card here</en></p>
+      <p step cards="2"><ja>段階の要素に <code>cards="n"</code>：n 枚目のカードまで出る</ja><en ja="f7e2d439">A step with <code>cards="n"</code> shows the cards up to the n-th</en></p>
+      <span step cards="3"></span>
+      <span step cards="4"></span>
+      <p step cards="*" ov><ja><code>cards="*"</code> で全部。<code>ov</code> を付けると、<code>class="ov"</code> のグループ（仕上げの印）も出る</ja><en ja="417935b2"><code>cards="*"</code> shows them all; adding <code>ov</code> also shows the groups with <code>class="ov"</code>, a finishing mark</en></p>
+    </div>
+    <figure>
+      <flip id="fbuild" anim init="1"><svg width="420" height="320" viewBox="0 0 420 320">
+<g class="cd"><line x1="80" y1="80" x2="340" y2="80" stroke="#3333B2" stroke-width="5"/><text x="210" y="66" font-size="24" text-anchor="middle" fill="#262686">1</text></g>
+<g class="cd"><line x1="340" y1="80" x2="340" y2="260" stroke="#3333B2" stroke-width="5"/><text x="362" y="178" font-size="24" text-anchor="middle" fill="#262686">2</text></g>
+<g class="cd"><line x1="340" y1="260" x2="80" y2="260" stroke="#3333B2" stroke-width="5"/><text x="210" y="292" font-size="24" text-anchor="middle" fill="#262686">3</text></g>
+<g class="cd"><line x1="80" y1="260" x2="80" y2="80" stroke="#3333B2" stroke-width="5"/><text x="58" y="178" font-size="24" text-anchor="middle" fill="#262686">4</text></g>
+<g class="cd"><line x1="80" y1="80" x2="340" y2="260" stroke="#3333B2" stroke-width="5"/><text x="226" y="160" font-size="24" text-anchor="middle" fill="#262686">5</text></g>
+<circle cx="80" cy="80" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="340" cy="80" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="340" cy="260" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<circle cx="80" cy="260" r="14" fill="#fefefe" stroke="#262626" stroke-width="3"/>
+<g class="ov"><g lang="ja"><text x="210" y="30" font-size="24" text-anchor="middle" fill="#ff4c00">オイラー路</text></g><g lang="en" ja="15bf1c42"><text x="210" y="30" font-size="24" text-anchor="middle" fill="#ff4c00">An Euler path</text></g></g>
+</svg></flip>
+    </figure>
+  </side>
+</slide>
+
+<slide title="動く図" title-en="Moving figures" sec="機能" sec-en="Features" title-en-ja="f1e4c092" sec-en-ja="9812f9fb">
+  <list>
+    <item><ja>SVG の SMIL アニメーションか、JavaScript で描く図。描く道具 <code>figure.js</code> はエンジンに付く</ja><en ja="1e86c0bb">SVG SMIL animation, or figures drawn with JavaScript; the drawing helpers <code>figure.js</code> come with the engine</en></item>
+    <item><ja>JavaScript の図は、頁一覧と印刷でも、その段階に合わせて描き直される</ja><en ja="95b782ec">JavaScript figures are redrawn for their step in the page list and in print as well</en></item>
+  </list>
+  <figure>
+    <svg id="fig-polygon" width="400" height="260"></svg>
+    <div class="bar" style="width:400px;margin:10px auto 0"><i>n</i><input type="range" min="3" max="12" value="6"><span>6</span></div>
+    <span step class="mark"></span>
+  </figure>
+</slide>
+
+<slide title="数式と定理・証明の部品" title-en="Mathematics, theorems and proofs" sec="機能" sec-en="Features" sec-en-ja="9812f9fb" title-en-ja="3ca6d0d8">
+  <list>
+    <item><ja>数式：<code>$…$</code>（文の中）と <code>$$…$$</code>（別の行）。KaTeX で組む</ja><en ja="df78ad72">Mathematics: <code>$…$</code> in text and <code>$$…$$</code> on its own line, typeset by KaTeX</en></item>
+    <item><ja>部品：block（定理など）・alertblock・exampleblock、alert（強調）</ja><en ja="67525748">Parts: block (theorems etc.), alertblock, exampleblock; alert (emphasis)</en></item>
+    <item><ja>proof（証明）・plan（証明の方針）・later（後で証明する主張）</ja><en ja="bbf7f8b3">proof; plan (the plan of a proof); later (a claim proved later)</en></item>
+    <item><ja>nums（番号付きの手順）・note（短い注意）・down（帰結を下向きの矢印の下に）</ja><en ja="d745e30a">nums (numbered steps); note (a short remark); down (a consequence under a down arrow)</en></item>
+  </list>
+  <block title="補題（握手補題）" title-en="Lemma (handshaking lemma)" title-en-ja="9005deba"><ja>$G=(V,E)$ をグラフとする。このとき $\sum_{v\in V}\deg(v) = 2|E|$</ja><en ja="2a3669cb">Let $G=(V,E)$ be a graph. Then $\sum_{v\in V}\deg(v) = 2|E|$.</en></block>
+  <proof step><ja>各辺は両端の次数に 1 ずつ数えられるので、次数の和は辺の数の <alert>2 倍</alert></ja><en ja="edf275bb">Each edge adds 1 to the degree of each end, so the degree sum is <alert>twice</alert> the edge count.</en></proof>
+</slide>
+
+<slide title="日本語と英語" title-en="Japanese and English" sec="機能" sec-en="Features" title-en-ja="cf144cc1" sec-en-ja="9812f9fb">
+  <list>
+    <item><ja>一つの原稿に <code>&lt;ja&gt;日本語&lt;/ja&gt;&lt;en&gt;English&lt;/en&gt;</code> の対で両方を書く</ja><en ja="30b4fa00">One draft holds both, in pairs <code>&lt;ja&gt;日本語&lt;/ja&gt;&lt;en&gt;English&lt;/en&gt;</code></en></item>
+    <item><ja>キー L か URL の <code>?lang=en</code> で切り替える</ja><en ja="c9359048">Switch with the key L or <code>?lang=en</code> in the URL</en></item>
+    <item><ja>英訳は別に用意する（手で書くか翻訳にかける）。エンジンは切り替えと、その言語での組版だけ</ja><en ja="2435b353">The English is prepared separately (by hand or by translation); the engine only switches and typesets in that language</en></item>
+    <item><ja>英語が収まらない頁は、その言語のときだけ文字を少しずつ縮める（85% まで）</ja><en ja="698772b6">A page whose English does not fit gets slightly smaller type in that language only (down to 85%)</en></item>
+    <item><ja>日本語を直した後に古くなった英語を見つけるため</ja><en ja="9c2f3fa3">To find English left outdated after the Japanese is changed</en>
+      <list>
+        <item><ja><code>make lang-stamp</code>：英語ごとに元の日本語のハッシュを記録</ja><en ja="566df931"><code>make lang-stamp</code>: records, for each English, a hash of its Japanese</en></item>
+        <item><ja><code>make lang</code>：英語の無い日本語と古い英語を、行番号つきで出す</ja><en ja="acc0c7ce"><code>make lang</code>: lists Japanese with no English and outdated English, with line numbers</en></item>
+      </list>
+    </item>
+  </list>
+</slide>
+
+<slide title="導入の三段階" title-en="Setting up in three stages" sec="使い方" sec-en="Usage" title-en-ja="27d0e1d0" sec-en-ja="d64f4970">
+  <list>
+    <item><ja>リポジトリ：<a href="https://github.com/ShiotaTakumi/Kamishibai">https://github.com/ShiotaTakumi/Kamishibai</a></ja><en ja="1dddca4a">Repository: <a href="https://github.com/ShiotaTakumi/Kamishibai">https://github.com/ShiotaTakumi/Kamishibai</a></en></item>
+    <item><ja>どの段階で止めても使える</ja><en ja="93f52d21">You can stop at any stage and use it</en></item>
+  </list>
+  <table class="tbl" style="font-size:.74em;white-space:nowrap;margin:14px auto">
+    <tr><th></th><th><ja>できること</ja><en ja="cc900a76">You can</en></th><th><ja>要るもの</ja><en ja="33913ec5">You need</en></th><th><ja>すること</ja><en ja="15d5f401">To do</en></th></tr>
+    <tr><td>1</td><td style="text-align:left"><ja>書いて発表し<br>PDF にする</ja><en ja="9f8653b4">Write, present,<br>print PDF</en></td><td style="text-align:left"><ja>ブラウザ</ja><en ja="e8d3a8f6">A browser</en></td><td style="text-align:left"><ja>clone か ZIP を展開</ja><en ja="f3d7bea6">Clone, or unpack the ZIP</en></td></tr>
+    <tr><td>2</td><td style="text-align:left"><ja>画面で直す</ja><en ja="ee9430d3">Edit on the slide</en></td><td style="text-align:left"><ja>Chromium 系のブラウザ</ja><en ja="4fb6586f">A Chromium browser</en></td><td style="text-align:left"><ja>拡張 page-edit を入れる</ja><en ja="40004812">Install page-edit</en></td></tr>
+    <tr><td>3</td><td style="text-align:left"><ja>一つの HTML で配る<br>検査する</ja><en ja="717f3b33">Pack as one HTML,<br>check</en></td><td style="text-align:left"><ja>Python 3.10+, make<br>Node.js 20+</ja><en ja="0b406c4e">Python 3.10+, make<br>Node.js 20+</en></td><td style="text-align:left"><ja><code>make deps fonts engine-fonts</code></ja><en ja="3c267af2"><code>make deps fonts engine-fonts</code></en></td></tr>
+  </table>
+  <list>
+    <item><ja>Madrid の書体は同梱。Boadilla の書体は段階 3 で入り、それまでは手元の書体で出る</ja><en ja="12db4c2c">Madrid's fonts are included; Boadilla's come with stage 3, with local fonts used until then</en></item>
+    <item><ja>ライセンス：CC0 1.0。作った資料は、クレジットの表記も許可も要らずに公開してよい</ja><en ja="d61fcde1">License: CC0 1.0; slides made with it may be published with no credit and no permission needed</en></item>
+  </list>
+</slide>
+
+<slide title="最初の一枚" title-en="The first slide" sec="使い方" sec-en="Usage" title-en-ja="bbcfd925" sec-en-ja="d64f4970">
+  <nums>
+    <item><ja>置き場（例 <code>my-talks/</code>）で <code>git clone https://github.com/ShiotaTakumi/Kamishibai</code></ja><en ja="fecb98fa">In a folder such as <code>my-talks/</code>: <code>git clone https://github.com/ShiotaTakumi/Kamishibai</code></en></item>
+    <item><ja><code>Kamishibai/engine/sample.html</code> を <code>talk/talk.html</code> へコピー</ja><en ja="b210b31d">Copy <code>Kamishibai/engine/sample.html</code> to <code>talk/talk.html</code></en></item>
+    <item><ja>エンジンを読み込む行を <code>&lt;script src="../Kamishibai/engine/kamishibai.js"&gt;&lt;/script&gt;</code> に直す</ja><en ja="8b2db06d">Change the engine line to <code>&lt;script src="../Kamishibai/engine/kamishibai.js"&gt;&lt;/script&gt;</code></en></item>
+    <item><ja><code>talk.html</code> をブラウザで開き、書き換えては再読み込み。URL の末尾に <code>#s5</code> を付けると 5 頁目から</ja><en ja="1fd9f671">Open <code>talk.html</code> in a browser; edit and reload. Adding <code>#s5</code> to the URL starts at page 5</en></item>
+    <item><ja>配布（段階 3）：<code>Kamishibai/</code> で <code>make pack SRC=../talk/talk.html</code></ja><en ja="ebe0cd18">Hand out (stage 3): in <code>Kamishibai/</code>,<br><code>make pack SRC=../talk/talk.html</code></en></item>
+  </nums>
+  <list>
+    <item><ja>原稿はリポジトリの外にあるので、<code>git pull</code> でエンジンだけを新しくできる</ja><en ja="e8c04927">The draft is outside the repository, so <code>git pull</code> updates the engine alone</en></item>
+  </list>
+  <figure><svg width="640" height="178" viewBox="0 0 640 178" font-size="22" font-family="monospace" fill="#262626">
+<g stroke="#8a8a8a" stroke-width="2" fill="none">
+<path d="M24 32 V 130 M24 62 H 46 M24 130 H 46"/>
+<path d="M66 72 V 96 H 88 M66 140 V 164 H 88"/>
+</g>
+<text x="10" y="24">my-talks/</text>
+<text x="52" y="69">Kamishibai/</text>
+<text x="94" y="103">engine/kamishibai.js, engine/sample.html</text>
+<text x="52" y="137">talk/</text>
+<text x="94" y="171">talk.html</text>
+</svg></figure>
+</slide>
+
+<slide title="AI に書かせて始める" title-en="Starting with an AI" sec="使い方" sec-en="Usage" title-en-ja="93cd21c8" sec-en-ja="d64f4970">
+  <nums>
+    <item><ja>頼み方の例：<br>「https://github.com/ShiotaTakumi/Kamishibai を clone し、<code>docs/math-slides.md</code>（規則）と <code>engine/README.md</code>（書き方）に従い、<code>engine/sample.html</code> を手本に、次の原稿から 10 ページのスライド <code>talk/talk.html</code> を作って」</ja><en ja="f6c9dee0">Ask, for example: “Clone https://github.com/ShiotaTakumi/Kamishibai, follow <code>docs/math-slides.md</code> (rules) and <code>engine/README.md</code> (manual), and, modelled on <code>engine/sample.html</code>, make a deck <code>talk/talk.html</code> of 10 pages from the text below”</en></item>
+    <item><ja>ブラウザで開いて見直し、細かい文は page-edit で直す</ja><en ja="4c6bbad9">Review it in a browser; fix small wording with page-edit</en></item>
+    <item><ja><code>make pack</code> と <code>make check-pack</code> の警告を AI に渡して直させる</ja><en ja="9f4bc7dd">Give the warnings of <code>make pack</code> and <code>make check-pack</code> back to the AI to fix</en></item>
+  </nums>
+  <list>
+    <item><ja>clone できない AI（チャットだけのもの）には、三つのファイルを添える</ja><en ja="fd078825">For an AI that cannot clone (chat only), attach the three files</en></item>
+  </list>
+</slide>
+
+<slide title="画面での編集" title-en="Editing on screen" sec="使い方" sec-en="Usage" title-en-ja="66c63d00" sec-en-ja="d64f4970">
+  <nums>
+    <item><ja>入れる：<code>chrome://extensions</code> でデベロッパー モードをオンにし、page-edit のフォルダを読み込み、ファイルの URL へのアクセスを許可</ja><en ja="5a08aad4">Install: in <code>chrome://extensions</code> turn on developer mode, load the page-edit folder, and allow access to file URLs</en></item>
+    <item><ja>page-edit に、原稿を含むフォルダへの書き込みを一度許可する</ja><en ja="aa39d264">Allow page-edit, once, to write to the folder that holds the draft</en></item>
+    <item><ja>編集のモード ⌘E：文・題・節の名前などをクリックして書き換え、Enter で原稿に書き戻す。Shift+Enter で改行、Esc で取り消し。数式は TeX の形で出る</ja><en ja="b0de8f16">Edit mode ⌘E: click a sentence, title, section name and so on, rewrite it, and Enter writes it back into the draft. Shift+Enter breaks a line, Esc cancels; mathematics shows as TeX</en></item>
+  </nums>
+  <list>
+    <item><ja>page-edit が 1 秒ごとに原稿のファイルを見て、エディタや AI が書き換えたら自動で組み直す</ja><en ja="e6b17ff5">page-edit looks at the draft file every second and lays it out again when an editor or an AI has changed it</en></item>
+    <item><ja>Chromium 系のブラウザ（Chrome・Edge・Brave など）だけ</ja><en ja="0af23345">Chromium browsers only (Chrome, Edge, Brave, …)</en></item>
+    <item><ja>block の追加・削除・並べ替え、図、<code>&lt;script&gt;</code> はエディタで直す</ja><en ja="8211de9d">Adding, removing or reordering blocks, figures and <code>&lt;script&gt;</code> are edited in an editor</en></item>
+  </list>
+</slide>
+
+<slide title="配布" title-en="Handing out" sec="使い方" sec-en="Usage" title-en-ja="2856dac4" sec-en-ja="d64f4970">
+  <list>
+    <item><ja>HTML：<code>make pack SRC=talk/talk.html</code> が作る <code>talk/talk.dist.html</code></ja><en ja="6325ee9e">HTML: <code>talk/talk.dist.html</code>, made by <code>make pack SRC=talk/talk.html</code></en></item>
+    <item><ja>中にエンジン・組み終えた数式・画像・書体が入り、ネットにつながずに開ける</ja><en ja="e21b94be">It holds the engine, the typeset mathematics, images and fonts, and opens without a network</en></item>
+    <item><ja>Boadilla の書体は原稿で使う字だけを切り出して入れる（見本で約 0.7 MB）</ja><en ja="22513973">Boadilla's fonts are cut down to the characters the draft uses (about 0.7 MB for the sample)</en></item>
+    <item><ja>同じ原稿からは、誰がどの機械で作っても同じファイルになる</ja><en ja="52a82000">From the same draft, anyone on any machine gets the same file</en></item>
+    <item><ja>PDF：出力のモード ⌘P から、印刷の画面で保存</ja><en ja="1f6ca8e5">PDF: saved through print, from output mode ⌘P</en></item>
+  </list>
+</slide>
+
+<slide title="規則の検査" title-en="Checking the rules" sec="使い方" sec-en="Usage" title-en-ja="55fe9971" sec-en-ja="d64f4970">
+  <p><ja><code>make pack</code> は、数理のスライドの規則に反する原稿からは配布用ファイルを作らない</ja><en ja="27fa95ae"><code>make pack</code> makes no handout from a draft that breaks the rules for mathematical slides</en></p>
+  <list>
+    <item><ja>block には定義・定理などの主張を一つだけ。題は主張の種類で始める</ja><en ja="c81467b4">A block holds one statement (definition, theorem…); its title starts with the kind</en></item>
+    <item><ja>図にキャプションを付けない</ja><en ja="f4c6798a">No captions on figures</en></item>
+    <item><ja>図は頁の文の下。段階を追う説明だけ <code>&lt;side&gt;</code> で文を左、図を右に</ja><en ja="ce0fbee0">Figures below the text; <code>&lt;side&gt;</code> (text left, figure right) only for stepwise ones</en></item>
+    <item><ja>頁の番号で参照しない（聴衆は頁を戻れない）</ja><en ja="9818bebc">No references by page number (the audience cannot turn back)</en></item>
+    <item><ja>縮めた図の最小の文字が 10px より小さければ警告</ja><en ja="5cf8977b">A warning when a shrunk figure has text smaller than 10px</en></item>
+    <item><ja><code>make order</code>：定理・補題・定義の読む順の警告（定義より前の使用など）</ja><en ja="130a66b5"><code>make order</code>: warns on the order of definitions and theorems (e.g. use before definition)</en></item>
+  </list>
+  <p><ja>文の書き方の規則は <code>docs/math-slides.md</code></ja><en ja="3cb8ac50">Writing rules: <code>docs/math-slides.md</code></en></p>
+</slide>
+
+<slide title="組版の検査" title-en="Checking the layout" sec="使い方" sec-en="Usage" title-en-ja="41d6b81b" sec-en-ja="d64f4970">
+  <list>
+    <item><ja><code>make check-pack</code>：配布用ファイルを Chromium と WebKit（Chrome と Safari の組版エンジン）で組む</ja><en ja="c66cee1f"><code>make check-pack</code>: lays out the handout in Chromium and WebKit (the layout engines of Chrome and Safari)</en>
+      <list>
+        <item><ja>行の切れ方が一致すること</ja><en ja="c3d83fcb">Line breaks must agree</en></item>
+        <item><ja>画面と本文の領域からはみ出さないこと</ja><en ja="1e659f4f">Nothing may stick out of the screen or the text area</en></item>
+        <item><ja>対象：全段階を出した各頁、切り替える図の各図、段階ごとの印刷と PDF</ja><en ja="3aba44f2">Checked: each page with all steps, each card of a switching figure, the print and PDF of each step</en></item>
+        <item><ja>英語を含む原稿は両方の言語で</ja><en ja="fe0aa9dd">A draft with English is checked in both languages</en></item>
+      </list>
+    </item>
+  </list>
+</slide>
+
+<script>
+/* moving figure: when the mark appears the regular n-gon grows; the slider changes n */
+figure("fig-polygon", function (svg, still) {
+  const slide = svg.closest("slide"), mark = slide.querySelector(".mark");
+  const input = slide.querySelector(".bar input"), value = slide.querySelector(".bar span");
+  let t = 0;
+  function draw() {
+    const n = +input.value, r = 50 + 70 * ease(t), pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+      pts.push((200 + r * Math.cos(a)).toFixed(2) + "," + (130 + r * Math.sin(a)).toFixed(2));
+    }
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    mk("polygon", { points: pts.join(" "), fill: "#E9E9F3", stroke: "#3333B2", "stroke-width": 3, "stroke-linejoin": "round" }, svg);
+    lid(svg, [200, 130], "n", 1, true);
+  }
+  if (still) { t = mark.classList.contains("on") ? 1 : 0; draw(); return; }
+  follow(mark, function (x) { t = x; draw(); }, 1200);
+  input.addEventListener("input", function () { value.textContent = input.value; draw(); });
+  draw();
+});
+figure("fig-poly2", function (svg, still) {
+  const box = svg.closest(".sl"), input = box.querySelector("input"), value = box.querySelector(".bar span");
+  function draw() {
+    const n = +input.value, pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + 2 * Math.PI * i / n;
+      pts.push((100 + 60 * Math.cos(a)).toFixed(2) + "," + (72 + 60 * Math.sin(a)).toFixed(2));
+    }
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    mk("polygon", { points: pts.join(" "), fill: "#E9E9F3", stroke: "#3333B2", "stroke-width": 3, "stroke-linejoin": "round" }, svg);
+  }
+  if (!still) input.addEventListener("input", function () { value.textContent = input.value; draw(); });
+  draw();
+});
+/* page "Themes": the buttons under the sample reload it in the other theme (4:3 is narrower) */
+document.addEventListener("click", function (e) {
+  const b = e.target.closest(".tsw button");
+  if (!b) return;
+  e.stopPropagation();
+  const bs = [].slice.call(b.parentNode.querySelectorAll("button")), k = bs.indexOf(b), t = k ? "Madrid" : "Boadilla";
+  bs.forEach((x, i) => x.classList.toggle("sub2", i !== k));
+  b.closest("figure").querySelectorAll(".tdemo iframe").forEach(function (f) {
+    f.src = f.getAttribute("src").replace(/theme=[A-Za-z]+/, "theme=" + t);
+    f.width = k ? 472 : 612;   /* the page plus the 52px gutter the engine keeps on the left for its panel */
+    f.title = t;
+  });
+  b.blur();
+}, true);
+</script>
