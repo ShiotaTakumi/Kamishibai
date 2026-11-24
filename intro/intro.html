@@ -22,6 +22,7 @@
   .exs .exs-t, .exs .exs-s { display: block; font-size: 22px; line-height: 30px; white-space: nowrap }
   .exs-c { flex: 0 0 100%; margin-top: 10px; text-align: center; font-size: 15px; line-height: 20px; color: #262626; white-space: nowrap }
   .exs .exs-s { font-size: 16px; line-height: 22px; color: #262626 }
+  .phone { display: block; border-radius: 12px }
   .mu .ml { position: absolute; left: 50px; font-size: 13px; line-height: 20px; white-space: nowrap }
   .mu .mc { position: absolute; left: 0; bottom: -26px; font-size: 14px; font-weight: bold; white-space: nowrap }
 </style>
@@ -232,9 +233,12 @@
         <span class="ml" style="top:76px"><ja>出力 ⌘P</ja><en ja="6c437ccb">Output ⌘P</en></span>
         <span class="ml" style="top:112px"><ja>開く・しまう</ja><en ja="0b0f0140">Open, fold</en></span>
         <span class="mc"><ja>下のカード（共通）</ja><en ja="759163aa">Lower card (all modes)</en></span></div>
-      <div class="mu" style="width:196px;height:72px"><img src="menu-edit.png" width="40" height="72" alt="">
-        <span class="ml" style="top:10px"><ja>頁一覧 ⌘B</ja><en ja="53fb6a88">Page list ⌘B</en></span>
-        <span class="ml" style="top:42px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+      <div class="mu" style="width:196px;height:175px"><img src="menu-edit.png" width="40" height="175" alt="">
+        <span class="ml" style="top:10px"><ja>日本語だけを編集</ja><en ja="7483d491">Edit the Japanese only</en></span>
+        <span class="ml" style="top:42px"><ja>英語だけを編集</ja><en ja="f91f5eb3">Edit the English only</en></span>
+        <span class="ml" style="top:74px"><ja>日本語と英語を一度に編集</ja><en ja="80866b4a">Edit both at once</en></span>
+        <span class="ml" style="top:113px"><ja>頁一覧 ⌘B</ja><en ja="53fb6a88">Page list ⌘B</en></span>
+        <span class="ml" style="top:145px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
         <span class="mc"><ja>上のカード：編集</ja><en ja="8691d2b5">Upper card: edit</en></span></div>
       <div class="mu" style="width:196px;height:278px"><img src="menu-show.png" width="40" height="278" alt="">
         <span class="ml" style="top:10px"><ja>全画面 ⌘F</ja><en ja="db569ca7">Full screen ⌘F</en></span>
@@ -253,6 +257,17 @@
         <span class="ml" style="top:106px"><ja>出力する</ja><en ja="851c04d0">Write it out</en></span>
         <span class="mc"><ja>上のカード：出力</ja><en ja="e895c54f">Upper card: output</en></span></div>
   </figure>
+</slide>
+
+<slide title="スマホとタブレット" title-en="Phones and tablets" sec="機能" sec-en="Features" sec-en-ja="9812f9fb" title-en-ja="1a45af0b">
+  <list style="font-size:.9em">
+    <item><ja>公開したスライドは、スマホやタブレットのブラウザでも開ける</ja><en ja="a8f559d0">Published slides also open in the browser of a phone or tablet</en></item>
+    <item><ja>進む：▶、左へのスワイプ、頁のタップ</ja><en ja="e2db69bd">Forward: ▶, a swipe to the left, or a tap on the page</en></item>
+    <item><ja>戻る：◀、右へのスワイプ、頁の左 1/4 のタップ</ja><en ja="66061fd2">Back: ◀, a swipe to the right, or a tap on the left quarter</en></item>
+    <item><ja>道具の列：縦に持つと ◀ ▶ の上、横に持つと左下。取っ手で開く</ja><en ja="5dc92cf3">Tool column: above ◀ ▶ when held upright, at the bottom left when sideways; the handle opens it</en></item>
+    <item><ja>ポインター・選択・キー無効は出ない。編集はパソコンだけ</ja><en ja="856dc21a">Pointer, select and lock are not shown; editing is on computers only</en></item>
+  </list>
+  <figure style="display:flex;gap:40px;align-items:center;justify-content:center;margin:14px 0 0"><ja><img class="phone" src="phone-port-ja.png" width="176" height="300" alt=""></ja><en ja="811c9dc5"><img class="phone" src="phone-port-en.png" width="176" height="300" alt=""></en><ja><img class="phone" src="phone-land-ja.png" width="526" height="240" alt=""></ja><en ja="811c9dc5"><img class="phone" src="phone-land-en.png" width="526" height="240" alt=""></en></figure>
 </slide>
 
 <slide title="段階表示" title-en="Steps" sec="機能" sec-en="Features" title-en-ja="989564e7" sec-en-ja="9812f9fb">
@@ -412,12 +427,13 @@
 </slide>
 
 <slide title="画面での編集" title-en="Editing on screen" sec="使い方" sec-en="Usage" title-en-ja="66c63d00" sec-en-ja="d64f4970">
-  <nums>
+  <nums style="font-size:.88em">
     <item><ja>入れる：<code>chrome://extensions</code> でデベロッパー モードをオンにし、page-edit のフォルダを読み込み、ファイルの URL へのアクセスを許可</ja><en ja="5a08aad4">Install: in <code>chrome://extensions</code> turn on developer mode, load the page-edit folder, and allow access to file URLs</en></item>
     <item><ja>page-edit に、原稿を含むフォルダへの書き込みを一度許可する</ja><en ja="aa39d264">Allow page-edit, once, to write to the folder that holds the draft</en></item>
     <item><ja>編集のモード ⌘E：文・題・節の名前などをクリックして書き換え、Enter で原稿に書き戻す。Shift+Enter で改行、Esc で取り消し。数式は TeX の形で出る</ja><en ja="b0de8f16">Edit mode ⌘E: click a sentence, title, section name and so on, rewrite it, and Enter writes it back into the draft. Shift+Enter breaks a line, Esc cancels; mathematics shows as TeX</en></item>
   </nums>
-  <list>
+  <list style="font-size:.88em">
+    <item><ja>日英の原稿では、出している言語だけを編集。上のカードの あ・A・あA で、日本語だけ・英語だけ・両方を選ぶ</ja><en ja="2b0fbb84">With both languages in a draft, only the one shown is edited; あ, A, あA in the upper card choose Japanese, English or both</en></item>
     <item><ja>page-edit が 1 秒ごとに原稿のファイルを見て、エディタや AI が書き換えたら自動で組み直す</ja><en ja="e6b17ff5">page-edit looks at the draft file every second and lays it out again when an editor or an AI has changed it</en></item>
     <item><ja>Chromium 系のブラウザ（Chrome・Edge・Brave など）だけ</ja><en ja="0af23345">Chromium browsers only (Chrome, Edge, Brave, …)</en></item>
     <item><ja>block の追加・削除・並べ替え、図、<code>&lt;script&gt;</code> はエディタで直す</ja><en ja="8211de9d">Adding, removing or reordering blocks, figures and <code>&lt;script&gt;</code> are edited in an editor</en></item>

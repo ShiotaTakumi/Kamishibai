@@ -67,11 +67,12 @@
     → / Space / Enter / PageDown / クリックで進む。← / PageUp / 画面の左 1/4 のクリックで戻る。Home / End。S 段階表示の切り替え。
     クリックは、少し待ってから送る（ダブルクリック・トリプルクリック・ドラッグ・文字の選択とその解除では送らない）。
     ボタン・入力欄・リンク・動画・音声・iframe・details・summary のクリックでも送らない。
-    タッチの画面では ◀ ▶ のボタンが出る。
+    タッチの画面では ◀ ▶ のボタンが出て、タップ（すぐに送る）と左右のスワイプでも送る。左の隙間を空けず、道具は縦に持つと ◀ ▶ の上、
+    横に持つと左下に置き、ポインター・選択・キー無効（と、使えないときの全画面）は出さない。
     道具はページの左の隙間に縦一列のアイコンで並ぶ（名前はアイコンに指を置くと出る）。下のつまみで上へ開く。上の板に今のモードの道具、
     下の板にくぼんだ溝に入った三つのモード（編集・プレゼン・出力）とつまみ。畳むと編集・出力のときだけそのモードのアイコンが残り、プレゼンの道具が
     オンのときはつまみに橙の点が付く。ページは左にこの欄の幅（52px）の隙間を必ず空けて置く。既定はプレゼン。モードのキーをもう一度押すとプレゼンに戻る（Windows では Ctrl）。
-    編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。ページ一覧 ⌘B・日本語の太さ。
+    編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。編集する言語・ページ一覧 ⌘B・日本語の太さ。
     プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、日本語の太さ、
       選択 ⌘I（文字を選べ、クリックでは送らず ← → だけで送る）、キー無効 ⌘U（キーでもクリックでも送らない）。選択とキー無効はどちらか一方。
     出力 ⌘P：印刷の版面を画面に並べる。PDF（段階ごとに 1 枚／全段階を 1 枚に）は印刷の画面から、
@@ -700,7 +701,7 @@ secs.forEach(function (sec, i) {
   const th = $new("div", "thumb"), box = $new("div", "tbox");
   box.appendChild(copyPage(sec, Infinity));
   th.append(box, $new("span", "tno", String(i + 1)));
-  th.addEventListener("click", function () { go(i, true); });
+  th.addEventListener("click", function () { go(i, true); if (sideOver()) tool("side"); });
   side.appendChild(th);
 });
 body.appendChild(side);
@@ -785,17 +786,27 @@ document.head.appendChild($new("style", null, "@page { size: " + (SW * .75) + "p
 /* The panel (40px wide) sits in the gap left of the page. When that gap is narrower than GUT, the page
    gives up just enough room on the left (it moves right by at most GUT / 2) */
 const GUT = 52;
+/* Phones and tablets: html.touch. No gap is kept for the panel (it goes where the screen has room, see base.css).
+   Held upright, the page is centred in what is left above ◀ ▶ (NAV). On a phone the overview lies over the page */
+const NAV = 76, touchMQ = matchMedia("(hover: none), (pointer: coarse)");
+const isTouch = () => touchMQ.matches;
+function touchClass() { root.classList.toggle("touch", isTouch()); }
+touchClass();
+touchMQ.addEventListener("change", function () { touchClass(); fit(); });
+const sideOver = () => isTouch() && Math.min(innerWidth, innerHeight) < 600;
 function fit() {
-  const L = body.classList.contains("side-on") ? side.offsetWidth : 0, W = innerWidth - L, H = innerHeight;
-  let s = Math.min(W / SW, H / SH), x = (W - SW * s) / 2;
+  const L = body.classList.contains("side-on") && !sideOver() ? side.offsetWidth : 0, W = innerWidth - L, H = innerHeight;
+  let s = Math.min(W / SW, H / SH), x = (W - SW * s) / 2, y = (H - SH * s) / 2;
   /* in fullscreen the page fills the screen; the panel, shown only while the mouse is near, lies over it */
   const full = document.fullscreenElement || document.webkitFullscreenElement;
-  if (x < GUT && !full) { s = Math.min(H / SH, (W - GUT) / SW); x = GUT + (W - GUT - SW * s) / 2; }
-  stage.style.transform = "translate(" + (L + x) + "px," + (H - SH * s) / 2 + "px) scale(" + s + ")";
+  if (isTouch()) { if (H > innerWidth) y = Math.max(0, (H - NAV - SH * s) / 2); }
+  else if (x < GUT && !full) { s = Math.min(H / SH, (W - GUT) / SW); x = GUT + (W - GUT - SW * s) / 2; y = (H - SH * s) / 2; }
+  stage.style.transform = "translate(" + (L + x) + "px," + y + "px) scale(" + s + ")";
   /* in 出力 the printed sheets, not the page, leave the gap */
   if (!tools) return;
   const left = body.classList.contains("mode-out") ? (root.clientWidth - SW * parseFloat(cssVar("--pzoom") || 1) - 80) / 4 : L + (x - 40) / 2;
-  tools.style.left = Math.max(4, left) + "px";
+  if (body.classList.contains("side-on") && sideOver()) tools.style.left = side.offsetWidth + 6 + "px";
+  else tools.style.left = Math.max(4, left) + "px";
 }
 let tools = null;
 addEventListener("resize", function () { zoomPrint(); fit(); });
@@ -826,6 +837,7 @@ const edText = () => editor && editor.enter ? "文をクリックして直す（
 const canHTML = () => !!(editor && editor.exportHTML) && !Kamishibai.packed;
 const outText = () => st.out !== "html" ? "出力を押し、印刷の画面で「PDF に保存」を選ぶ"
   : canHTML() ? "出力を押すと、原稿の隣に 名前.dist.html を書く" : "HTML は make pack で作ります（page-edit があればここから出せます）";
+const canFull = !!(root.requestFullscreen || root.webkitRequestFullscreen);
 const NAMES = { ptr: "ポインター", sel: "選択", op: "キー無効" };
 function render() {
   const C = body.classList, show = st.mode === "show";
@@ -967,12 +979,12 @@ function group(cls, items) {
   tools.appendChild(g);
   return g;
 }
-const sep = () => $new("div", "sep");
+const sep = c => $new("div", "sep" + (c ? " " + c : ""));
 const outBtn = button(null, "出力", "go", "it go");
 outBtn.addEventListener("click", output);
 group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), strokeTool()]);
-group("grp g-show", [button("full", "全画面 " + mod + "F"), button("ptr", "ポインター " + mod + "K"), button("steps", "段階表示 S"),
-  button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), sep(), button("sel", "選択 " + mod + "I"), button("op", "キー無効 " + mod + "U"), sep(), strokeTool()]);
+group("grp g-show", [button("full", "全画面 " + mod + "F", "full", "it" + (canFull ? "" : " no")), button("ptr", "ポインター " + mod + "K", "ptr", "it nt"), button("steps", "段階表示 S"),
+  button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), sep("nt"), button("sel", "選択 " + mod + "I", "sel", "it nt"), button("op", "キー無効 " + mod + "U", "op", "it nt"), sep(), strokeTool()]);
 group("grp g-out", [button("o-steps", "PDF：段階ごとに 1 枚"), button("o-all", "PDF：全段階を 1 枚に"), button("o-html", "HTML：1 ファイル"), outBtn]);
 /* the modes and the handle sit on a card of their own, below the card of the current mode's tools */
 const dock = $new("div", "dock");
@@ -1091,8 +1103,11 @@ addEventListener("click", function (e) {
                        ".bar, .sw, .ctrl, switch, body > .side, .tools"))) return;
   clearTimeout(pend); pend = 0;
   const moved = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4;
-  if (e.detail > 1 || moved || hadSel || selecting()) return;
+  if (moved || hadSel || selecting()) return;
   const back = e.clientX < innerWidth * 0.25;
+  /* a tap turns the page at once: on a touch screen quick taps are not a double click */
+  if (isTouch()) { if (back) prev(); else next(); return; }
+  if (e.detail > 1) return;
   pend = setTimeout(function () { pend = 0; if (selecting()) return; if (back) prev(); else next(); }, 260);
 });
 /* Keys: ⌘ (Ctrl on Windows) + E P switch the mode, + B F K I U toggle; other ⌘ keys go to the browser.
@@ -1119,6 +1134,27 @@ document.addEventListener("keydown", function (e) {
 /* sliders and buttons in a slide give the focus back once used, so keys turn pages again */
 ["change", "pointerup"].forEach(function (t) {
   stage.addEventListener(t, function (e) { if (e.target.matches("input, button")) e.target.blur(); });
+});
+
+/* Swipe: to the left = forward, to the right = back. Not in edit, select, keys-off or output mode, not on controls or
+   on what follows the finger itself (touch-action: none), not while the screen is pinched larger */
+let swipe = null;
+document.addEventListener("touchstart", function (e) {
+  swipe = null;
+  if (e.touches.length !== 1 || (window.visualViewport && visualViewport.scale > 1.05)) return;
+  if (["edit", "op", "mode-out"].some(c => body.classList.contains(c))) return;
+  if (e.composedPath().some(n => n.matches && (n.matches("input, select, textarea, video, audio, iframe, [contenteditable], " +
+      ".bar, .sw, .ctrl, switch, body > .side, .tools") || getComputedStyle(n).touchAction === "none"))) return;
+  swipe = [e.touches[0].clientX, e.touches[0].clientY, Date.now()];
+}, { passive: true });
+document.addEventListener("touchmove", function (e) { if (e.touches.length !== 1) swipe = null; }, { passive: true });
+document.addEventListener("touchcancel", function () { swipe = null; });
+document.addEventListener("touchend", function (e) {
+  if (!swipe) return;
+  const t = e.changedTouches[0], dx = t.clientX - swipe[0], dy = t.clientY - swipe[1], ms = Date.now() - swipe[2];
+  swipe = null;
+  if (ms > 800 || Math.abs(dx) < 40 || Math.abs(dx) < 2 * Math.abs(dy) || selecting()) return;
+  if (dx < 0) next(); else prev();
 });
 
 /* ◀ ▶ for touch screens (same as ← →) */

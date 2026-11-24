@@ -25,11 +25,13 @@ body > :is(cover, slide, divider) { display: none }
   --ja-stroke: 0pt;
 }
 * { box-sizing: border-box }
+/* スマホのブラウザは、幅の広い文の字を勝手に大きくすることがある。ページは全体を縮めて見せるので、させない */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100% }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #222 }
 /* 既定では字の太さは Mac のふつうの描き方のまま（IPA Pゴシックに -webkit-font-smoothing: antialiased を付けると、細く見えすぎる）。Boadilla は付ける */
 body { font-family: var(--font); color: var(--ink); line-break: strict }
 .ja { -webkit-text-stroke: var(--ja-stroke) currentColor }
-.deck { position: fixed; inset: 0 }
+.deck { position: fixed; inset: 0; touch-action: manipulation }
 /* 位置と倍率は fit() が決める。発表モードでは、クリックしても文字を選ばない */
 .stage { position: absolute; left: 0; top: 0; width: var(--W); height: var(--H);
   background: #fff; overflow: hidden; transform-origin: 0 0; user-select: none; -webkit-user-select: none }
@@ -188,22 +190,38 @@ body.ptr-on, body.ptr-on * { cursor: none !important }
   color: #fff; background: #1A8502; border-radius: 6px; padding: 7px 10px }
 body.op .badge { display: block }
 
-/* ---- 指で触る画面でページを送る ◀ ▶。指で触る画面（hover: none）だけ出す。
-   縦に持つと、スライドの下の余白の真ん中に 2 つ並べる。横に持つと、左右の余白の上下の真ん中に 1 つずつ置く ---- */
+/* ---- 指で触る画面（スマホ・タブレット。kamishibai.js が html に .touch を付ける）----
+   ページを送る ◀ ▶：縦に持つと、スライドの下の余白の真ん中に 2 つ並べる。横に持つと、左右の余白の上下の真ん中に 1 つずつ置く。
+   道具欄：縦に持つと ◀ ▶ の上に横に並べる。横に持つと左下に置き、開くと右へ広がる（開いている間は ◀ を隠す）。
+   マウスとキーのための道具（.nt：ポインター・選択・キー無効）と、使えないときの全画面（.no）は出さない ---- */
+.tools .no { display: none }
 .tap-nav { display: none }
-@media (hover: none) {
-  .tap-nav { display: block; position: fixed; z-index: 40; width: 64px; height: 44px; padding: 0; border: none; border-radius: 8px;
-    background: #fff; box-shadow: inset 0 0 0 2px var(--blue); -webkit-tap-highlight-color: transparent; touch-action: manipulation }
-  .tap-nav::before { content: ""; position: absolute; top: 12px; border-top: 10px solid transparent; border-bottom: 10px solid transparent }
-  .tap-prev::before { left: 23px; border-right: 17px solid var(--blue) }
-  .tap-next::before { left: 25px; border-left: 17px solid var(--blue) }
-  .tap-nav:active { background: #e8f2fd }
-  .tap-prev { left: calc(50% - 76px); bottom: 24px }
-  .tap-next { left: calc(50% + 12px); bottom: 24px }
+.touch .tap-nav { display: block; position: fixed; z-index: 40; width: 64px; height: 44px; padding: 0; border: none; border-radius: 8px;
+  background: #fff; box-shadow: inset 0 0 0 2px var(--blue); -webkit-tap-highlight-color: transparent; touch-action: manipulation }
+.tap-nav::before { content: ""; position: absolute; top: 12px; border-top: 10px solid transparent; border-bottom: 10px solid transparent }
+.tap-prev::before { left: 23px; border-right: 17px solid var(--blue) }
+.tap-next::before { left: 25px; border-left: 17px solid var(--blue) }
+.tap-nav:active { background: #e8f2fd }
+.tap-prev { left: calc(50% - 76px); bottom: 20px }
+.tap-next { left: calc(50% + 12px); bottom: 20px }
+.touch body.side-on .tap-nav { display: none }
+.touch body > .side { padding-bottom: 180px }
+.touch .tools { opacity: 1; visibility: visible; touch-action: manipulation }
+.touch .tools .nt { display: none }
+.touch .tools button { -webkit-tap-highlight-color: transparent }
+.touch .toast { bottom: auto; top: 16px; max-width: calc(100vw - 32px); box-sizing: border-box }
+@media (orientation: portrait) {
+  .touch .tools { left: 0 !important; right: 0; bottom: 76px; width: auto; pointer-events: none }
+  .touch .tools .grp, .touch .tools .dock { width: auto; max-width: calc(100vw - 16px); pointer-events: auto }
+  .touch .tools :is(.grp, .dock, .modes, .sk-wrap, .sk) { flex-direction: row }
+  .touch .tools button { width: 36px; height: 36px }
+  .touch .tools .sep { width: 1px; height: 20px; margin: 0 2px }
 }
-@media (hover: none) and (orientation: landscape) {
-  .tap-prev { left: 12px; bottom: auto; top: calc(50% - 22px) }
-  .tap-next { left: auto; right: 12px; bottom: auto; top: calc(50% - 22px) }
+@media (orientation: landscape) {
+  .touch .tap-prev { left: 12px; bottom: auto; top: calc(50% - 22px) }
+  .touch .tap-next { left: auto; right: 12px; bottom: auto; top: calc(50% - 22px) }
+  .touch .tools { flex-direction: row-reverse; align-items: flex-end; justify-content: flex-end; width: auto; bottom: 6px }
+  .touch body.tools-open .tap-prev { display: none }
 }
 
 /* ---- 出力モード（⌘P）：印刷する形を画面に縦に並べて見せる。--pzoom は画面の幅に合わせる倍率（kamishibai.js） ---- */
