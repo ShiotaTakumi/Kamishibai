@@ -25,6 +25,9 @@
    - The file is polled every second; a change made elsewhere (editor, AI) rebuilds the page.
 
    In edit mode every editable text shows its source (TeX, inline tags) and pages do not turn on click.
+   A deck with Japanese and English: only the language shown is edited (its part of each pair, and text without a
+   pair); the engine's panel gets three buttons, 日本語, English and both at once. Saving one language leaves the
+   other as it is. In English, Japanese text that has no English is shown grey and is not edited.
    click        edit that text (in edit mode)
    Enter        save            Shift+Enter  newline         Esc  cancel
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
@@ -53,11 +56,14 @@
     { attr: "short", tags: ["author", "headline", "date"], all: false },
     { attr: "label", tags: ["item"], all: false }
   ];
+  ATTRS.push(...ATTRS.map(x => ({ attr: x.attr + "-en", tags: x.tags, all: x.all })));   // the English of each
   const VOID = new Set(["br", "img", "input", "wbr", "hr", "meta", "link", "source", "col", "area", "base", "embed", "track"]);
   const RAW = new Set(["script", "style"]);
   const WEBSLIDE_RE = /<script[^>]*(?:webslide|kamishibai)\.js[^>]*>/i;   // WebSlide, or its derived Kamishibai engine
   const EDIT_KEY = "slide-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform);    // as WebSlide decides between Cmd and Ctrl
+  const BOTH_KEY = "page-edit-both";   // "1": Japanese and English are edited at once
+  const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const mod = e => (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey;
   // Edit mode has its own key, Cmd+E (Ctrl+E elsewhere). The engine's select mode is Cmd+I; an older engine
   // (and WebSlide) has it on Cmd+E too, read from its "Select ⌘X" button. Synthetic presses (pressSelect) are skipped.
@@ -362,6 +368,7 @@
     S.text = text;
     if (mtime !== undefined) S.mtime = mtime;
     S.building = true;
+    S.panel = document.body.classList.contains("tools-open");   // the engine's panel stays open over the rebuild
     // This same function, inline (file:// pages have no CSP).
     const inject = "<script>(" + slideEdit.toString().replace(/<\/script/gi, "<\\/script") + ")();<\/script>\n";
     document.open();
@@ -376,12 +383,16 @@
   function style() {
     const css = document.createElement("style");
     css.textContent = [
-      "body.sed-on .deck [data-sed]:hover, body.sed-on .deck [data-sedt]:hover, body.sed-on .deck [data-sed-jump]:hover { outline: 2px dashed #e07000; outline-offset: 2px; cursor: text; }",
+      "body.sed-on .deck :is([data-sed], [data-sedt]):not(.sed-parts):hover, body.sed-on .deck .sed-part:hover, body.sed-on .deck [data-sed-jump]:hover { outline: 2px dashed #e07000; outline-offset: 2px; cursor: text; }",
       ".deck .sed-editing { outline: 2px solid #e07000 !important; outline-offset: 2px; white-space: pre-wrap; background: #fff8ec; }",
       "body.sed-on .deck [data-sed], body.sed-on .deck [data-sedt] { white-space: pre-wrap; }",
       // Theme headers and footers pass clicks through (pointer-events: none); take them back while editing.
       "body.sed-on .deck [data-sed], body.sed-on .deck [data-sedt], body.sed-on .deck [data-sed-jump] { pointer-events: auto; }",
       "body.sed-on .deck .sed-src { font-family: ui-monospace, Menlo, monospace; font-size: .8em; color: #a04000; }",
+      // one language at a time: what the language shown does not have
+      "body.sed-on .deck .sed-off { color: #999; cursor: default; }",
+      "body.sed-on .deck .sed-part + .sed-part { margin-left: .5em; }",
+      ".tools button.sed-lang { font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0; }",
       // The message line, just above the engine's tool panel (.tools, bottom left) while a message is up. A page
       // without that panel: the buttons are in this bar too, always there, faint until pointed at.
       ".sed-bar { position: fixed; left: 12px; bottom: 64px; z-index: 99999; display: flex; gap: 6px; align-items: center;",
@@ -579,33 +590,43 @@
 
   // Where each attribute shows on the built page: data-sedt = its index in D.attrs.
   function afterBuild() {
-    const put = (el, i) => { if (el && i !== null) el.setAttribute("data-sedt", i); };
+    // from: the element whose attribute it is (its -en is the English of the same place)
+    const put = function (el, from, attr) {
+      if (!el || !from || !from.hasAttribute("data-sed-" + attr)) return;
+      el.setAttribute("data-sedt", from.getAttribute("data-sed-" + attr));
+      if (from.hasAttribute("data-sed-" + attr + "-en")) el.setAttribute("data-sedt-en", from.getAttribute("data-sed-" + attr + "-en"));
+    };
     const deck = document.querySelector(".deck");
     if (deck) {
       deck.querySelectorAll("[data-sed-title]").forEach(function (el) {
         put(el.tagName === "SLIDE"
           ? el.closest("section.page").querySelector(":scope > .ttl > span")
           : el.querySelector(":scope > .bt > span, :scope > .pt > span"),   // .pt: Kamishibai's proof, plan, later
-            el.getAttribute("data-sed-title"));
+            el, "title");
       });
-      deck.querySelectorAll("[data-sed-label]").forEach(el => put(el.querySelector(":scope > .lb"), el.getAttribute("data-sed-label")));
-      deck.querySelectorAll("[data-sed-cite]").forEach(el => put(el.querySelector(":scope > .bt > cite"), el.getAttribute("data-sed-cite")));
+      deck.querySelectorAll("[data-sed-label]").forEach(el => put(el.querySelector(":scope > .lb"), el, "label"));
+      deck.querySelectorAll("[data-sed-cite]").forEach(el => put(el.querySelector(":scope > .bt > cite"), el, "cite"));
       // Institutes: one line per distinct aff on the cover, in the order of the authors.
       deck.querySelectorAll("cover").forEach(function (cov) {
         const seen = [], at = [];
         cov.querySelectorAll("author[aff]").forEach(function (a) {
           const f = a.getAttribute("aff");
-          if (seen.indexOf(f) < 0) { seen.push(f); at.push(a.getAttribute("data-sed-aff")); }
+          const k = seen.indexOf(f);
+          if (k < 0) { seen.push(f); at.push(a); }
+          else if (!at[k].hasAttribute("aff-en")) at[k] = a;   // the English may be at a later author (as in the engine)
         });
-        cov.querySelectorAll(":scope > .insts > span").forEach((s, k) => put(s, k < at.length ? at[k] : null));
+        cov.querySelectorAll(":scope > .insts > span").forEach((s, k) => put(s, at[k], "aff"));
       });
       // Section names in every page's header: by name, to the first slide that sets it.
       const secs = Object.create(null);
       deck.querySelectorAll("slide[data-sed-sec]").forEach(function (sl) {
         const n = sl.getAttribute("sec");
-        if (!(n in secs)) secs[n] = sl.getAttribute("data-sed-sec");
+        if (!(n in secs) || (!secs[n].hasAttribute("sec-en") && sl.hasAttribute("sec-en"))) secs[n] = sl;
       });
-      deck.querySelectorAll(".hn").forEach(h => { if (h.textContent in secs) put(h, secs[h.textContent]); });
+      deck.querySelectorAll(".hn").forEach(function (h) {
+        const n = (h.querySelector(".L-ja") || h).textContent;   // in a deck with English: the Japanese is the name
+        if (n in secs) put(h, secs[n], "sec");
+      });
       // Footer: taken from the cover. With short="…" it is that attribute, edited in place; else a click goes to
       // the cover and edits the text there.
       const cov = deck.querySelector("cover");
@@ -617,7 +638,7 @@
           const src = from[k];
           if (!src) return;
           deck.querySelectorAll(where[k]).forEach(function (f) {
-            if (src.hasAttribute("data-sed-short")) put(f, src.getAttribute("data-sed-short"));
+            if (src.hasAttribute("data-sed-short")) put(f, src, "short");
             else f.setAttribute("data-sed-jump", k);
           });
         });
@@ -628,6 +649,9 @@
     if (K && K.setEditor) {
       // The engine's 編集 mode is edit mode: its heading and Cmd+E enter and leave it.
       bar([]);
+      langButtons(K);
+      const handle = document.querySelector(".tools .handle");
+      if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
       K.setEditor({ enter: () => setEdit(true), leave: () => setEdit(false), exportHTML: exportHTML });
       if (S.edit) { S.edit = false; K.mode("edit"); }
       if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
@@ -656,7 +680,113 @@
     poll();
   }
 
+  /* ===== One language at a time =====
+     A deck with English (Kamishibai.hasEn): what is shown and edited is the language on screen, unless the author
+     chose both at once (kept in the browser). The language itself is the engine's, so the page shows it too. */
+  let langs = null;   // the engine, when the deck has English and the panel to choose with
+  let both = false;
+  const shown = () => langs && !both ? langs.lang() : null;   // "ja" or "en"; null: everything at once
+  function langButtons(K) {
+    const g = document.querySelector(".tools .g-edit");
+    if (!g || !K.hasEn || !K.lang) return;
+    langs = K;
+    try { both = localStorage.getItem(BOTH_KEY) === "1"; } catch (e) { /* storage unavailable */ }
+    if (S.lang) K.lang(S.lang);   // the rebuilt page: ?lang= in the address must not turn it back
+    const sep = document.createElement("div");
+    sep.className = "sep";
+    g.prepend(sep);
+    const defs = [["ja", "あ", "日本語だけを編集"], ["en", "A", "英語だけを編集"], ["both", "あA", "日本語と英語を一度に編集"]];
+    const btns = defs.map(function (d) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "it sed-lang";
+      b.textContent = d[1];
+      b.title = d[2];
+      b.setAttribute("aria-label", d[2]);
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        b.blur();
+        if (editing) finish(true);
+        both = d[0] === "both";
+        try { localStorage.setItem(BOTH_KEY, both ? "1" : "0"); } catch (x) { /* storage unavailable */ }
+        if (!both) K.lang(d[0]);   // on a change, the event below shows the sources again
+        light();
+        refresh();
+      });
+      g.insertBefore(b, sep);
+      return b;
+    });
+    const light = () => btns.forEach((b, k) => b.classList.toggle("on", defs[k][0] === (both ? "both" : K.lang())));
+    light();
+    document.addEventListener("kamishibai:lang", function () {
+      if (!live()) return;
+      if (editing) finish(true);
+      S.lang = K.lang();
+      light();
+      refresh();
+    });
+  }
+
+  // The source cut at its Japanese and English: [{a, b, L}], L "ja", "en" or "" (common to both), as the engine pairs
+  // them: <ja>, <en>, and an element with lang="en" right after one with lang="ja".
+  function pieces(src) {
+    const TAG = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][^\s\/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/g, found = [];
+    let m, open = null;
+    while ((m = TAG.exec(src))) {
+      if (!m[2]) continue;
+      const tag = m[2].toLowerCase(), self = VOID.has(tag) || /\/\s*$/.test(m[3]);
+      if (open) {
+        if (tag !== open.tag || self) continue;
+        open.depth += m[1] ? -1 : 1;
+        if (open.depth) continue;
+        found.push({ L: open.L, own: open.own, from: open.from, a: open.a, b: m.index, to: m.index + m[0].length });
+        open = null;
+        continue;
+      }
+      if (m[1] || self) continue;
+      const own = tag === "ja" || tag === "en", at = /\slang\s*=\s*["']?(ja|en)\b/i.exec(m[3]);
+      if (own || at) open = { tag: tag, own: own, L: own ? tag : at[1].toLowerCase(), depth: 1, from: m.index, a: m.index + m[0].length };
+    }
+    const next = (x, y, L) => x && y && y.L === L && blank(src.slice(x.to, y.from));
+    const list = found.filter((f, k) => f.own || (f.L === "ja" ? next(f, found[k + 1], "en") : found[k - 1] && found[k - 1].L === "ja" && next(found[k - 1], f, "en")));
+    const out = [];
+    let at = 0;
+    list.forEach(function (f) {
+      out.push({ a: at, b: f.from, L: "" }, { a: f.a, b: f.b, L: f.L });
+      at = f.to;
+    });
+    out.push({ a: at, b: src.length, L: "" });
+    return out.filter(p => p.L ? !blank(src.slice(p.a, p.b)) : !blank(src.slice(p.a, p.b).replace(/<\/?[a-zA-Z][^>]*>/g, "")));
+  }
+
+  // What el shows in edit mode, as units edited one by one: [{it, edit}]; null when el is one unit as a whole.
+  function units(el) {
+    const L = shown();
+    if (el.hasAttribute("data-sed")) {
+      if (!L) return null;
+      const t = info(el), list = pieces(t.src);
+      if (list.length === 1 && !list[0].L && !(L === "en" && JAPANESE.test(t.src))) return null;
+      const out = [];
+      list.forEach(function (p, k) {
+        if (p.L && p.L !== L) {
+          // Japanese without English shows in English too (the engine does so); it is not edited there
+          if (p.L !== "ja" || (list[k + 1] && list[k + 1].L === "en")) return;
+        }
+        const text = t.src.slice(p.a, p.b);
+        out.push({ it: { kind: "span", i: t.i, src: text, whole: t.src, a: p.a, b: p.b },
+                   edit: p.L ? p.L === L : !(L === "en" && JAPANESE.test(text)) });
+      });
+      return out;
+    }
+    const of = i => ({ kind: "attr", i: +i, src: S.text.slice(D.attrs[+i].start, D.attrs[+i].end) });
+    const ja = of(el.getAttribute("data-sedt")), en = el.hasAttribute("data-sedt-en") ? of(el.getAttribute("data-sedt-en")) : null;
+    if (!langs || L === "ja") return null;
+    if (!L) return en ? [{ it: ja, edit: true }, { it: en, edit: true }] : null;
+    return en ? [{ it: en, edit: true }] : JAPANESE.test(ja.src) ? [{ it: ja, edit: false }] : null;
+  }
+
   function info(el) {
+    if (el._unit) return el._unit;
     if (el.hasAttribute("data-sed")) {
       const s = D.spans[+el.getAttribute("data-sed")];
       return { kind: "span", i: +el.getAttribute("data-sed"), src: S.text.slice(s.start, s.end) };
@@ -670,7 +800,8 @@
     const cov = document.querySelector(".deck cover");
     const src = cov && { who: cov.querySelector("author[presenter]") || cov.querySelector("author"),
                          title: cov.querySelector("headline"), date: cov.querySelector("date") }[kind];
-    const el = src && src.querySelector(":scope > [data-sed]");
+    const box = src && src.querySelector(":scope > [data-sed]");
+    const el = box && (box.classList.contains("sed-parts") ? box.querySelector(".sed-part") : box);
     if (!el) { msg("表紙のこの文は編集できません", 4000); return; }
     const pages = [].slice.call(document.querySelectorAll(".deck section.page"));
     const k = pages.indexOf(el.closest("section.page"));
@@ -680,12 +811,32 @@
 
   /* ===== Edit mode: every editable text shows its source; leaving it shows the rendered page again ===== */
   const rendered = new WeakMap();
+  const NO_EN = "この文には英語がありません（日本語か、日英を一度に編集する表示で直せます）";
   function showSource(el) {
     el.innerHTML = "";
+    const list = el._unit ? null : units(el);
+    el.classList.toggle("sed-parts", !!list);
+    if (list) {
+      list.forEach(function (u) {
+        const s = document.createElement("span");
+        s.className = u.edit ? "sed-src sed-part" : "sed-src sed-off";
+        if (u.edit) s._unit = u.it;
+        else s.title = NO_EN;
+        s.textContent = u.it.src.trim();
+        el.appendChild(s);
+      });
+      return;
+    }
+    if (el._unit) { el.textContent = el._unit.src.trim(); return; }
     const s = document.createElement("span");
     s.className = "sed-src";
     s.textContent = info(el).src.trim();
     el.appendChild(s);
+  }
+  // The language or the choice of one or both changed: show the sources again.
+  function refresh() {
+    if (!document.body.classList.contains("sed-on")) return;
+    document.querySelectorAll(".deck [data-sed], .deck [data-sedt]").forEach(el => { if (rendered.has(el)) showSource(el); });
   }
   // Enter or leave edit mode (the button and Cmd+E).
   function toggleEdit() {
@@ -713,6 +864,7 @@
       } else if (rendered.has(el)) {
         el.innerHTML = rendered.get(el);
         rendered.delete(el);
+        el.classList.remove("sed-parts");
       }
     });
   }
@@ -727,7 +879,7 @@
     const it = info(el), src = it.src;
     const lead = src.match(/^\s*/)[0], trail = src.slice(lead.length).match(/\s*$/)[0];
     const core = src.slice(lead.length, src.length - trail.length);
-    if (!rendered.has(el)) rendered.set(el, el.innerHTML);
+    if (!el._unit && !rendered.has(el)) rendered.set(el, el.innerHTML);
     editing = el;
     S.editing = true;
     el._sed = { it: it, lead: lead, trail: trail, core: core };
@@ -779,7 +931,7 @@
     const h = await getHandle();
     const file = await h.getFile(), cur = await file.text();
     const t = parse(cur), s = (it.kind === "attr" ? t.attrs : t.spans)[it.i];
-    if (!s || cur.slice(s.start, s.end) !== it.src || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
+    if (!s || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
       err.conflict = { text: cur, mtime: file.lastModified };
       throw err;
@@ -795,7 +947,8 @@
                   : q === "'" ? v.replace(/'/g, "&#39;") : v.replace(/"/g, "&quot;");
         next = next.slice(0, a.start) + rep + next.slice(a.end);
       });
-    } else next = cur.slice(0, s.start) + neu + cur.slice(s.end);
+    } else if (it.whole !== undefined) next = cur.slice(0, s.start + it.a) + neu + cur.slice(s.start + it.b);   // one piece of the text
+    else next = cur.slice(0, s.start) + neu + cur.slice(s.end);
     // A change between the re-read above and the write is a conflict too: checked here just before writing.
     const base = file.lastModified;
     const changed = async function () {
@@ -813,8 +966,12 @@
   }
 
   function target(e) {
-    const el = e.target.closest && e.target.closest("[data-sed], [data-sedt]");
-    return el && el.closest(".deck") ? el : null;
+    const el = e.target.closest && e.target.closest(".sed-part, [data-sed], [data-sedt]");
+    if (!el || !el.closest(".deck")) return null;
+    if (!el.classList.contains("sed-parts")) return el;
+    if (e.target.closest(".sed-off")) return null;
+    const ps = el.querySelectorAll(":scope > .sed-part");   // beside the parts: the only one there is
+    return ps.length === 1 ? ps[0] : null;
   }
 
   // Capture phase on window: runs before WebSlide's handlers, so the page does not turn.
@@ -825,6 +982,7 @@
     const j = e.target.closest && e.target.closest(".deck [data-sed-jump]");
     if (j && !target(e)) { e.preventDefault(); e.stopPropagation(); jump(j.getAttribute("data-sed-jump")); return; }
     const el = target(e);
+    if (!el && e.target.closest && e.target.closest(".deck .sed-off")) msg(NO_EN, 4000);
     if (!el) return;
     e.preventDefault();
     e.stopPropagation();
