@@ -158,17 +158,23 @@
   function idb(mode, fn) {
     return new Promise(function (resolve, reject) {
       const r = indexedDB.open("slide-edit", 3);
+      // A tab that still runs an older copy of this script can hold the store: work without the kept folders then.
+      const late = setTimeout(() => reject(new Error("the store of kept folders does not answer")), 1500);
+      r.onblocked = () => { clearTimeout(late); reject(new Error("the store of kept folders is in use by an older tab")); };
       r.onupgradeneeded = function () {
         if (r.result.objectStoreNames.contains("handles")) r.result.deleteObjectStore("handles");   // files picked one by one (before 2026-11-23)
         if (!r.result.objectStoreNames.contains("dirs")) r.result.createObjectStore("dirs");
       };
-      r.onerror = () => reject(r.error);
+      r.onerror = () => { clearTimeout(late); reject(r.error); };
       r.onsuccess = function () {
+        clearTimeout(late);
+        const db = r.result;
+        db.onversionchange = () => db.close();   // never in the way of a newer copy of this script
         let tx, q;
-        try { tx = r.result.transaction("dirs", mode); q = fn(tx); }
-        catch (e) { reject(e); return; }
-        tx.oncomplete = () => resolve(q && q.result);
-        tx.onerror = () => reject(tx.error);
+        try { tx = db.transaction("dirs", mode); q = fn(tx); }
+        catch (e) { db.close(); reject(e); return; }
+        tx.oncomplete = () => { db.close(); resolve(q && q.result); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
       };
     });
   }
@@ -211,17 +217,35 @@
   async function getHandle(ask) {
     if (ask === undefined) ask = true;
     if (S.handle && await allowed(S.handle, ask)) return S.handle;
-    for (const d of await keptDirs()) {
+    const above = location.pathname.split("/").filter(Boolean).slice(0, -1).map(decodeURIComponent);
+    const kept = (await keptDirs()).filter(d => above.indexOf(d.name) >= 0);
+    // A folder is read only once it is allowed: after Chrome is started again (or every tab of the folder is closed)
+    // a kept folder has to be allowed again, and reading it before that fails. Allowed ones first, then ask.
+    const asked = [];
+    for (const d of kept) {
       try {
+        if (!await allowed(d, false)) { asked.push(d); continue; }
         const fh = await findIn(d);
-        if (fh && await allowed(d, ask)) return fh;
-      } catch (e) { /* folder moved or permission refused: try the next */ }
+        if (fh) return fh;
+      } catch (e) { /* folder moved: try the next */ }
     }
     if (!ask) return null;
+    for (const d of asked) {
+      msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
+      try { if (!await allowed(d, true)) throw new Error("フォルダ「" + d.name + "」の編集が許可されませんでした"); }
+      catch (e) {
+        if (e.name === "NotFoundError" || e.name === "SecurityError") continue;   // folder moved, or the click is too long ago
+        throw e;
+      }
+      const fh = await findIn(d).catch(() => null);
+      if (fh) return fh;
+    }
     if (!window.showDirectoryPicker) {
       throw new Error("このブラウザは原稿への書き込みに対応していません。Chrome・Edge・Brave など Chromium 系のブラウザで開いてください");
     }
+    msg("原稿を含むフォルダを選ぶ画面を開いています。フォルダを選ぶと編集が始まります");
     const d = await showDirectoryPicker({ id: "page-edit", mode: "readwrite" });
+    msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
     const fh = await findIn(d);
     const here = decodeURIComponent(location.pathname.split("/").pop());
     if (!fh) throw new Error("選んだフォルダ「" + d.name + "」の中に、開いている " + here + " がありません。この下書きを含むフォルダを選んでください");
@@ -438,9 +462,20 @@
       rebuild(await f.text(), f.lastModified);
     };
     // Started by hand (button or key): the rebuilt page comes up in edit mode.
-    const begin = async function () {
-      try { msg("原稿を開いています…"); const h = await getHandle(); S.edit = true; await open(h); return true; }
-      catch (e) { S.edit = false; msg(e.name === "AbortError" ? "" : "開けませんでした：" + e.message, 8000); return false; }
+    // left: the author went back to another mode while Chrome was asking; the page is then rebuilt outside edit mode.
+    let left = false, waitingFor = null;
+    const begin = function () {
+      left = false;
+      if (!waitingFor) waitingFor = start().finally(() => { waitingFor = null; });   // asked again while Chrome is asking: the same one
+      return waitingFor;
+    };
+    const start = async function () {
+      try { msg("原稿を開いています…"); const h = await getHandle(); S.edit = !left; await open(h); return true; }
+      catch (e) {
+        S.edit = false;
+        msg(e.name === "AbortError" ? "フォルダを選ばなかったので、編集を始めていません" : "開けませんでした：" + e.message, 8000);
+        return false;
+      }
     };
     style();
     // A Kamishibai engine with the three modes: its 編集 heading (and Cmd+E) starts editing, its 出力 writes the HTML.
@@ -450,7 +485,7 @@
       let waiting = true;
       bar([]);
       K.setEditor({ enter: function () { waiting = false; begin().then(function (ok) { if (!ok) K.mode("show"); }); },
-                    leave: function () {}, exportHTML: exportHTML });
+                    leave: function () { left = true; }, exportHTML: exportHTML });
       (async function () {
         try { const h = await getHandle(false); if (h && waiting) await open(h); }
         catch (e) { /* folder moved: the heading still asks */ }
@@ -825,6 +860,10 @@
   // Registered before webslide.js, so mark() runs before build(); afterBuild() runs after all DOMContentLoaded handlers.
   document.addEventListener("DOMContentLoaded", function () {
     mark();
-    setTimeout(afterBuild, 0);
+    // after the engine has measured which pages to shrink: in edit mode it would measure the source texts
+    setTimeout(function () {
+      const K = window.Kamishibai, run = () => { if (live()) afterBuild(); };
+      if (K && K.ready) K.ready.then(run, run); else run();
+    }, 0);
   });
 })();
