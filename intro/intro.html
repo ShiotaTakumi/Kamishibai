@@ -16,6 +16,11 @@
   @media print { .tdemo iframe { display: none } .tprint { display: flex } .tsw { visibility: hidden } }
   .mu { position: relative; flex: none; margin-bottom: 28px }
   .mu img { display: block; border-radius: 12px }
+  .exs { display: flex; gap: 28px; justify-content: center; margin: 10px 0 0 }
+  .exs a { display: block; width: 400px; text-align: center }
+  .exs img { display: block; width: 400px; height: 300px; border: 1px solid #262686; box-sizing: border-box; margin-bottom: 6px }
+  .exs .exs-t, .exs .exs-s { display: block; font-size: 22px; line-height: 30px; white-space: nowrap }
+  .exs .exs-s { font-size: 16px; line-height: 22px; color: #262626 }
   .mu .ml { position: absolute; left: 50px; font-size: 13px; line-height: 20px; white-space: nowrap }
   .mu .mc { position: absolute; left: 0; bottom: -26px; font-size: 14px; font-weight: bold; white-space: nowrap }
 </style>
@@ -193,6 +198,18 @@
   <figure>
     <div class="tdemo"><ja><iframe src="theme-demo.html?theme=Boadilla&amp;lang=ja" width="612" height="315" title="Boadilla"></iframe><div class="tprint"><img src="theme-Boadilla-ja.png" alt="Boadilla"><img src="theme-Madrid-ja.png" alt="Madrid"></div></ja><en ja="811c9dc5"><iframe src="theme-demo.html?theme=Boadilla&amp;lang=en" width="612" height="315" title="Boadilla"></iframe><div class="tprint"><img src="theme-Boadilla-en.png" alt="Boadilla"><img src="theme-Madrid-en.png" alt="Madrid"></div></en></div>
     <div class="ctrl below tsw"><button>Boadilla</button><button class="sub2">Madrid</button></div>
+  </figure>
+</slide>
+
+<slide title="カスタマイズの例" title-en="Examples of customization" sec="機能" sec-en="Features" title-en-ja="448313a8" sec-en-ja="9812f9fb">
+  <list style="font-size:.8em">
+    <item style="white-space:nowrap"><ja>塩田さんの発表：見た目は兵庫県立大学、図は JavaScript で描く</ja><en ja="9fa1ef4f">Talks by Shiota: a University of Hyogo look, with figures drawn in JavaScript</en></item>
+    <item style="white-space:nowrap"><ja>原稿はタグで書き、発表ごとの CSS と JavaScript を別のファイルに置く</ja><en ja="c2f0bd73">Written in tags, with CSS and JavaScript for that deck in separate files</en></item>
+    <item style="white-space:nowrap"><ja>動かすのは Kamishibai と同じ種類のエンジン <code>uoh-slide.js</code></ja><en ja="c5d6f03a">They run on <code>uoh-slide.js</code>, an engine of the same kind as Kamishibai's</en></item>
+  </list>
+  <figure class="exs">
+    <a href="https://shiotatakumi.github.io/MyPage/contents/261114-Ununfoldable-JOSME-41/"><img src="example-josme41.png" alt="JOSME 41"><div class="exs-t"><ja>辺展開できない多面体</ja><en ja="e71fb8c3">Ununfoldable polyhedra</en></div><div class="exs-s"><ja>折り紙の科学・数学・教育研究集会（2026 年 11 月）</ja><en ja="8975d132">41st OSME-J, November 2026 (in Japanese)</en></div></a>
+    <a href="https://shiotatakumi.github.io/MyPage/contents/261112-AL210/"><img src="example-al210.png" alt="AL210"><div class="exs-t"><ja>正角柱の辺展開図の重なり</ja><en ja="99dc6864">Overlaps in unfoldings of prisms</en></div><div class="exs-s"><ja>アルゴリズム研究会（2026 年 11 月）。スライダーで動く</ja><en ja="5f619a01">SIGAL 210, November 2026 (in Japanese); sliders</en></div></a>
   </figure>
 </slide>
 
