@@ -22,12 +22,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-/* KaTeX のうち、伸びる記号を描く部分（stretchy.js。もとは MathJax のもの）の許諾文（SIL Open Font License 1.1）。
-   著作権の表示は、Debian の node-katex の著作権のファイル（debian/copyright の「Files: src/stretchy.js」）による。
-   許諾文は、SIL Open Font License 1.1 の本文をそのまま写した
+/* KaTeX のうち、伸びる記号の図（src/stretchy.ts・src/svgGeometry.ts。KaTeX の書体の字から作られたものがある）の許諾文（SIL Open Font License 1.1）。
+   著作権の表示は、KaTeX 0.19.0 の src/stretchy.ts の注記による。許諾文は、SIL Open Font License 1.1 の本文をそのまま写した
 
-Copyright (c) 2009-2010, Design Science, Inc.
-Copyright (c) 2014-2017, Khan Academy
+Copyright (c) 2009-2010, Design Science, Inc. (<www.mathjax.org>)
+Copyright (c) 2014-2017 Khan Academy (<www.khanacademy.org>)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

@@ -1764,7 +1764,7 @@
     }
   }
   // The two buttons, in the panel of the edit mode (before them the languages, after them the engine's own).
-  const ARROW = { undo: "M9 14L4 9l5-5M4 9h10a5.5 5.5 0 0 1 0 11h-4", redo: "M15 14l5-5-5-5M20 9H10a5.5 5.5 0 0 0 0 11h4" };
+  const ARROW = { undo: "M5 16a7.5 7.5 0 0 1 15 0M1.8 12.3l3.2 3.7 3.7-3.2", redo: "M19 16a7.5 7.5 0 0 0-15 0M22.2 12.3l-3.2 3.7-3.7-3.2" };
   function undoButtons() {
     const g = document.querySelector(".tools .g-edit");
     if (!g) return;

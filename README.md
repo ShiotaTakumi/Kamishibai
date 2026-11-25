@@ -175,16 +175,17 @@ SVG の文字はページの書体で描かれます（`font-family="LMItalic"` 
 
 ## ライセンス
 
-KaTeX と書体、塩田さんの発表スライドの画面（下の表）を除き、この repository のファイル（エンジン、`html/`、`tools/`、`Makefile`、文書）は
+KaTeX（移植した部分を含む）と書体、塩田さんの発表スライドの画面（下の表）を除き、この repository のファイル（エンジン、`html/`、`tools/`、`Makefile`、文書）は
 CC0 1.0 Universal で、著作権と隣接する権利を放棄してパブリックドメインに置きます（[LICENSE](LICENSE)）。
 `engine/` だけを写して使うときのために、同じ本文と次の表の要約を [engine/LICENSE](engine/LICENSE) にも置いています。
-KaTeX と書体、発表スライドの画面は、それぞれのライセンスと権利表示のままです。
+KaTeX（移植した部分を含む）と書体、発表スライドの画面は、それぞれのライセンスと権利表示のままです。
 
 | もの | ライセンス・権利表示 | 場所と扱い |
 |---|---|---|
-| KaTeX 0.19.0（数式） | MIT。伸びる記号を描く部分（stretchy.js）は SIL Open Font License 1.1 | `engine/katex/`。許諾文はファイルの最初 |
+| KaTeX 0.19.0（数式） | コードは MIT。書体（KaTeX_Main など）と伸びる記号の図は SIL Open Font License 1.1（予約された書体名 KaTeX_Main など、KaTeX_ で始まる 12 の名前） | `engine/katex/`。許諾文はファイルの最初。書体は改変せずに埋め込み、配布用ファイルでは使う書体だけにし、許諾文はそこにも入る |
+| KaTeX の auto-render から移植した部分 | MIT | `tools/pack_engine.py` の `find_end` と `split_math`、`engine/kamishibai.js` の `escapedDollars` の数式の終わりの見つけ方。許諾文は `tools/pack_engine.py` の中と `engine/katex/katex.js` の最初 |
 | IPA Pゴシック（Madrid の日本語の書体） | IPA フォント使用許諾 v1.0 | `engine/fonts/ipa-pgothic.css`。改変せずに丸ごと埋め込み、配布用ファイルでも字を絞らない |
-| Computer Modern Sans（Madrid の英数字の書体。KaTeX の KaTeX_SansSerif と同じもの） | MIT（KaTeX） | `engine/fonts/cm-sans.css` |
+| Computer Modern Sans（Madrid の英数字の書体。KaTeX の KaTeX_SansSerif と同じもの） | SIL Open Font License 1.1（予約された書体名 KaTeX_SansSerif） | `engine/fonts/cm-sans.css`。書体のファイルは改変せずに埋め込む。許諾文はファイルの最初 |
 | 原ノ味角ゴシック（Boadilla の日本語の書体） | SIL Open Font License 1.1（予約された書体名 Harano Aji・Source） | repository には入れない。`make fonts` が取得する |
 | Latin Modern Sans・Roman Italic・Math（Boadilla の英数字の書体） | GUST Font License | repository には入れない。`make fonts` が取得する |
 | 塩田さんの発表スライドの画面 | © 2025 Takumi SHIOTA All Rights Reserved. | `intro/example-josme41.png`・`intro/example-al210.png`。元のスライドは「カスタマイズの例」の二つ。この二枚と、二枚を埋め込んだ配布用ファイルの該当部分は CC0 の対象にしない |

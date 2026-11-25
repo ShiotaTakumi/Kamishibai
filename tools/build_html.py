@@ -202,10 +202,14 @@ def rename_subset(font, filename):
 
 def license_notices():
     """CSS comments with the license texts of what goes into the page: the fonts (their copyright
-    notices and licenses, as tools/engine_fonts.py writes them) and KaTeX (MIT License)."""
+    notices and licenses, as tools/engine_fonts.py writes them), and KaTeX (MIT License), its fonts and
+    its stretchy symbols (SIL Open Font License 1.1), as the first comments of engine/katex/katex.css."""
     from engine_fonts import license_notice
-    mit = (KATEX.parent / "LICENSE").read_text(encoding="utf-8").replace("*/", "* /")
-    return license_notice([name for _, _, name in FONTS]) + "/* KaTeX\n" + mit + "*/\n"
+    css = (ROOT / "engine" / "katex" / "katex.css").read_text(encoding="utf-8")
+    katex = [c for c in re.findall(r"/\*.*?\*/", css.split("@font-face", 1)[0], re.S) if "Copyright" in c]
+    if not (any("MIT License" in c for c in katex) and any("SIL OPEN FONT LICENSE" in c for c in katex)):
+        raise SystemExit("engine/katex/katex.css: the licence comments of KaTeX and its fonts not found")
+    return license_notice([name for _, _, name in FONTS]) + "\n".join(katex) + "\n"
 
 
 def fonts_css(text):
