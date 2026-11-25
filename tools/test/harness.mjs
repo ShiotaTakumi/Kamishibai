@@ -119,7 +119,8 @@ async function draft(o, open) {
     await page.keyboard.press(KEY + "+e");
     await page.waitForFunction(() => !document.body.classList.contains("sed-on"));
   };
-  d.on = () => page.evaluate(() => Kamishibai.current);
+  // the page shown, as in d.go
+  d.on = () => page.evaluate(() => [].findIndex.call(document.querySelectorAll(".deck section.page"), s => s.classList.contains("on")) + 1);
   d.go = async n => { await page.evaluate(k => { location.hash = "#s" + k; }, n); await page.waitForFunction(k => location.hash === "#s" + k && document.querySelectorAll(".deck section.page")[k - 1].classList.contains("on"), n); };
   d.key = k => page.keyboard.press(k.replace("Mod", KEY));
   // open the text whose source contains old on the page shown, replace its whole source by neu

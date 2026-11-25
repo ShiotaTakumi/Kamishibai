@@ -89,7 +89,7 @@
      in a slide, after a list, is such a run). Each segment is {tag, el, k, start, end}: el counts the elements in
      document order, k the runs of that element. Attribute values in ATTRS are {tag, attr, all, start, end}. */
   function parse(text) {
-    const spans = [], els = [], attrs = [], stack = [];
+    const spans = [], els = [], at = [], attrs = [], stack = [];   // at: where each of els starts
     const START = /<([a-zA-Z][^\s\/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/y;
     const END = /<\/([a-zA-Z][^\s>]*)\s*>/y;
     const ATTR = /\s([^\s=\/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+)))?/dg;
@@ -130,7 +130,7 @@
       START.lastIndex = i;
       m = START.exec(text);
       if (!m) { i++; continue; }
-      const raw = m[0], tag = m[1].toLowerCase(), selfClose = /\/\s*>$/.test(raw), after = i + raw.length;
+      const raw = m[0], tag = m[1].toLowerCase(), selfClose = /\/\s*>$/.test(raw), i0 = i, after = i + raw.length;
       const p = top(), block = BLOCKS.has(tag);
       if (p && p.el !== null && block) shut(p, i);
       ATTR.lastIndex = 0;
@@ -153,15 +153,15 @@
       i = after;
       if (VOID.has(tag) || selfClose) {
         if (p && p.el !== null && block && p.idx === null) open(p, after);
-        if (CONTAINER.has(tag)) { els.push(tag); const e = { tag: tag, el: els.length - 1, idx: null, k: 0 }; open(e, after); shut(e, after); }
+        if (CONTAINER.has(tag)) { els.push(tag); at.push(i0); const e = { tag: tag, el: els.length - 1, idx: null, k: 0 }; open(e, after); shut(e, after); }
         continue;
       }
       const e = { tag: tag, el: null, idx: null, k: 0 };
-      if (CONTAINER.has(tag)) { els.push(tag); e.el = els.length - 1; open(e, after); }
+      if (CONTAINER.has(tag)) { els.push(tag); at.push(i0); e.el = els.length - 1; open(e, after); }
       stack.push(e);
     }
     spans.forEach(s => { if (s.end === null) s.end = s.start; });
-    return { spans: spans, els: els, attrs: attrs };
+    return { spans: spans, els: els, at: at, attrs: attrs };
   }
   S.parse = parse;   // exposed for checks from the console
 
@@ -567,10 +567,20 @@
   }
   const blank = t => !t.replace(/<!--[\s\S]*?-->/g, "").trim();
 
+  // What cannot be edited and why, {el, text}: for the engine's list of what is wrong (Kamishibai.setProblems)
+  const unedited = [];
+  const line = at => S.text.slice(0, at).split("\n").length;
+
   function mark() {
     const els = [].slice.call(document.querySelectorAll([...CONTAINER].join(",")));
     if (els.map(e => e.tagName.toLowerCase()).join() !== D.els.join()) {
       enabled = false;
+      const name = e => e ? "<" + e.tagName.toLowerCase() + ">" : "終わり";
+      let n = 0;
+      while (els[n] && els[n].tagName.toLowerCase() === D.els[n]) n++;
+      unedited.push({ el: els[n] || els[n - 1] || null, text: "どの文も直せません：原稿と画面で要素の並びが合いません。始めに食い違うのは、" +
+        (n < D.els.length ? "原稿の " + line(D.at[n]) + " 行目の <" + D.els[n] + ">" : "原稿の終わり") + "（画面では " + name(els[n]) +
+        "）。その前に、閉じていないタグか、入れ子にできないタグがあります" });
       console.warn("slide-edit: element order differs from the source parse", els, D.els);
       return;
     }
@@ -581,6 +591,8 @@
       const dom = runs(el), src = byEl[n];
       // The browser may have cut the content otherwise (a <p> closed by a <div>): then only the first run.
       const k = dom.length === src.length ? src.length : 1;
+      if (dom.length !== src.length && src.slice(1).some(j => !blank(S.text.slice(D.spans[j].start, D.spans[j].end))))
+        unedited.push({ el: el, text: "始めの部分のほかは直せません：<" + D.els[n] + ">（原稿の " + line(D.at[n]) + " 行目）の中の文の切れ目が、原稿と画面で合いません" });
       for (let j = 0; j < k; j++) {
         const s = D.spans[src[j]], seg = dom[j];
         if (!seg || !seg.length || blank(S.text.slice(s.start, s.end))) continue;
@@ -597,6 +609,7 @@
       D.attrs.forEach((a, i) => { if (a.attr === spec.attr) idx.push(i); });
       if (dom.map(e => e.tagName.toLowerCase()).join() !== idx.map(i => D.attrs[i].tag).join()) {
         console.warn("slide-edit: order of " + spec.attr + "= differs; it is not editable");
+        unedited.push({ el: null, text: "属性 " + spec.attr + " の文を直せません：原稿と画面で並びが合いません" });
         return;
       }
       dom.forEach((el, j) => el.setAttribute("data-sed-" + spec.attr, String(idx[j])));
@@ -668,9 +681,14 @@
       langButtons(K);
       const handle = document.querySelector(".tools .handle");
       if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
-      K.setEditor({ enter: () => setEdit(true), leave: () => setEdit(false), exportHTML: exportHTML });
+      if (K.setProblems) K.setProblems("page-edit", unedited.map(function (u) {
+        const s = u.el && u.el.closest("section.page");
+        return { type: "edit", page: s ? +s.dataset.k : null, text: u.text, el: u.el };
+      }));
+      const cannot = () => { if (!enabled) msg(K.problems ? "編集できません（要素の並びが読めない）。理由は誤りの一覧にあります" : "編集できません（要素の並びが読めない）。console を見てください", 6000); };
+      K.setEditor({ enter: () => { setEdit(true); cannot(); }, leave: () => setEdit(false), exportHTML: exportHTML });
       if (S.edit) { S.edit = false; K.mode("edit"); }
-      if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
+      if (!enabled) cannot();
       else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
       flash();
       poll();

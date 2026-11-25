@@ -84,6 +84,8 @@
     下の板にくぼんだ溝に入った三つのモード（編集・プレゼン・出力）とつまみ。畳むと編集・出力のときだけそのモードのアイコンが残り、プレゼンの道具が
     オンのときはつまみに橙の点が付く。ページは左にこの欄の幅（52px）の隙間を必ず空けて置く。既定はプレゼン。モードのキーをもう一度押すとプレゼンに戻る（Windows では Ctrl）。
     編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。編集する言語・ページ一覧 ⌘B・日本語の太さ。
+      原稿に誤り（組めない数式、読めない画像、参照と番号、囲みの題、収まらないページ、編集できない文）があると、モードのアイコンの上に件数の付いた
+      三角の印が出て、押すと誤りの一覧が開く。選ぶとその場所を示す。page-edit が無いときは、⌘E で一覧だけを見る。
     プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、日本語の太さ、
       選択 ⌘I（文字を選べ、クリックでは送らず ← → だけで送る）、キー無効 ⌘U（キーでもクリックでも送らない）。選択とキー無効はどちらか一方。
     出力 ⌘P：印刷の版面を画面に並べる。PDF（段階ごとに 1 枚／全段階を 1 枚に）は印刷の画面から、
@@ -251,11 +253,22 @@ function both(p, make) {
    same for the checks: change both together (tools/test/numbering-test.mjs compares them) */
 const NUMBERING = (root.getAttribute("numbering") || "").trim().split(/\s+/);
 const numbering = NUMBERING.find(m => m === "deck" || m === "section") || null;
-const problems = [];   // {type, page (from 0, or null), text, el}: what the draft has wrong, for the author
-function problem(type, page, text, el) {
-  if (problems.some(p => p.type === type && p.page === page && p.text === text && (p.el || null) === (el || null))) return;
-  problems.push({ type: type, page: page, text: text, el: el || null });
+/* What the draft has wrong, for the author (the list in edit mode, see Kamishibai.problems): type (PROBLEM_NAMES), page (from 0, or null),
+   L ("ja" or "en" when only that language has it), text, el (where) and up (the elements around el: in edit mode
+   page-edit shows the source texts in place of what el was in) */
+const problems = [];
+let problemsChanged = null;   // the list, once it is there
+function problem(type, page, text, el, L) {
+  el = el || null;
+  const side = hasEn && !L && el && el.closest(".L-ja:not(.solo), .L-en");
+  L = side ? (side.classList.contains("L-en") ? "en" : "ja") : L || null;
+  if (problems.some(p => p.type === type && p.page === page && p.L === L && p.text === text && p.el === el)) return;
+  const up = [];
+  for (let e = el; e && e !== stage && e.parentElement; e = e.parentElement) up.push(e);
+  problems.push({ type: type, page: page, L: L, text: text, el: el, up: up });
+  if (problemsChanged) problemsChanged();
 }
+const pageOf = function (e) { const s = e.closest(".page"); return s ? +s.dataset.k : null; };
 const BOXES = "block, alertblock, exampleblock, later";
 const byLen = (a, b) => b.length - a.length, alt = l => l.slice().sort(byLen).join("|");
 /* the kind a title starts with, and the number written by hand after it: [whole, kind, number] */
@@ -368,7 +381,6 @@ function references() {
     const p = w.currentNode.parentElement;
     if (hasRef(w.currentNode.nodeValue) && p && !p.closest(skip)) hits.push(w.currentNode);
   }
-  const pageOf = e => { const s = e.closest(".page"); return s ? +s.dataset.k : null; };
   if (!numbering) {   // the names stay as they are written
     hits.forEach(t => problem("ref", pageOf(t.parentElement), "\\ref・\\num がありますが、<html> に numbering がありません", t.parentElement));
     return;
@@ -590,6 +602,7 @@ pages.forEach(function (pg, i) {
     if (!packed && !BLOCK_HEAD.test(title.trim())) {
       b.classList.add("bad-box");
       console.warn("Kamishibai: page " + (i + 1) + ": a box titled \"" + title + "\" is not a statement (" + BLOCK_KINDS.join(", ") + ")");
+      problem("block", i, "囲みの題が主張の種類（定義・定理など）で始まっていません「" + title + "」", b);
     }
     if (title || tp.en) bt.appendChild(both(numbered(b, tp), titleSpan));
     if (b.hasAttribute("cite")) bt.appendChild($new("cite")).appendChild(both(pair(b, "cite"), txt));
@@ -674,7 +687,7 @@ if (window.renderMathInElement && window.katex) {
 }
 
 references();
-problems.forEach(p => console.warn("Kamishibai: " + (p.page == null ? "" : "page " + (p.page + 1) + ": ") + p.text));
+problems.filter(p => p.type === "ref" || p.type === "number").forEach(p => console.warn("Kamishibai: " + (p.page == null ? "" : "page " + (p.page + 1) + ": ") + p.text));
 
 /* ===== Japanese with no English (in a deck that has English): its element is marked .untr ===== */
 if (hasEn) (function () {
@@ -740,6 +753,31 @@ if (hasEn) (function () {
       frag.appendChild(i % 2 ? $new("span", "ja", s) : document.createTextNode(s));
     });
     t.parentNode.replaceChild(frag, t);
+  });
+})();
+
+/* ===== What went wrong with the math and the images, for the list in edit mode (not in a packed file) =====
+   With throwOnError: false KaTeX sets a formula it cannot read as .katex-error, and a command it does not know as
+   its name in the error colour */
+if (!packed) (function () {
+  const cut = s => s.length > 60 ? s.slice(0, 60) + "…" : s, bad = (e, text) => problem("math", pageOf(e), text, e);
+  stage.querySelectorAll(".katex-error").forEach(function (e) {
+    bad(e, "組めない数式「" + cut(e.textContent) + "」" + (e.title ? "：" + cut(e.title.replace(/^.*?KaTeX parse error:\s*/, "")) : ""));
+  });
+  stage.querySelectorAll('.katex [style*="color:#cc0000"], .katex [style*="color: rgb(204, 0, 0)"]').forEach(function (e) {
+    const t = e.textContent.trim();
+    if (/^\\[A-Za-z]+$/.test(t) && !e.querySelector("[style*=color]")) bad(e, "知らない命令「" + t + "」が数式にあります");
+  });
+  const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) {
+    const p = w.currentNode.parentElement, m = /\\[()\[\]]|\$/.exec(w.currentNode.nodeValue);
+    if (m && p && !p.closest(".katex, .katex-error, script, style, noscript, textarea, pre, code, option, svg"))
+      bad(p, "数式の記号 " + m[0] + " が残っています（閉じていないか、数式の途中にタグがあります）「" + cut(norm(w.currentNode.nodeValue)) + "」");
+  }
+  stage.querySelectorAll("img[src]").forEach(function (g) {
+    const lost = () => problem("image", pageOf(g), "読めない画像「" + cut(g.getAttribute("src")) + "」", g);
+    if (!g.complete) g.addEventListener("error", lost, { once: true });
+    else if (!g.naturalWidth) { const t = new Image(); t.onerror = lost; t.src = g.src; }   // an SVG may have no width of its own
   });
 })();
 
@@ -955,6 +993,7 @@ function shrinkPages() {
         p.classList.toggle("over-" + L, over);
       });
       if (over) console.warn("Kamishibai: page " + (i + 1) + " (" + L + ") overflows even at " + FIT_MIN);
+      if (over && !packed) problem("fit", i, "文字を " + Math.round(FIT_MIN * 100) + "% まで縮めても、ページに収まりません", null, hasEn ? L : null);
       return { zoom: z, over: over };
     });
   });
@@ -1002,7 +1041,7 @@ document.addEventListener("webkitfullscreenchange", fit);
    プレゼン (default): fullscreen ⌘F, pointer ⌘K, steps S, select ⌘I (text can be selected, clicks do not turn
      pages, ← → still do), keys off ⌘U (badge at the top right; select and keys off exclude each other).
    編集 ⌘E: the text is edited on the page by the page-edit extension (Kamishibai.setEditor); without it the
-     heading is gray. Clicks do not turn pages.
+     heading is gray and, when the draft has something wrong, the mode only lists that. Clicks do not turn pages.
    出力 ⌘P: the printed sheets are shown on the screen; PDF with one sheet per step, PDF with all steps on one
      sheet (both through the print dialog), or one HTML file (page-edit writes it; without it: make pack).
    Pages ⌘B and the stroke of Japanese text work in every mode. The key of the current mode, pressed again,
@@ -1019,6 +1058,7 @@ let editor = window.KamishibaiEditor || null;
 tools = $new("div", "tools");
 const lit = {}, vals = [];
 const edText = () => editor && editor.enter ? "文をクリックして直す（Enter で保存、Esc で取り消し）" : "文を直すには拡張機能 page-edit が要ります";
+const canEdit = () => !!(editor && editor.enter);
 const canHTML = () => !!(editor && editor.exportHTML) && !Kamishibai.packed;
 const outText = () => st.out !== "html" ? "出力を押し、印刷の画面で「PDF に保存」を選ぶ"
   : canHTML() ? "出力を押すと、原稿の隣に 名前.dist.html を書く" : "HTML は make pack で作ります（page-edit があればここから出せます）";
@@ -1037,7 +1077,7 @@ function render() {
                edit: st.mode === "edit", show: show, out: st.mode === "out",
                "o-steps": st.out === "steps", "o-all": st.out === "all", "o-html": st.out === "html" };
   Object.keys(lit).forEach(k => lit[k].forEach(b => b.classList.toggle("on", !!on[k])));
-  lit.edit.forEach(b => b.classList.toggle("off", !(editor && editor.enter)));
+  lit.edit.forEach(b => b.classList.toggle("off", !canEdit() && st.mode !== "edit"));
   lit.lang.forEach(b => b.classList.toggle("off", !hasEn));
   lit["o-html"].forEach(b => b.classList.toggle("off", !canHTML()));
   outBtn.classList.toggle("off", st.out === "html" && !canHTML());
@@ -1061,8 +1101,10 @@ function setMode(m) {
 function zoomPrint() { root.style.setProperty("--pzoom", String(Math.min(1, (innerWidth - 2 * GUT) / SW))); }
 /* the tools: those of プレゼン first leave another mode */
 function tool(name) {
-  if (name === "edit" && st.mode !== "edit" && !(editor && editor.enter)) {
-    openTools(true); tools.classList.add("show"); toast(edText(), 2500); return;
+  if (name === "edit" && st.mode !== "edit" && !canEdit()) {
+    openTools(true); tools.classList.add("show");
+    if (!allProblems().length) { toast(edText(), 2500); return; }
+    openList(true, false);   // nothing to edit with: the mode shows what is wrong
   }
   if (name === "edit" || name === "out") { setMode(st.mode === name ? "show" : name); return; }
   if (name === "show") { setMode("show"); return; }
@@ -1099,6 +1141,7 @@ const ICON = {
   "o-steps": "M8 3h12v14H8zM5 6v15h11",
   "o-all": "M5 3h14v18H5zM8 7h8M8 11h8M8 15h8",
   "o-html": "M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14",
+  wrong: "M12 4l9 16H3zM12 10v5M12 17.2v.3",
   go: "M12 3v12M7 10l5 5 5-5M4 20h16",
   plus: "M12 6v12M6 12h12", minus: "M6 12h12"
 };
@@ -1173,7 +1216,10 @@ group("grp g-show", [button("full", "全画面 " + mod + "F", "full", "it" + (ca
 group("grp g-out", [button("o-steps", "PDF：段階ごとに 1 枚"), button("o-all", "PDF：全段階を 1 枚に"), button("o-html", "HTML：1 ファイル"), outBtn]);
 /* the modes and the handle sit on a card of their own, below the card of the current mode's tools */
 const dock = $new("div", "dock");
-dock.append(group("modes", [button("edit", "モード：編集 " + mod + "E（もう一度押すとプレゼンに戻る）"), button("show", "モード：プレゼン"),
+/* what the draft has wrong: there only in edit mode, and only when something is */
+const wrongBtn = button(null, "誤りの一覧", "wrong", "wrong"), wrongN = wrongBtn.appendChild($new("span", "n"));
+wrongBtn.addEventListener("click", function () { openList(!listOpen, true); });
+dock.append(wrongBtn, group("modes", [button("edit", "モード：編集 " + mod + "E（もう一度押すとプレゼンに戻る）"), button("show", "モード：プレゼン"),
   button("out", "モード：出力 " + mod + "P（もう一度押すとプレゼンに戻る）")]), handle);
 tools.appendChild(dock);
 try { const s = parseFloat(localStorage.getItem(KEY)); if (!isNaN(s)) stroke = s; } catch (e) {}
@@ -1182,7 +1228,90 @@ body.appendChild(tools);
 const badge = $new("div", "badge", mod + "U"), ptr = $new("div", "pointer"), toastEl = $new("div", "toast");
 body.append(badge, ptr, toastEl);
 /* page-edit hands over { enter, leave, exportHTML } (before the build as window.KamishibaiEditor, or later) */
-Kamishibai.setEditor = function (ed) { editor = ed; render(); };
+Kamishibai.setEditor = function (ed) {
+  if (st.mode === "edit" && !canEdit() && ed && ed.enter) setMode("show");   // it was only the list
+  editor = ed;
+  render();
+};
+
+/* ===== What the draft has wrong: a list in edit mode =====
+   Collected while the page is built (problem()) and, for the pages that do not fit, once the fonts are in; a save
+   builds the page anew, so the list is of the draft as it is. Others (page-edit) add theirs with
+   Kamishibai.setProblems(source, [{ type, page, text, el, lang }]), which replaces what that source gave before.
+   Kamishibai.problems() gives the whole list. A choice turns to the page (in its language) and marks the place.
+   Whether the list is open is kept for the tab, over a save and a reload. A packed file has no list */
+const PROBLEM_NAMES = { math: "数式", ref: "参照", number: "番号", block: "囲み", fit: "収まり", image: "画像", edit: "編集" };
+const PKEY = "kamishibai-problems", others = {};
+const list = $new("div", "wrongs"), listHead = list.appendChild($new("div", "wh")), listBody = list.appendChild($new("div", "wl"));
+const listTitle = listHead.appendChild($new("span"));
+const listClose = listHead.appendChild($new("button", null, "×"));
+listClose.title = "一覧をしまう";
+listClose.setAttribute("aria-label", listClose.title);
+listClose.addEventListener("click", function () { listClose.blur(); openList(false, true); });
+body.appendChild(list);
+let listOpen = false, shownAt = null, shownEl = null, markTimer = 0;
+try { listOpen = sessionStorage.getItem(PKEY) === "1"; } catch (e) {}
+function allProblems() {
+  if (packed) return [];
+  const all = problems.concat(...Object.keys(others).map(k => others[k]));
+  const at = p => p.page == null ? -1 : p.page;
+  return all.map((p, i) => [p, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map(x => x[0]);
+}
+function openList(open, keep) {
+  listOpen = open;
+  if (!open) list.classList.remove("up");
+  try { if (keep) sessionStorage.setItem(PKEY, open ? "1" : "0"); } catch (e) {}
+  renderList();
+}
+function renderList() {
+  const all = allProblems(), n = all.length;
+  wrongBtn.classList.toggle("some", n > 0);
+  wrongBtn.classList.toggle("on", listOpen);
+  wrongN.textContent = n > 99 ? "99+" : String(n);
+  wrongBtn.title = "誤りの一覧（" + n + "）";
+  wrongBtn.setAttribute("aria-label", wrongBtn.title);
+  list.classList.toggle("show", listOpen && n > 0);
+  listTitle.textContent = "誤り " + n;
+  listBody.replaceChildren(...all.map(function (p) {
+    const b = $new("button"), where = p.page == null ? "全体" : (p.page + 1) + " 枚目";
+    b.append($new("span", "wp", where + (p.L ? "・" + (p.L === "en" ? "英語" : "日本語") : "")),
+             $new("span", "wk", PROBLEM_NAMES[p.type] || p.type), $new("span", "wt", p.text));
+    b.classList.toggle("on", p === shownAt);
+    b.addEventListener("click", function () { b.blur(); showProblem(p); });
+    return b;
+  }));
+}
+problemsChanged = renderList;
+function showProblem(p) {
+  shownAt = p;
+  if (p.L && hasEn && p.L !== lang) setLang(p.L);
+  if (p.page != null) go(p.page, true);
+  renderList();
+  if (shownEl) shownEl.classList.remove("wrong-here");
+  clearTimeout(markTimer);
+  /* the closest element around the place that is on the screen; for a page as a whole, the page */
+  const seen = e => e.isConnected && [].some.call(e.getClientRects(), r => r.width > 0 && r.height > 0);
+  const el = p.up.find(seen) || (p.page != null && p.page < secs.length ? secs[p.page] : null);
+  shownEl = el;
+  if (!el) return;
+  el.classList.add("wrong-here");
+  markTimer = setTimeout(function () { el.classList.remove("wrong-here"); }, 4000);
+  /* the list goes to the top when it would lie over the place */
+  list.classList.remove("up");
+  if (el === secs[p.page]) return;
+  const a = el.getBoundingClientRect(), b = list.getBoundingClientRect();
+  list.classList.toggle("up", a.right > b.left && a.bottom > b.top && a.left < b.right && a.top < b.bottom);
+}
+Kamishibai.problems = () => allProblems().map(p => ({ type: p.type, page: p.page, lang: p.L, text: p.text, el: p.el }));
+Kamishibai.setProblems = function (source, given) {
+  others[source] = (given || []).map(function (p) {
+    const up = [];
+    for (let e = p.el; e && e !== stage && e.parentElement; e = e.parentElement) up.push(e);
+    return { type: p.type || "edit", page: p.page == null ? null : p.page, L: p.lang || null, text: p.text, el: p.el || null, up: up };
+  });
+  renderList();
+};
+renderList();
 Kamishibai.mode = function (m) { if (m !== undefined) setMode(m); return st.mode; };
 /* Language shown: "ja" or "en" (only in a deck that has English); event kamishibai:lang on a change */
 function setLang(L) {
@@ -1285,7 +1414,7 @@ addEventListener("click", function (e) {
   if (body.classList.contains("edit") || body.classList.contains("op") || body.classList.contains("mode-out") ||
       /* the path of the click, not e.target.closest: a control may replace what was clicked (the handle swaps its icon) */
       e.composedPath().some(n => n.matches && n.matches("button, input, select, textarea, label, a[href], video, audio, iframe, details, summary, [contenteditable], " +
-                       ".bar, .sw, .ctrl, switch, body > .side, .tools"))) return;
+                       ".bar, .sw, .ctrl, switch, body > .side, .tools, .wrongs"))) return;
   clearTimeout(pend); pend = 0;
   const moved = down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4;
   if (moved || hadSel || selecting()) return;
@@ -1329,7 +1458,7 @@ document.addEventListener("touchstart", function (e) {
   if (e.touches.length !== 1 || (window.visualViewport && visualViewport.scale > 1.05)) return;
   if (["edit", "op", "mode-out"].some(c => body.classList.contains(c))) return;
   if (e.composedPath().some(n => n.matches && (n.matches("input, select, textarea, video, audio, iframe, [contenteditable], " +
-      ".bar, .sw, .ctrl, switch, body > .side, .tools") || getComputedStyle(n).touchAction === "none"))) return;
+      ".bar, .sw, .ctrl, switch, body > .side, .tools, .wrongs") || getComputedStyle(n).touchAction === "none"))) return;
   swipe = [e.touches[0].clientX, e.touches[0].clientY, Date.now()];
 }, { passive: true });
 document.addEventListener("touchmove", function (e) { if (e.touches.length !== 1) swipe = null; }, { passive: true });
