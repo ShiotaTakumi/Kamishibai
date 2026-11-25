@@ -110,6 +110,9 @@ async function draft(o, open) {
     }
     return await call[name](...args) || null;
   });
+  // no test reaches the network: a page waits for its pictures, and the load would wait for a slow server
+  // (the last route that matches comes first, so EXT below stays)
+  await ctx.route(/^https?:/, r => r.fulfill({ status: 404 }));
   await ctx.route(EXT + "**", function (r) {
     const f = new URL(r.request().url()).pathname.slice(1);
     if (f === "sw.html") return r.fulfill({ contentType: "text/html", body: '<script src="store.js"></script><script src="files.js"></script>' });
