@@ -22,14 +22,22 @@
    - Rebuild: document.open/write the source with this script inserted before the engine, so that mark()
      runs before the engine's build() and every editable text segment is wrapped in <span data-sed=i>.
    - Save: re-read the file, check that the span still holds the old source, write, and rebuild.
+   - Undo and redo: one save is one step, whatever it rewrote. A step is kept as replacements in the source (position,
+     text before, text after, what stands around it), so it does not depend on how the page shows the text. Undoing
+     re-reads the file as a save does and puts the old text back only where the source still reads as recorded;
+     otherwise nothing is written. See the section "Undo and redo".
    - The file is polled every second; a change made elsewhere (editor, AI) rebuilds the page.
 
-   In edit mode every editable text shows its source (TeX, inline tags) and pages do not turn on click.
+   In edit mode every text stays typeset and pages do not turn on click. The text being edited shows its math as TeX;
+   emphasis, color, bold and line breaks keep their look and are put on and taken off with a small bar or keys.
    A deck with Japanese and English: only the language shown is edited (its part of each pair, and text without a
    pair); the engine's panel gets three buttons, 日本語, English and both at once. Saving one language leaves the
    other as it is. In English, Japanese text that has no English is shown grey and is not edited.
    click        edit that text (in edit mode)
-   Enter        save            Shift+Enter  newline         Esc  cancel
+    Enter        save            Shift+Enter  line break      Esc  cancel
+    Cmd+K        emphasis        Cmd+Shift+K  blue            Cmd+B  bold    (on the selection)
+    Cmd+Z        undo the last save; while a text is being edited, undo the last change made in that text
+    Shift+Cmd+Z  redo (elsewhere Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y); both are also buttons in the panel
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function slideEdit() {
   "use strict";
@@ -37,13 +45,14 @@
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)
   const EDITABLE = ["p", "item", "note", "down", "headline", "subtitle", "author", "meeting", "date", "figcaption",
-                    "td", "th", "block", "alertblock", "exampleblock", "divider", "column", "proof", "plan", "later"];
+                    "td", "th", "block", "alertblock", "exampleblock", "divider", "column", "proof", "plan", "later",
+                    "box", "to", "boxed", "io", "ln", "credit"];
   // Child elements that end the editable text segment of their parent.
   const BLOCKS = new Set(["list", "item", "p", "block", "alertblock", "exampleblock", "note", "down", "columns",
                           "column", "figure", "table", "svg", "div", "img", "script", "style", "headline", "author",
                           "meeting", "date", "qr", "ul", "ol", "subtitle", "proof", "plan", "later", "nums",
-                          "side", "flip", "switch", "button"]);
-  const TITLED = ["slide", "block", "alertblock", "exampleblock", "proof", "plan", "later"];
+                          "side", "flip", "switch", "button", "flow", "box", "to", "boxed", "algo", "io", "ln", "credit"]);
+  const TITLED = ["slide", "block", "alertblock", "exampleblock", "proof", "plan", "later", "box", "boxed", "algo"];
   // Elements whose text runs are editable: the EDITABLE ones, and a slide (text written straight in it).
   const CONTAINER = new Set(EDITABLE.concat(["slide"]));
   // Editable attributes. all: one name used in several places (a section, an institute); editing one rewrites all.
@@ -63,6 +72,7 @@
   const EDIT_KEY = "slide-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform);    // as WebSlide decides between Cmd and Ctrl
   const BOTH_KEY = "page-edit-both";   // "1": Japanese and English are edited at once
+  const UNDO_KEY = "page-edit-undo:" + location.pathname;   // the undo steps of this draft, kept for the tab
   const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const mod = e => (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey;
   // Edit mode has its own key, Cmd+E (Ctrl+E elsewhere). The engine's select mode is Cmd+I; an older engine
@@ -82,7 +92,7 @@
      in a slide, after a list, is such a run). Each segment is {tag, el, k, start, end}: el counts the elements in
      document order, k the runs of that element. Attribute values in ATTRS are {tag, attr, all, start, end}. */
   function parse(text) {
-    const spans = [], els = [], attrs = [], stack = [];
+    const spans = [], els = [], at = [], attrs = [], stack = [];   // at: where each of els starts
     const START = /<([a-zA-Z][^\s\/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/y;
     const END = /<\/([a-zA-Z][^\s>]*)\s*>/y;
     const ATTR = /\s([^\s=\/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+)))?/dg;
@@ -123,7 +133,7 @@
       START.lastIndex = i;
       m = START.exec(text);
       if (!m) { i++; continue; }
-      const raw = m[0], tag = m[1].toLowerCase(), selfClose = /\/\s*>$/.test(raw), after = i + raw.length;
+      const raw = m[0], tag = m[1].toLowerCase(), selfClose = /\/\s*>$/.test(raw), i0 = i, after = i + raw.length;
       const p = top(), block = BLOCKS.has(tag);
       if (p && p.el !== null && block) shut(p, i);
       ATTR.lastIndex = 0;
@@ -146,15 +156,15 @@
       i = after;
       if (VOID.has(tag) || selfClose) {
         if (p && p.el !== null && block && p.idx === null) open(p, after);
-        if (CONTAINER.has(tag)) { els.push(tag); const e = { tag: tag, el: els.length - 1, idx: null, k: 0 }; open(e, after); shut(e, after); }
+        if (CONTAINER.has(tag)) { els.push(tag); at.push(i0); const e = { tag: tag, el: els.length - 1, idx: null, k: 0 }; open(e, after); shut(e, after); }
         continue;
       }
       const e = { tag: tag, el: null, idx: null, k: 0 };
-      if (CONTAINER.has(tag)) { els.push(tag); e.el = els.length - 1; open(e, after); }
+      if (CONTAINER.has(tag)) { els.push(tag); at.push(i0); e.el = els.length - 1; open(e, after); }
       stack.push(e);
     }
     spans.forEach(s => { if (s.end === null) s.end = s.start; });
-    return { spans: spans, els: els, attrs: attrs };
+    return { spans: spans, els: els, at: at, attrs: attrs };
   }
   S.parse = parse;   // exposed for checks from the console
 
@@ -183,6 +193,12 @@
         tx.onabort = () => { db.close(); reject(tx.error); };
       };
     });
+  }
+  // The source of the draft. A BOM stays in the text (file.text() drops it), so that a save writes it back.
+  // strict: a file that is not UTF-8 is refused, because writing it back would change its other bytes.
+  async function readText(file, strict) {
+    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(await file.arrayBuffer()); }
+    catch (e) { throw new Error("原稿の文字コードが UTF-8 ではないので、書き込めません"); }
   }
   const DIRS = "list";
   async function keptDirs() {
@@ -372,7 +388,7 @@
     // This same function, inline (file:// pages have no CSP).
     const inject = "<script>(" + slideEdit.toString().replace(/<\/script/gi, "<\\/script") + ")();<\/script>\n";
     document.open();
-    document.write(text.slice(0, m.index) + inject + text.slice(m.index));
+    document.write(text.slice(0, m.index).replace(/^\ufeff/, "") + inject + text.slice(m.index));
     document.close();
   }
 
@@ -385,13 +401,24 @@
     css.textContent = [
       "body.sed-on .deck :is([data-sed], [data-sedt]):not(.sed-parts):hover, body.sed-on .deck .sed-part:hover, body.sed-on .deck [data-sed-jump]:hover { outline: 2px dashed #e07000; outline-offset: 2px; cursor: text; }",
       ".deck .sed-editing { outline: 2px solid #e07000 !important; outline-offset: 2px; white-space: pre-wrap; background: #fff8ec; }",
-      "body.sed-on .deck [data-sed], body.sed-on .deck [data-sedt] { white-space: pre-wrap; }",
+      // the text being edited: marks of line ends of the source, math and other tags by color (highlights)
+      ".deck .sed-editing .sed-ws0 { font-size: 0; }",
+      "::highlight(sed-math) { color: #a04000; }",
+      "::highlight(sed-tag) { color: #7a7a7a; }",
+      ".sed-fmt { position: fixed; z-index: 99998; display: flex; gap: 2px; padding: 3px; background: #1e1e1e; border: 1px solid #444;",
+      "  border-radius: 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }",
+      ".sed-fmt button { font: 700 16px/1 system-ui, sans-serif; min-width: 30px; height: 28px; padding: 0 6px; color: #fff; background: none; border: 0; border-radius: 5px; cursor: pointer; }",
+      ".sed-fmt button i { display: inline-block; padding: 3px 6px; border-radius: 4px; background: #fff; font-style: normal; }",
+      ".sed-fmt button:hover { background: #3a3a3a; }",
+      ".sed-fmt button.on { background: #e07000; }",
       // Theme headers and footers pass clicks through (pointer-events: none); take them back while editing.
       "body.sed-on .deck [data-sed], body.sed-on .deck [data-sedt], body.sed-on .deck [data-sed-jump] { pointer-events: auto; }",
-      "body.sed-on .deck .sed-src { font-family: ui-monospace, Menlo, monospace; font-size: .8em; color: #a04000; }",
+      "body.sed-on .deck .sed-src { white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: .8em; color: #a04000; }",
       // one language at a time: what the language shown does not have
-      "body.sed-on .deck .sed-off { color: #999; cursor: default; }",
+      "body.sed-on .deck .sed-off { opacity: .4; cursor: default; }",
       "body.sed-on .deck .sed-part + .sed-part { margin-left: .5em; }",
+      ".deck .sed-flash { animation: sed-flash 1.6s ease-out; }",
+      "@keyframes sed-flash { from { background: #ffd98a; } }",
       ".tools button.sed-lang { font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0; }",
       // The message line, just above the engine's tool panel (.tools, bottom left) while a message is up. A page
       // without that panel: the buttons are in this bar too, always there, faint until pointed at.
@@ -410,7 +437,7 @@
       "body.sed-on .tools .sed-btn { display: block; }",
       ".sed-msg { color: #fff; font-weight: 400; padding: 0 4px; white-space: nowrap; display: none; }",
       ".sed-bar:not(.free) .sed-msg { padding: 4px; }",
-      "@media print { .sed-bar { display: none; } }"
+      "@media print { .sed-bar, .sed-fmt { display: none; } }"
     ].join("\n");
     document.head.appendChild(css);
   }
@@ -483,7 +510,7 @@
     const open = async function (h) {
       S.handle = h;
       const f = await h.getFile();
-      rebuild(await f.text(), f.lastModified);
+      rebuild(await readText(f), f.lastModified);
     };
     // Started by hand (button or key): the rebuilt page comes up in edit mode.
     // left: the author went back to another mode while Chrome was asking; the page is then rebuilt outside edit mode.
@@ -552,10 +579,20 @@
   }
   const blank = t => !t.replace(/<!--[\s\S]*?-->/g, "").trim();
 
+  // What cannot be edited and why, {el, text}: for the engine's list of what is wrong (Kamishibai.setProblems)
+  const unedited = [];
+  const line = at => S.text.slice(0, at).split("\n").length;
+
   function mark() {
     const els = [].slice.call(document.querySelectorAll([...CONTAINER].join(",")));
     if (els.map(e => e.tagName.toLowerCase()).join() !== D.els.join()) {
       enabled = false;
+      const name = e => e ? "<" + e.tagName.toLowerCase() + ">" : "終わり";
+      let n = 0;
+      while (els[n] && els[n].tagName.toLowerCase() === D.els[n]) n++;
+      unedited.push({ el: els[n] || els[n - 1] || null, text: "どの文も直せません：原稿と画面で要素の並びが合いません。始めに食い違うのは、" +
+        (n < D.els.length ? "原稿の " + line(D.at[n]) + " 行目の <" + D.els[n] + ">" : "原稿の終わり") + "（画面では " + name(els[n]) +
+        "）。その前に、閉じていないタグか、入れ子にできないタグがあります" });
       console.warn("slide-edit: element order differs from the source parse", els, D.els);
       return;
     }
@@ -566,6 +603,8 @@
       const dom = runs(el), src = byEl[n];
       // The browser may have cut the content otherwise (a <p> closed by a <div>): then only the first run.
       const k = dom.length === src.length ? src.length : 1;
+      if (dom.length !== src.length && src.slice(1).some(j => !blank(S.text.slice(D.spans[j].start, D.spans[j].end))))
+        unedited.push({ el: el, text: "始めの部分のほかは直せません：<" + D.els[n] + ">（原稿の " + line(D.at[n]) + " 行目）の中の文の切れ目が、原稿と画面で合いません" });
       for (let j = 0; j < k; j++) {
         const s = D.spans[src[j]], seg = dom[j];
         if (!seg || !seg.length || blank(S.text.slice(s.start, s.end))) continue;
@@ -582,6 +621,7 @@
       D.attrs.forEach((a, i) => { if (a.attr === spec.attr) idx.push(i); });
       if (dom.map(e => e.tagName.toLowerCase()).join() !== idx.map(i => D.attrs[i].tag).join()) {
         console.warn("slide-edit: order of " + spec.attr + "= differs; it is not editable");
+        unedited.push({ el: null, text: "属性 " + spec.attr + " の文を直せません：原稿と画面で並びが合いません" });
         return;
       }
       dom.forEach((el, j) => el.setAttribute("data-sed-" + spec.attr, String(idx[j])));
@@ -624,7 +664,7 @@
         if (!(n in secs) || (!secs[n].hasAttribute("sec-en") && sl.hasAttribute("sec-en"))) secs[n] = sl;
       });
       deck.querySelectorAll(".hn").forEach(function (h) {
-        const n = (h.querySelector(".L-ja") || h).textContent;   // in a deck with English: the Japanese is the name
+        const n = h.dataset.name || (h.querySelector(".L-ja") || h).textContent;   // in a deck with English: the Japanese is the name
         if (n in secs) put(h, secs[n], "sec");
       });
       // Footer: taken from the cover. With short="…" it is that attribute, edited in place; else a click goes to
@@ -649,13 +689,20 @@
     if (K && K.setEditor) {
       // The engine's 編集 mode is edit mode: its heading and Cmd+E enter and leave it.
       bar([]);
+      undoButtons();
       langButtons(K);
       const handle = document.querySelector(".tools .handle");
       if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
-      K.setEditor({ enter: () => setEdit(true), leave: () => setEdit(false), exportHTML: exportHTML });
+      if (K.setProblems) K.setProblems("page-edit", unedited.map(function (u) {
+        const s = u.el && u.el.closest("section.page");
+        return { type: "edit", page: s ? +s.dataset.k : null, text: u.text, el: u.el };
+      }));
+      const cannot = () => { if (!enabled) msg(K.problems ? "編集できません（要素の並びが読めない）。理由は誤りの一覧にあります" : "編集できません（要素の並びが読めない）。console を見てください", 6000); };
+      K.setEditor({ enter: () => { setEdit(true); cannot(); }, leave: () => setEdit(false), exportHTML: exportHTML });
       if (S.edit) { S.edit = false; K.mode("edit"); }
-      if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
+      if (!enabled) cannot();
       else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
+      flash();
       poll();
       return;
     }
@@ -675,6 +722,7 @@
     }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     // Back in edit mode after a rebuild (save, outside change, reload).
     if (S.edit) { S.edit = false; toggleEdit(); }
+    flash();
     if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
     else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
     poll();
@@ -764,6 +812,7 @@
     const L = shown();
     if (el.hasAttribute("data-sed")) {
       if (!L) return null;
+      el._one = null;
       const t = info(el), list = pieces(t.src);
       if (list.length === 1 && !list[0].L && !(L === "en" && JAPANESE.test(t.src))) return null;
       const out = [];
@@ -773,7 +822,7 @@
           if (p.L !== "ja" || (list[k + 1] && list[k + 1].L === "en")) return;
         }
         const text = t.src.slice(p.a, p.b);
-        out.push({ it: { kind: "span", i: t.i, src: text, whole: t.src, a: p.a, b: p.b },
+        out.push({ L: p.L, it: { kind: "span", i: t.i, src: text, whole: t.src, a: p.a, b: p.b },
                    edit: p.L ? p.L === L : !(L === "en" && JAPANESE.test(text)) });
       });
       return out;
@@ -787,6 +836,7 @@
 
   function info(el) {
     if (el._unit) return el._unit;
+    if (el._one) return el._one;
     if (el.hasAttribute("data-sed")) {
       const s = D.spans[+el.getAttribute("data-sed")];
       return { kind: "span", i: +el.getAttribute("data-sed"), src: S.text.slice(s.start, s.end) };
@@ -809,34 +859,63 @@
     setTimeout(function () { if (live()) start(el, -1, -1); }, 80);
   }
 
-  /* ===== Edit mode: every editable text shows its source; leaving it shows the rendered page again ===== */
-  const rendered = new WeakMap();
+  /* ===== Edit mode: every text stays as the engine has typeset it; the text being edited shows its TeX =====
+     A text with several parts to edit apart (Japanese or English beside text common to both) shows them one by one,
+     typeset by the engine (Kamishibai.typeset). Both languages at once: the source, with its <ja> and <en>. */
+  const rendered = new WeakMap();   // el -> its nodes as the engine built them, while el shows something else
   const NO_EN = "この文には英語がありません（日本語か、日英を一度に編集する表示で直せます）";
-  function showSource(el) {
-    el.innerHTML = "";
-    const list = el._unit ? null : units(el);
-    el.classList.toggle("sed-parts", !!list);
-    if (list) {
-      list.forEach(function (u) {
-        const s = document.createElement("span");
-        s.className = u.edit ? "sed-src sed-part" : "sed-src sed-off";
-        if (u.edit) s._unit = u.it;
-        else s.title = NO_EN;
-        s.textContent = u.it.src.trim();
-        el.appendChild(s);
-      });
-      return;
-    }
-    if (el._unit) { el.textContent = el._unit.src.trim(); return; }
+  const keep = el => { if (!rendered.has(el)) rendered.set(el, [].slice.call(el.childNodes)); };
+  function back(el) { if (rendered.has(el)) { el.replaceChildren(...rendered.get(el)); rendered.delete(el); } }
+  function plainSource(el, src) {
     const s = document.createElement("span");
     s.className = "sed-src";
-    s.textContent = info(el).src.trim();
-    el.appendChild(s);
+    s.textContent = src.trim();
+    el.replaceChildren(s);
+  }
+  // The title of a numbered statement is shown with its number, which is not in the source: {at, text} or null.
+  function numberIn(el, it) {
+    const K = window.Kamishibai, a = it.kind === "attr" && D.attrs[it.i].attr;
+    return (a === "title" || a === "title-en") && K && K.numberAt ? K.numberAt(el, unescape(it.src), a === "title-en" ? "en" : "ja") : null;
+  }
+  function partShown(s, u, host) {
+    const K = window.Kamishibai, src = u.it.src.trim();
+    if (!K || !K.typeset || (u.it.kind === "span" && !tokens(src))) { s.classList.add("sed-src"); s.textContent = src; return; }
+    if (u.it.kind === "attr") {
+      const t = unescape(u.it.src), n = numberIn(host || s, u.it);
+      s.textContent = n ? t.slice(0, n.at) + n.text + t.slice(n.at) : t.trim();
+    } else s.innerHTML = src;
+    s.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
+    if (u.it.kind === "span" && u.L === shown() && u.L) s.classList.add("L-" + u.L);
+    K.typeset(s);
+  }
+  function showSource(el) {
+    if (el._unit) { partShown(el, { it: el._unit, L: el._L }); return; }
+    back(el);
+    el._one = null;
+    const list = units(el);
+    el.classList.toggle("sed-parts", !!list && list.length > 1);
+    el.classList.toggle("sed-off", !!list && list.length === 1 && !list[0].edit);
+    if (!list) {
+      // both languages at once: the pairs themselves
+      if (langs && both && el.hasAttribute("data-sed") && pieces(info(el).src).some(p => p.L)) { keep(el); plainSource(el, info(el).src); }
+      return;
+    }
+    if (list.length === 1) { if (list[0].edit) el._one = list[0].it; return; }
+    if (!list.length) return;
+    keep(el);
+    el.replaceChildren(...list.map(function (u) {
+      const s = document.createElement("span");
+      s.className = u.edit ? "sed-part" : "sed-off";
+      if (u.edit) { s._unit = u.it; s._L = u.L; }
+      else s.title = NO_EN;
+      partShown(s, u, el);
+      return s;
+    }));
   }
   // The language or the choice of one or both changed: show the sources again.
   function refresh() {
     if (!document.body.classList.contains("sed-on")) return;
-    document.querySelectorAll(".deck [data-sed], .deck [data-sedt]").forEach(el => { if (rendered.has(el)) showSource(el); });
+    document.querySelectorAll(".deck [data-sed], .deck [data-sedt]").forEach(showSource);
   }
   // Enter or leave edit mode (the button and Cmd+E).
   function toggleEdit() {
@@ -858,36 +937,507 @@
     else msg("");
     document.querySelectorAll(".deck [data-sed], .deck [data-sedt]").forEach(function (el) {
       if (el === editing) return;
-      if (on) {
-        if (!rendered.has(el)) rendered.set(el, el.innerHTML);
-        showSource(el);
-      } else if (rendered.has(el)) {
-        el.innerHTML = rendered.get(el);
-        rendered.delete(el);
-        el.classList.remove("sed-parts");
-      }
+      if (on) showSource(el);
+      else { back(el); el._one = null; el.classList.remove("sed-parts", "sed-off"); }
     });
   }
 
+  /* ===== The source of one text as tokens =====
+     {t, s, a, b}: "text", "math" (with its delimiters; ref: a \ref or \num), "br", "ws" (a line end of the source with its indent), "raw"
+     (an entity, a comment, any other tag: shown as it is written), "open" and "close" (an inline tag shown by its look,
+     m: its mark). null when the tags are not well nested (a part of a longer text, or broken source). */
+  const INLINE = new Set(["alert", "red", "navy", "orange", "blue", "green", "rem", "b", "strong", "i", "em", "u", "s", "small", "sub", "sup", "span", "nobr", "cite", "code"]);
+  const NUMBERED = document.documentElement.hasAttribute("numbering");
+  function tokens(src) {
+    const TAG = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'$<])*)>/g;   // no "$" or "<": a "<" of a math is not a tag
+    const TEXT = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?:\\[\s\S]|[^$\\])+?\$)|(\s*\n\s*)|(&(?:#\d+|#x[\da-fA-F]+|\w+);)|(\\(?:ref|num)\{[^{}]*\})/g;
+    const out = [], stack = [];
+    const add = (t, a, b, m) => { if (b > a) out.push({ t: t, s: src.slice(a, b), a: a, b: b, m: m }); };
+    const text = function (from, to) {
+      const part = src.slice(from, to);
+      let m, at = 0;
+      TEXT.lastIndex = 0;
+      while ((m = TEXT.exec(part))) {
+        add("text", from + at, from + m.index);
+        at = m.index + m[0].length;
+        // a reference to a numbered statement is TeX too; without <html numbering> it is text
+        if (m[4]) { add(NUMBERED ? "math" : "text", from + m.index, from + at); if (NUMBERED) out[out.length - 1].ref = true; }
+        else add(m[1] ? "math" : m[2] ? "ws" : "raw", from + m.index, from + at);
+      }
+      add("text", from + at, to);
+    };
+    let m, at = 0;
+    while ((m = TAG.exec(src))) {
+      text(at, m.index);
+      const a = m.index;
+      at = a + m[0].length;
+      const tag = (m[2] || "").toLowerCase();
+      if (!tag) { add("raw", a, at); continue; }
+      if (tag === "br" && !m[1]) { add("br", a, at); continue; }
+      if (VOID.has(tag) || /\/\s*$/.test(m[3])) { add("raw", a, at); continue; }
+      if (!m[1]) {
+        const mark = INLINE.has(tag) && !/\s(?:lang|step|with)\b/i.test(m[3]) ? { tag: tag, open: m[0] } : null;
+        stack.push({ tag: tag, mark: mark });
+        add(mark ? "open" : "raw", a, at, mark);
+        continue;
+      }
+      const top = stack.pop();
+      if (!top || top.tag !== tag) return null;
+      add(top.mark ? "close" : "raw", a, at, top.mark);
+    }
+    text(at, src.length);
+    return stack.length ? null : out;
+  }
+  // In a math the author writes < and >. In the source a "<" that HTML would read as a tag is "&lt;"; a text whose source
+  // writes them another way throughout keeps it. shownMath: {src, style}, null style: shown as it is.
+  const inMath = function (src, fn) {
+    const list = tokens(src);
+    return list ? list.map(t => t.t === "math" ? fn(t.s) : t.s).join("") : src;
+  };
+  const MATH_STYLES = [{}, { lt: 1 }, { gt: 1 }, { lt: 1, gt: 1 }];
+  function writeMath(src, st) {
+    return inMath(src, function (x) {
+      x = x.replace(st.lt ? /</g : /<(?=[a-zA-Z\/!?])/g, "&lt;");
+      return st.gt ? x.replace(/>/g, "&gt;") : x;
+    });
+  }
+  function shownMath(core) {
+    const src = inMath(core, x => x.replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
+    const st = MATH_STYLES.find(m => writeMath(src, m) === core);
+    return st ? { src: src, style: st } : { src: core, style: MATH_STYLES[0] };
+  }
+  const isDisplay = t => t && t.t === "math" && /^(?:\$\$|\\\[)/.test(t.s);
+
+  /* ===== The text being edited, by its look =====
+     rich: {el, hist, at}. The DOM of el is made from the tokens and read back as source (flat); marks (<alert>, <b> …)
+     are the elements themselves, with their start tag in data-open, so that the source comes back byte for byte. */
+  const ZW = "​";   // beside a mark with no text next to it, so that the caret can stand there; not in the source
+  let rich = null;
+  function draw(el, list) {
+    const root = document.createDocumentFragment(), path = [root];
+    const top = () => path[path.length - 1];
+    const gap = () => { const l = top().lastChild; if (!l || l.nodeType !== 3) top().appendChild(document.createTextNode(ZW)); };
+    list.forEach(function (t, k) {
+      if (t.t === "open") {
+        gap();
+        const x = document.createElement("template");
+        x.innerHTML = t.s + "</" + t.m.tag + ">";
+        const e = x.content.firstElementChild;
+        e.removeAttribute("id");
+        if (t.m.tag === "alert") e.classList.add("k");
+        e.setAttribute("data-open", t.s);
+        top().appendChild(e);
+        path.push(e);
+      } else if (t.t === "close") {
+        path.pop();
+        const n = list[k + 1];
+        if (!n || n.t === "br" || n.t === "ws" || n.t === "open" || n.t === "close") gap();
+      } else if (t.t === "br") {
+        const e = document.createElement("br");
+        e.setAttribute("data-src", t.s);
+        top().appendChild(e);
+        if (!list[k + 1] || list[k + 1].t === "br") gap();
+      } else if (t.t === "ws") {
+        const e = document.createElement("span"), p = list[k - 1], n = list[k + 1];
+        e.className = (p && p.t === "br") || (n && n.t === "br") ? "sed-ws sed-ws0" : "sed-ws";
+        e.setAttribute("data-src", t.s);
+        e.textContent = isDisplay(p) || isDisplay(n) ? "\n" : " ";
+        top().appendChild(e);
+      } else {
+        const l = top().lastChild;
+        if (l && l.nodeType === 3) l.data = (l.data === ZW ? "" : l.data) + t.s;
+        else top().appendChild(document.createTextNode(t.s));
+      }
+    });
+    el.replaceChildren(root);
+    if (!el.firstChild) el.appendChild(document.createTextNode(ZW));
+  }
+  // The source the DOM of el stands for, and where each node of it is: {src, at: node -> [start, end, inner start]}
+  function flat(el) {
+    let src = "";
+    const at = new Map();
+    const walk = function (n) {
+      const from = src.length;
+      if (n.nodeType === 3) { src += n.data.split(ZW).join(""); at.set(n, [from, src.length]); return; }
+      if (n.nodeType !== 1) return;
+      if (n.tagName === "BR") {
+        if (n.hasAttribute("data-src")) src += n.getAttribute("data-src");
+        else if (n !== el.lastChild) src += "<br>";   // the last one: Chrome's own, holding the line open
+        at.set(n, [from, src.length]);
+        return;
+      }
+      if (n.classList.contains("sed-ws")) {
+        // what Chrome typed into it stays behind the line end
+        const t = n.textContent.split(ZW).join("");
+        src += /^[ \n]/.test(t) ? n.getAttribute("data-src") + t.slice(1) : t;
+        at.set(n, [from, src.length]);
+        n.childNodes.forEach(c => at.set(c, [from, src.length, n]));
+        return;
+      }
+      const open = n === el ? "" : n.getAttribute("data-open") || "";
+      src += open;
+      const inner = src.length;
+      n.childNodes.forEach(walk);
+      if (open && src.length === inner) { src = src.slice(0, from); at.set(n, [from, from, from]); return; }   // nothing left in it
+      const end = src.length;
+      if (open) src += "</" + n.tagName.toLowerCase() + ">";
+      at.set(n, [from, src.length, inner, end]);
+    };
+    walk(el);
+    return { src: src, at: at };
+  }
+  // A point of the DOM as an offset of the source, and back.
+  function toSrc(f, node, off) {
+    const p = f.at.get(node);
+    if (!p) return f.src.length;
+    if (node.nodeType === 3) {
+      const ws = p[2];
+      if (ws) {
+        if (!off) return p[0];
+        return Math.min(p[1], p[0] + ws.getAttribute("data-src").length + off - 1);
+      }
+      return p[0] + node.data.slice(0, off).split(ZW).join("").length;
+    }
+    if (node.tagName === "BR") return p[0];
+    const kid = node.childNodes[off];
+    if (kid && f.at.has(kid)) return f.at.get(kid)[0];
+    return p[3] === undefined ? p[1] : p[3];
+  }
+  function toDom(el, f, pos) {
+    let best = null;
+    f.at.forEach(function (p, n) {
+      if (best || n.nodeType !== 3 || p[2]) return;
+      if (pos < p[0] || pos > p[1]) return;
+      let off = 0, left = pos - p[0];
+      while (off < n.data.length && (left > 0 || n.data[off] === ZW)) { if (n.data[off] !== ZW) left--; off++; }
+      best = [n, off];
+    });
+    if (best) return best;
+    f.at.forEach(function (p, n) {   // before a node, or in a place with no text
+      if (best || n === el || !n.parentNode || (n.nodeType === 3 && p[2])) return;
+      if (p[0] === pos || (p[0] < pos && pos < p[1] && (n.tagName === "BR" || n.classList.contains("sed-ws"))))
+        best = [n.parentNode, [].indexOf.call(n.parentNode.childNodes, n)];
+    });
+    return best || [el, el.childNodes.length];
+  }
+  function selected() {
+    const sel = getSelection(), el = rich.el;
+    if (!sel.rangeCount || !el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return null;
+    const r = sel.getRangeAt(0), f = flat(el);
+    return { src: f.src, a: toSrc(f, r.startContainer, r.startOffset), b: toSrc(f, r.endContainer, r.endOffset) };
+  }
+  function select(el, a, b) {
+    const f = flat(el), p = toDom(el, f, a), q = b === a ? p : toDom(el, f, b);
+    const r = document.createRange();
+    r.setStart(p[0], p[1]);
+    r.setEnd(q[0], q[1]);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+  // Math and tags shown as written get their color without touching the DOM (CSS highlights).
+  function paint() {
+    if (!window.Highlight || !CSS.highlights) return;
+    const math = [], tag = [];
+    if (rich) {
+      const f = flat(rich.el), list = tokens(f.src);
+      (list || []).forEach(function (t) {
+        if (t.t !== "math" && t.t !== "raw") return;
+        f.at.forEach(function (p, n) {
+          if (n.nodeType !== 3 || p[2] || p[1] <= t.a || p[0] >= t.b) return;
+          const r = document.createRange(), x = toDom(rich.el, { src: f.src, at: new Map([[n, p]]) }, Math.max(t.a, p[0])),
+                y = toDom(rich.el, { src: f.src, at: new Map([[n, p]]) }, Math.min(t.b, p[1]));
+          r.setStart(x[0], x[1]); r.setEnd(y[0], y[1]);
+          (t.t === "math" ? math : tag).push(r);
+        });
+      });
+    }
+    CSS.highlights.set("sed-math", new Highlight(...math));
+    CSS.highlights.set("sed-tag", new Highlight(...tag));
+  }
+
+  // Undo while editing: Chrome's own does not survive a redraw, so the sources are kept here.
+  function rememberText(typed) {
+    const now = selected(), h = rich.hist, cur = h[rich.at];
+    if (!now) return;
+    if (now.src === cur.src) { cur.a = now.a; cur.b = now.b; return; }
+    h.length = rich.at + 1;
+    const t = Date.now();
+    if (typed && cur.typed && t - cur.t < 700) { cur.src = now.src; cur.a = now.a; cur.b = now.b; cur.t = t; return; }
+    h.push({ src: now.src, a: now.a, b: now.b, typed: typed, t: t });
+    rich.at = h.length - 1;
+  }
+  function stepText(d) {
+    const h = rich.hist[rich.at + d];
+    if (!h) return;
+    rich.at += d;
+    h.typed = false;
+    putText(h.src, h.a, h.b, true);
+  }
+  function putText(src, a, b, quiet) {
+    const list = tokens(src);
+    if (!list) { msg("この範囲では、ほかの書き方と入れ違いになるので付け外しできません", 5000); return false; }
+    draw(rich.el, list);
+    select(rich.el, a, b);
+    if (!quiet) rememberText(false);
+    paint();
+    bubble();
+    return true;
+  }
+
+  /* Marks on the selection. The source is cut into cells (a character, a math, a line break …), each with the marks
+     around it; marks are put on or taken off the cells, and the cells written out again. */
+  const COLORS = ["alert", "navy", "red", "orange", "blue", "green"];
+  function cellsOf(list) {
+    const out = [], on = [];
+    list.forEach(function (t) {
+      if (t.t === "open") on.push(t.m);
+      else if (t.t === "close") on.pop();
+      else if (t.t === "text") for (let i = 0; i < t.s.length; i++) out.push({ t: "text", s: t.s[i], a: t.a + i, b: t.a + i + 1, on: on.slice() });
+      else out.push({ t: t.t, s: t.s, a: t.a, b: t.b, on: on.slice() });
+    });
+    return out;
+  }
+  const plainMark = m => m.open === "<" + m.tag + ">";
+  function writeCells(cells) {
+    let src = "", on = [];
+    const opened = new Set();
+    let ok = true;
+    const to = function (want) {
+      let k = 0;
+      while (k < on.length && k < want.length && on[k] === want[k]) k++;
+      for (let j = on.length - 1; j >= k; j--) src += "</" + on[j].tag + ">";
+      for (let j = k; j < want.length; j++) {
+        if (opened.has(want[j]) && !plainMark(want[j])) ok = false;   // a mark with attributes is not cut in two
+        opened.add(want[j]);
+        src += want[j].open;
+      }
+      on = want;
+    };
+    cells.forEach(function (c) { to(c.on); c.na = src.length; src += c.s; c.nb = src.length; });
+    to([]);
+    return ok ? src : null;
+  }
+  const picked = (cells, a, b) => cells.filter(c => a === b ? c.t === "math" && c.a < a && c.b > a : c.b > a && c.a < b);
+  const solid = c => c.t !== "ws" && c.t !== "br" && !/^\s$/.test(c.s);
+  function toggleMark(tag) {
+    const now = selected(), list = now && tokens(now.src);
+    if (!list) return;
+    const cells = cellsOf(list), has = c => c.on.filter(m => m.tag === tag);
+    let pick = picked(cells, now.a, now.b);
+    if (now.a === now.b) {
+      // no selection: the whole mark around the caret comes off; in a math, the math is taken
+      const near = cells.filter(c => c.a <= now.a && c.b >= now.a), marks = near.map(c => has(c)).find(x => x.length);
+      if (marks) pick = cells.filter(c => c.on.indexOf(marks[marks.length - 1]) >= 0);
+      else if (!pick.length) { msg("飾りを付ける範囲を選んでください", 3000); return; }
+    }
+    if (!pick.some(solid)) return;
+    const off = pick.filter(solid).every(c => has(c).length);
+    const drop = off ? [tag] : COLORS.indexOf(tag) >= 0 ? COLORS : [tag];
+    if (off) pick.forEach(c => { c.on = c.on.filter(m => m.tag !== tag); });
+    else {
+      const set = new Set(pick), i = cells.indexOf(pick[0]), j = cells.indexOf(pick[pick.length - 1]);
+      // joined to a neighbor with the same mark; outside the marks that lie wholly in the selection, else inside
+      const same = [cells[i - 1], cells[j + 1]].concat(pick).filter(c => c && c.on[0] && c.on[0].tag === tag && plainMark(c.on[0]))[0];
+      const mark = same ? same.on[0] : { tag: tag, open: "<" + tag + ">" };
+      const base = pick[0].on.filter(m => pick.every(c => c.on.indexOf(m) >= 0) && cells.some(c => !set.has(c) && c.on.indexOf(m) >= 0));
+      pick.forEach(function (c) {
+        const rest = c.on.filter(m => drop.indexOf(m.tag) < 0 || (!plainMark(m)));
+        const k = rest.filter(m => base.indexOf(m) >= 0).length;
+        c.on = same && !base.length ? [mark].concat(rest) : rest.slice(0, k).concat([mark], rest.slice(k));
+      });
+    }
+    const src = writeCells(cells);
+    if (src === null) { msg("class などの付いた飾りの一部だけは付け外しできません", 5000); return; }
+    putText(src, pick[0].na, pick[pick.length - 1].nb);
+  }
+  // The part a..b of the source, with the marks around it (for copying).
+  function slice(now) {
+    const list = tokens(now.src);
+    if (!list) return now.src.slice(now.a, now.b);
+    const c = cellsOf(list).filter(x => x.t === "math" ? x.b > now.a && x.a < now.b : x.b > now.a && x.a < now.b);
+    c.forEach(function (x) { if (x.t === "math") x.s = now.src.slice(Math.max(x.a, now.a), Math.min(x.b, now.b)); });
+    return writeCells(c) || c.map(x => x.s).join("");
+  }
+  function insert(text) {
+    const now = selected();
+    if (!now) return;
+    const list = tokens(now.src);
+    let src;
+    if (list && now.a !== now.b) {
+      // the selected cells go, what is around them stays well nested
+      const cells = cellsOf(list), keepCells = [];
+      let placed = false;
+      cells.forEach(function (c) {
+        if (c.b <= now.a || c.a >= now.b) { keepCells.push(c); return; }
+        if (c.t === "math" && (c.a < now.a || c.b > now.b)) {
+          const l = now.src.slice(c.a, Math.max(c.a, now.a)), r = now.src.slice(Math.min(c.b, now.b), c.b);
+          keepCells.push({ t: "math", s: l + (placed ? "" : text) + r, on: c.on, mark: placed ? 0 : l.length + text.length });
+          placed = true;
+          return;
+        }
+        if (!placed) { keepCells.push({ t: "text", s: text, on: c.on, mark: text.length }); placed = true; }
+      });
+      src = writeCells(keepCells);
+      const m = keepCells.find(c => c.mark !== undefined), p = m ? m.na + m.mark : now.a;
+      if (src !== null) { putText(src, p, p); return; }
+    }
+    src = now.src.slice(0, now.a) + text + now.src.slice(now.b);
+    putText(src, now.a + text.length, now.a + text.length);
+  }
+  function lineBreak() {
+    const now = selected(), list = now && tokens(now.src);
+    if (!list) return;
+    insert(list.some(t => (t.t === "math" || t.t === "raw") && t.a < now.a && now.a < t.b) ? "\n" : "<br>");
+  }
+
+  // The small bar over the text being edited.
+  const FMT = [["alert", "強調（" + (MAC ? "⌘" : "Ctrl+") + "K）", "var(--alert)"], ["navy", "色（" + (MAC ? "⌘⇧" : "Ctrl+Shift+") + "K）", "var(--navy)"],
+               ["orange", "橙", "var(--c-orange)"], ["blue", "青", "var(--c-blue)"], ["green", "緑", "var(--c-green)"],
+               ["b", "太字（" + (MAC ? "⌘" : "Ctrl+") + "B）", "#000"]];
+  function bubble() {
+    let b = document.querySelector(".sed-fmt");
+    if (!rich) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement("div");
+      b.className = "sed-fmt";
+      const add = function (html, title, run, tag) {
+        const x = document.createElement("button");
+        x.type = "button";
+        x.innerHTML = html;
+        x.title = title;
+        if (tag) x.dataset.tag = tag;
+        x.addEventListener("mousedown", function (e) { e.preventDefault(); e.stopPropagation(); run(); });
+        b.appendChild(x);
+      };
+      FMT.forEach(f => add('<i style="color:' + f[2] + '">' + (f[0] === "b" ? "B" : "あ") + "</i>", f[1], () => toggleMark(f[0]), f[0]));
+      add("↵", "改行（Shift+Enter）", lineBreak);
+      document.body.appendChild(b);
+    }
+    const r = rich.el.getBoundingClientRect(), h = b.offsetHeight;
+    b.style.left = Math.max(4, Math.min(r.left, innerWidth - b.offsetWidth - 4)) + "px";
+    b.style.top = (r.top - h - 6 > 4 ? r.top - h - 6 : Math.min(r.bottom + 6, innerHeight - h - 4)) + "px";
+    const now = selected(), list = now && tokens(now.src);
+    const pick = list ? (now.a === now.b ? cellsOf(list).filter(c => c.a <= now.a && c.b >= now.a) : picked(cellsOf(list), now.a, now.b)).filter(solid) : [];
+    b.querySelectorAll("button[data-tag]").forEach(function (x) {
+      const t = x.dataset.tag, on = c => c.on.some(m => m.tag === t);
+      x.classList.toggle("on", pick.length > 0 && (now.a === now.b ? pick.some(on) : pick.every(on)));
+    });
+  }
+  // Keys in the text being edited by its look; true: done here.
+  function richKey(e) {
+    if (e.isComposing) return false;
+    const m = MAC ? e.metaKey : e.ctrlKey, done = fn => { e.preventDefault(); fn(); return true; };
+    if (m && !e.altKey) {
+      if (e.code === "KeyB" && !e.shiftKey) return done(() => toggleMark("b"));
+      if (e.code === "KeyK") return done(() => toggleMark(e.shiftKey ? "navy" : "alert"));
+      if (e.code === "KeyZ") return done(() => stepText(e.shiftKey ? 1 : -1));
+      if (e.code === "KeyY" && !MAC) return done(() => stepText(1));
+    }
+    if (e.key === "Enter" && e.shiftKey) return done(lineBreak);
+    if (e.key === "Backspace" || e.key === "Delete") {
+      // pass over the marks of places that are not in the source
+      const s = getSelection(), n = s.anchorNode, o = s.anchorOffset;
+      if (s.isCollapsed && n && n.nodeType === 3 && n.data[e.key === "Delete" ? o : o - 1] === ZW) s.collapse(n, e.key === "Delete" ? o + 1 : o - 1);
+    }
+    return false;
+  }
+
   /* ===== Editing ===== */
+  // Where a click on the typeset text is in its source: after how many maths, and how many characters after the last.
+  function clickAt(el, core, x, y) {
+    const cr = x >= 0 && document.caretRangeFromPoint && document.caretRangeFromPoint(x, y);
+    if (!cr || !el.contains(cr.startContainer)) return -1;
+    const hit = document.elementFromPoint(x, y), inMath = hit && el.contains(hit) && hit.closest(".katex");
+    const stop = inMath || cr.startContainer, count = t => t.replace(/[\s​]/g, "").length;
+    let maths = 0, chars = 0, done = false;
+    const walk = function (n) {
+      if (done) return;
+      if (n.nodeType === 3) {
+        if (n === stop) { chars += count(n.data.slice(0, cr.startOffset)); done = true; return; }
+        chars += count(n.data);
+        return;
+      }
+      if (n.nodeType !== 1 || n.matches(".L-ja, .L-en") && getComputedStyle(n).display === "none") return;   // the side not shown
+      if (n.classList.contains("katex")) {
+        if (n === stop || n.contains(stop)) { done = true; maths++; chars = -1; return; }
+        maths++; chars = 0;
+        return;
+      }
+      if (n.classList.contains("arw")) { chars++; return; }
+      n.childNodes.forEach(walk);
+      if (n === stop) done = true;
+    };
+    walk(el);
+    if (!done) return -1;
+    const list = tokens(core) || [{ t: "text", s: core, a: 0, b: core.length }];
+    let m = 0, c = 0, after = 0;
+    for (const t of list) {
+      if (t.ref) {
+        if (m !== maths) continue;
+        const n = count(window.Kamishibai && Kamishibai.refShown ? Kamishibai.refShown(t.s) : t.s);
+        if (chars < c + n) return chars === c ? t.a : t.b;   // on what it stands for: after it
+        c += n; after = t.b;
+      } else if (t.t === "math") {
+        m++; c = 0;
+        if (m === maths && chars < 0) return t.a;
+        if (m === maths && chars === 0) return t.b + /^[ \t]*/.exec(core.slice(t.b))[0].length;   // the text after the space of the source
+        if (m > maths) return after;
+      } else if (m === maths && t.t === "text") {
+        for (let i = 0; i < t.s.length; i++) {
+          if (c === chars) return t.a + i;
+          if (!/[\s​]/.test(t.s[i])) c++;
+          after = t.a + i + 1;
+        }
+        if (c === chars) return t.b;
+      } else if (m === maths && t.t === "raw" && t.s[0] === "&") { if (c === chars) return t.a; c++; after = t.b; }
+    }
+    return core.length;
+  }
+
   function start(el, x, y) {
     if (editing) finish(true);
-    // Where the click landed in the shown source, so that the caret goes there (the source is shown as one text node).
-    let at = -1;
-    const cr = document.caretRangeFromPoint && document.caretRangeFromPoint(x, y);
-    if (cr && cr.startContainer.nodeType === 3 && el.contains(cr.startContainer)) at = cr.startOffset;
     const it = info(el), src = it.src;
     const lead = src.match(/^\s*/)[0], trail = src.slice(lead.length).match(/\s*$/)[0];
-    const core = src.slice(lead.length, src.length - trail.length);
-    if (!el._unit && !rendered.has(el)) rendered.set(el, el.innerHTML);
+    const raw = src.slice(lead.length, src.length - trail.length);
+    const sm = it.kind === "span" ? shownMath(raw) : { src: raw };
+    let core = sm.src;
+    // Where the click landed, so that the caret goes there: in the source shown, or in the typeset text.
+    let at = -1;
+    const cr = document.caretRangeFromPoint && document.caretRangeFromPoint(x, y);
+    if (cr && cr.startContainer.nodeType === 3 && el.contains(cr.startContainer) && cr.startContainer.parentNode.closest(".sed-src")) at = cr.startOffset;
+    else {
+      const n = numberIn(el, it), lead2 = n ? n.at - lead.length : 0;
+      if (n) {
+        at = clickAt(el, core.slice(0, lead2) + n.text + core.slice(lead2), x, y);
+        if (at > lead2) at = Math.max(lead2, at - n.text.length);
+      } else at = clickAt(el, core, x, y);
+    }
+    if (!el._unit) keep(el);
     editing = el;
     S.editing = true;
-    el._sed = { it: it, lead: lead, trail: trail, core: core };
-    el.textContent = core;
+    el.classList.remove("sed-src");
+    // By its look, when the source comes back byte for byte; else (and for attributes) as plain text.
+    let list = it.kind === "span" && !core.includes(ZW) && !/\r/.test(core) ? tokens(core) : null;
+    if (list) {
+      draw(el, list);
+      if (flat(el).src !== core) list = null;
+      else rich = { el: el, hist: [{ src: core, a: 0, b: 0 }], at: 0 };
+    }
+    if (!list) el.textContent = core = raw;
+    el._sed = { it: it, lead: lead, trail: trail, core: core, style: list && sm.style };
     el.classList.add("sed-editing");
     try { el.contentEditable = "plaintext-only"; } catch (e) { el.contentEditable = "true"; }
     if (el.contentEditable !== "plaintext-only") el.contentEditable = "true";
     el.focus();
+    if (rich) {
+      const p = at >= 0 && at <= core.length ? at : core.length;
+      select(el, p, p);
+      rich.hist[0].a = rich.hist[0].b = p;
+      paint();
+      bubble();
+      return;
+    }
     const r = document.createRange();
     if (at >= 0 && el.firstChild && at <= el.firstChild.length) { r.setStart(el.firstChild, at); r.collapse(true); }
     else { r.selectNodeContents(el); r.collapse(false); }
@@ -895,24 +1445,53 @@
     sel.removeAllRanges();
     sel.addRange(r);
   }
+  addEventListener("input", function (e) {
+    if (!live() || !rich || e.target !== rich.el || e.isComposing) return;
+    rememberText(true);
+    paint();
+    bubble();
+  }, true);
+  addEventListener("compositionend", function (e) {
+    if (live() && rich && e.target === rich.el) setTimeout(function () { if (live() && rich) { rememberText(true); paint(); bubble(); } }, 0);
+  }, true);
+  addEventListener("beforeinput", function (e) {
+    if (!live() || !rich || e.target !== rich.el) return;
+    if (/^history/.test(e.inputType)) { e.preventDefault(); stepText(e.inputType === "historyUndo" ? -1 : 1); }
+    else if (/^(?:insertParagraph|insertLineBreak)$/.test(e.inputType)) e.preventDefault();
+  }, true);
+  ["copy", "cut", "paste"].forEach(k => addEventListener(k, function (e) {
+    if (!live() || !rich || !rich.el.contains(e.target)) return;
+    const now = selected();
+    if (!now) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (k === "paste") { insert(e.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").split(ZW).join("")); return; }
+    if (now.a === now.b) return;
+    e.clipboardData.setData("text/plain", slice(now));
+    if (k === "cut") insert("");
+  }, true));
+  document.addEventListener("selectionchange", function () { if (live() && rich) bubble(); });
+  addEventListener("resize", function () { if (live() && rich) bubble(); });
 
   function restore(el) {
     el.removeAttribute("contenteditable");
     el.classList.remove("sed-editing");
-    if (S.edit) showSource(el);
-    else if (rendered.has(el)) { el.innerHTML = rendered.get(el); rendered.delete(el); }
+    if (S.edit) showSource(el); else back(el);
   }
 
   function finish(save) {
     const el = editing;
     if (!el) return;
+    const st = el._sed;
+    const text = rich ? flat(el).src : el.innerText.replace(/ /g, " ").replace(/\n$/, "");
     editing = null;
     S.editing = false;
-    const st = el._sed;
-    const text = el.innerText.replace(/ /g, " ").replace(/\n$/, "");
+    rich = null;
+    paint();
+    bubble();
     if (!save || text === st.core) { restore(el); msg(""); return; }
     msg("保存中…");
-    write(st.it, st.lead + text + st.trail).catch(async function (e) {
+    write(st.it, st.lead + (st.style ? writeMath(text, st.style) : text) + st.trail).catch(async function (e) {
       S.saving = false;
       if (e.conflict) {
         // Show the current source, keep what was typed in the message so that it can be copied back.
@@ -929,47 +1508,224 @@
   async function write(it, neu) {
     S.saving = true;
     const h = await getHandle();
-    const file = await h.getFile(), cur = await file.text();
+    const file = await h.getFile(), cur = await readText(file, true);
     const t = parse(cur), s = (it.kind === "attr" ? t.attrs : t.spans)[it.i];
     if (!s || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
       err.conflict = { text: cur, mtime: file.lastModified };
       throw err;
     }
-    let next = cur;
+    // what the save replaces: [{at, a, b}], a the source there now, b the new one, in the order of the source
+    let parts;
     if (it.kind === "attr") {
       // A name used in several places (sec, aff) is rewritten everywhere it has the same value.
       const all = s.all ? t.attrs.filter(a => a.attr === s.attr && cur.slice(a.start, a.end) === it.src) : [s];
-      all.sort((x, y) => y.start - x.start).forEach(function (a) {
+      parts = all.map(function (a) {
         const q = cur[a.start - 1], v = neu.replace(/\n/g, " ");
         const rep = a.none ? '="' + v.replace(/"/g, "&quot;") + '"'
                   : a.bare ? '"' + v.replace(/"/g, "&quot;") + '"'
                   : q === "'" ? v.replace(/'/g, "&#39;") : v.replace(/"/g, "&quot;");
-        next = next.slice(0, a.start) + rep + next.slice(a.end);
+        return { at: a.start, a: cur.slice(a.start, a.end), b: rep };
       });
-    } else if (it.whole !== undefined) next = cur.slice(0, s.start + it.a) + neu + cur.slice(s.start + it.b);   // one piece of the text
-    else next = cur.slice(0, s.start) + neu + cur.slice(s.end);
-    // A change between the re-read above and the write is a conflict too: checked here just before writing.
-    const base = file.lastModified;
-    const changed = async function () {
-      const f = await h.getFile(), err = new Error("原稿が先に変わっていました");
-      err.conflict = { text: await f.text(), mtime: f.lastModified };
-      return err;
-    };
-    if ((await h.getFile()).lastModified !== base) throw await changed();
-    const w = await h.createWritable();
-    await w.write(next);
-    await w.close();
+    } else {
+      const from = s.start + (it.whole !== undefined ? it.a : 0), to = it.whole !== undefined ? s.start + it.b : s.end;   // a: one piece of the text
+      parts = [{ at: from, a: cur.slice(from, to), b: neu }];
+    }
+    parts.sort((x, y) => x.at - y.at);
+    const next = replaced(cur, parts);
+    const mtime = await put(h, file, next);
+    remember(cur, next, parts);
     S.saving = false;
     S.notice = "保存しました";
-    rebuild(next, (await h.getFile()).lastModified);
+    rebuild(next, mtime);
+  }
+
+  // cur with every part {at, a, b} (in the order of the source) replaced
+  function replaced(cur, parts) {
+    let out = "", from = 0;
+    parts.forEach(function (p) { out += cur.slice(from, p.at) + p.b; from = p.at + p.a.length; });
+    return out + cur.slice(from);
+  }
+  // Write text to the draft that was read as file; a change made in between is a conflict. Returns the new time.
+  async function put(h, file, text) {
+    const now = await h.getFile();
+    if (now.lastModified !== file.lastModified || now.size !== file.size) {
+      const err = new Error("原稿が先に変わっていました");
+      err.conflict = { text: await readText(now), mtime: now.lastModified };
+      throw err;
+    }
+    const w = await h.createWritable();
+    await w.write(text);
+    await w.close();
+    return (await h.getFile()).lastModified;
+  }
+
+  /* ===== Undo and redo =====
+     A step is one save: {parts, before, after, lang}. parts: [{at, a, b, la, ra, lb, rb}] in the order of the source:
+     at is the position in the source before the save, a the old text, b the new one; la and ra (lb and rb) are what
+     stood just before and after that place in the source before (after) the save. before and after are hashes of the
+     whole source; lang is the language that was being edited.
+     Undoing looks for the new texts in the file as it is now. The same source as right after the save: they are at
+     the recorded positions. Changed since then (an editor, an AI, another tab): each has to be found, together with
+     its surroundings, exactly once, and in the recorded order; else nothing is written and the reason is shown. Redo
+     is the same with old and new exchanged. So a change made elsewhere is never overwritten.
+     The steps are kept per draft and tab (sessionStorage: they survive a reload, not closing the tab), at most
+     STEPS_MAX of them and BYTES_MAX characters, the oldest dropped first. A new save drops the steps to redo. */
+  const STEPS_MAX = 100, BYTES_MAX = 1000000, AROUND = 60;
+  if (!S.hist) {
+    S.hist = { undo: [], redo: [] };
+    try {
+      const v = JSON.parse(sessionStorage.getItem(UNDO_KEY));
+      if (v && Array.isArray(v.undo) && Array.isArray(v.redo)) S.hist = v;
+    } catch (e) { /* storage unavailable */ }
+  }
+  // 53-bit hash (cyrb53) and the length
+  function hash(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 2654435761);
+      h2 = Math.imul(h2 ^ c, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return str.length + ":" + (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  function keepHist() {
+    let t = JSON.stringify(S.hist);
+    while (S.hist.undo.length > STEPS_MAX || (t.length > BYTES_MAX && S.hist.undo.length > 1)) {
+      S.hist.undo.shift();
+      t = JSON.stringify(S.hist);
+    }
+    try { sessionStorage.setItem(UNDO_KEY, t); } catch (e) { /* kept in memory only */ }
+  }
+  // position of each part in the source after the save
+  function atAfter(parts) {
+    let d = 0;
+    return parts.map(function (p) { const at = p.at + d; d += p.b.length - p.a.length; return at; });
+  }
+  function remember(cur, next, parts) {
+    const at2 = atAfter(parts);
+    S.hist.undo.push({
+      before: hash(cur), after: hash(next), lang: shown(),
+      parts: parts.map((p, k) => ({
+        at: p.at, a: p.a, b: p.b,
+        la: cur.slice(Math.max(0, p.at - AROUND), p.at), ra: cur.slice(p.at + p.a.length, p.at + p.a.length + AROUND),
+        lb: next.slice(Math.max(0, at2[k] - AROUND), at2[k]), rb: next.slice(at2[k] + p.b.length, at2[k] + p.b.length + AROUND)
+      }))
+    });
+    S.hist.redo = [];
+    keepHist();
+  }
+  // Where step g is to be replaced in cur: [{at, a, b}] with a the text there now; null when it is not as recorded.
+  function places(cur, g, back) {
+    const old = p => back ? p.b : p.a, neu = p => back ? p.a : p.b;
+    const pos = back ? atAfter(g.parts) : g.parts.map(p => p.at);
+    if (hash(cur) === (back ? g.after : g.before)) {
+      if (g.parts.every((p, k) => cur.substr(pos[k], old(p).length) === old(p))) return g.parts.map((p, k) => ({ at: pos[k], a: old(p), b: neu(p) }));
+      return null;
+    }
+    const out = [];
+    for (const p of g.parts) {
+      const l = back ? p.lb : p.la, r = back ? p.rb : p.ra, needle = l + old(p) + r;
+      const i = cur.indexOf(needle);
+      if (i < 0 || cur.indexOf(needle, i + 1) >= 0) return null;
+      out.push({ at: i + l.length, a: old(p), b: neu(p) });
+    }
+    return out.every((p, k) => !k || p.at >= out[k - 1].at + out[k - 1].a.length) ? out : null;
+  }
+  // the page (from 0) that position at of the source is on
+  function pageAt(text, at) {
+    const RE = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>|<(?:cover|slide|divider)\b/gi;
+    let n = -1, m;
+    while ((m = RE.exec(text)) && m.index < at) if (/^<[csd]/i.test(m[0]) && !m[1]) n++;
+    return Math.max(0, n);
+  }
+  const brief = function (t) { t = t.replace(/\s+/g, " ").trim(); return "「" + (t.length > 24 ? t.slice(0, 23) + "…" : t) + "」"; };
+  const says = (g, back) => brief(back ? g.parts[0].b : g.parts[0].a) + "→" + brief(back ? g.parts[0].a : g.parts[0].b)
+    + (g.parts.length > 1 ? "（" + g.parts.length + " か所）" : "");
+  async function step(back) {
+    if (S.saving || S.building || editing) return;
+    const from = back ? S.hist.undo : S.hist.redo, to = back ? S.hist.redo : S.hist.undo, name = back ? "取り消し" : "やり直し";
+    const g = from[from.length - 1];
+    if (!g) { msg(back ? "取り消す操作はありません" : "やり直す操作はありません", 2500); return; }
+    S.saving = true;
+    let cur, file;
+    try {
+      const h = await getHandle();
+      file = await h.getFile();
+      cur = await readText(file, true);
+      const list = places(cur, g, back);
+      if (!list) {
+        const err = new Error("この箇所か、そのすぐ前後が、原稿の外での変更で変わっています");
+        err.conflict = { text: cur, mtime: file.lastModified };
+        throw err;
+      }
+      const next = replaced(cur, list), mtime = await put(h, file, next);
+      from.pop();
+      to.push(g);
+      keepHist();
+      const at = atAfter(list), here = location.hash.match(/^#s(\d+)$/), on = at.map(x => pageAt(next, x));
+      if (!here || on.indexOf(here[1] - 1) < 0) try { history.replaceState(null, "", "#s" + (on[0] + 1)); } catch (e) { /* stays on the page */ }
+      if (g.lang && langs) S.lang = g.lang;
+      S.flash = at;
+      S.saving = false;
+      S.notice = (back ? "取り消しました：" : "やり直しました：") + says(g, back);
+      rebuild(next, mtime);
+    } catch (e) {
+      S.saving = false;
+      const t = name + "できませんでした：" + e.message + "。原稿には何も書いていません（" + says(g, back) + "）";
+      if (e.conflict && e.conflict.text !== S.text) { S.notice = t; S.noticeMs = 12000; rebuild(e.conflict.text, e.conflict.mtime); }
+      else msg(t, 12000);
+    }
+  }
+  // The two buttons, in the panel of the edit mode (before them the languages, after them the engine's own).
+  const ARROW = { undo: "M9 14L4 9l5-5M4 9h10a5.5 5.5 0 0 1 0 11h-4", redo: "M15 14l5-5-5-5M20 9H10a5.5 5.5 0 0 0 0 11h4" };
+  function undoButtons() {
+    const g = document.querySelector(".tools .g-edit");
+    if (!g) return;
+    const sep = document.createElement("div");
+    sep.className = "sep";
+    g.prepend(sep);
+    [["undo", "取り消し", MAC ? "⌘Z" : "Ctrl+Z"], ["redo", "やり直し", MAC ? "⇧⌘Z" : "Ctrl+Shift+Z"]].forEach(function (d) {
+      const b = document.createElement("button"), list = S.hist[d[0]], top = list[list.length - 1];
+      b.type = "button";
+      b.className = "it sed-" + d[0] + (top ? "" : " off");
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ARROW[d[0]] + '"/></svg>';
+      b.title = d[1] + " " + d[2] + (top ? "：" + says(top, d[0] === "undo") : "");
+      b.setAttribute("aria-label", d[1]);
+      // the text being edited keeps the focus: there the button undoes the last change made in that text
+      b.addEventListener("mousedown", e => e.preventDefault());
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        b.blur();
+        if (rich) stepText(d[0] === "undo" ? -1 : 1);
+        else if (editing) document.execCommand(d[0]);   // edited as plain text: the browser's own
+        else step(d[0] === "undo");
+      });
+      g.insertBefore(b, sep);
+    });
+  }
+  // Show where the text came back, for a moment.
+  function flash() {
+    const at = S.flash;
+    S.flash = null;
+    if (!at) return;
+    const within = x => at.some(p => p >= x.start && p <= x.end);
+    const hit = [];
+    D.spans.forEach((x, i) => { if (within(x)) hit.push(document.querySelector('.deck [data-sed="' + i + '"]')); });
+    D.attrs.forEach((x, i) => { if (within(x)) hit.push(document.querySelector('.deck .page.on [data-sedt="' + i + '"], .deck .page.on [data-sedt-en="' + i + '"]')); });
+    hit.filter(Boolean).forEach(function (e) {
+      e.classList.add("sed-flash");
+      setTimeout(() => e.classList.remove("sed-flash"), 1600);
+    });
   }
 
   function target(e) {
     const el = e.target.closest && e.target.closest(".sed-part, [data-sed], [data-sedt]");
     if (!el || !el.closest(".deck")) return null;
-    if (!el.classList.contains("sed-parts")) return el;
     if (e.target.closest(".sed-off")) return null;
+    if (!el.classList.contains("sed-parts")) return el;
     const ps = el.querySelectorAll(":scope > .sed-part");   // beside the parts: the only one there is
     return ps.length === 1 ? ps[0] : null;
   }
@@ -978,6 +1734,7 @@
   addEventListener("click", function (e) {
     if (!live()) return;
     if (editing && editing.contains(e.target)) { e.stopPropagation(); return; }
+    if (e.target.closest && e.target.closest(".sed-fmt")) { e.stopPropagation(); return; }
     if (!S.edit || !enabled) return;
     const j = e.target.closest && e.target.closest(".deck [data-sed-jump]");
     if (j && !target(e)) { e.preventDefault(); e.stopPropagation(); jump(j.getAttribute("data-sed-jump")); return; }
@@ -998,6 +1755,7 @@
       if (isEditKey(e)) return;                   // handled by the edit key's own listener
       if (isSelectKey(e)) { finish(true); return; }   // passes on to the engine, which leaves select (and edit) mode
       e.stopPropagation();   // keep WebSlide from turning pages while typing
+      if (rich && richKey(e)) return;
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") { e.preventDefault(); finish(false); }
       else if ((e.metaKey || e.ctrlKey) && e.code === "KeyA") {
@@ -1010,6 +1768,15 @@
       }
       return;
     }
+    // Undo and redo, in edit mode only, and not in a field of the page: there the keys are the browser's.
+    if (!S.edit || !document.body.classList.contains("sed-on") || e.isComposing || e.altKey || !(MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) return;
+    const on = e.target;
+    if (on && on.closest && (on.closest("input, textarea, select") || on.isContentEditable)) return;
+    const k = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : e.code.replace(/^Key/, "").toLowerCase();   // by the letter, whatever the layout
+    if (k !== "z" && (k !== "y" || MAC || e.shiftKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat) step(k === "z" && !e.shiftKey);
   }, true);
   document.addEventListener("focusout", function (e) { if (live() && editing && e.target === editing) finish(true); });
 
@@ -1021,7 +1788,7 @@
       try {
         const f = await S.handle.getFile();
         if (f.lastModified === S.mtime) return;
-        const text = await f.text();
+        const text = await readText(f);
         S.mtime = f.lastModified;
         if (text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(text); }
       } catch (e) { /* file moved or permission lost */ }
@@ -1031,7 +1798,7 @@
   // Registered before webslide.js, so mark() runs before build(); afterBuild() runs after all DOMContentLoaded handlers.
   document.addEventListener("DOMContentLoaded", function () {
     mark();
-    // after the engine has measured which pages to shrink: in edit mode it would measure the source texts
+    // after the engine has measured which pages to shrink, so that nothing of the editor is measured
     setTimeout(function () {
       const K = window.Kamishibai, run = () => { if (live()) afterBuild(); };
       if (K && K.ready) K.ready.then(run, run); else run();

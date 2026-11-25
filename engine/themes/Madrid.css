@@ -83,3 +83,5 @@ qr .qcap { position: absolute; left: 0; top: 229.3px; width: 100%; text-align: c
 divider { position: absolute; left: 33px; top: 0; width: 894px; height: 697px; display: flex; align-items: center }
 .sbox { position: relative; flex: 1; margin: 0 -12px; padding: 36px 24px; border-radius: 9px; background: var(--navy); color: #fff;
   text-align: center; font-size: var(--Large); line-height: 1.27 }
+/* 出典の行（このテーマでは slide が位置の基準になる） */
+credit { left: 0; right: 0; bottom: 6px }

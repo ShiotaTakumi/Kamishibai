@@ -18,7 +18,8 @@ A statement is the title of a box (div.blk, div.pf, div.ph; see html/slide.src.h
 the title attribute of <block>, <alertblock>, <exampleblock>, <proof>, <plan>, <later>) that starts
 with a kind and a number. A box titled 証明 or 証明の方針 proves the last statement on its slide,
 or the statement named in the frame title ("補題 2 の証明"); "補題 2 の証明" as a box title works too.
-A div.ph box states a claim whose proof comes later. References are "kind number" in the text.
+A div.ph box states a claim whose proof comes later. References are "kind number" in the text. A draft whose
+numbers the engine gives (<html numbering="…">) is read with those numbers and references (tools/numbering.py).
 
 Usage: python3 tools/check_order.py [src.html] [--sec PREFIX] [--kinds 定理,補題,主張,定義]
                                     [--gap 3] [--short 2]
@@ -26,10 +27,16 @@ Usage: python3 tools/check_order.py [src.html] [--sec PREFIX] [--kinds 定理,�
 import argparse
 import html
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import numbering  # noqa: E402
 
 SRC = Path(__file__).resolve().parent.parent / 'html' / 'slide.src.html'
 KIND, REF = None, None
+ONE = r'(?:[A-Z]\.)?\d+(?:\.\d+)*'  # 3, 3.1, A.1
+NUM = '(' + ONE + '(?:[・–]' + ONE + ')*)'
 # full-width digits and dashes count as ASCII (補題１ = 補題 1); the space after the kind is optional
 WIDE = str.maketrans('０１２３４５６７８９－', '0123456789–')
 
@@ -39,10 +46,16 @@ def expand(nums):
     for part in nums.split('・'):
         if '–' in part:
             a, b = part.split('–')
-            out += [str(i) for i in range(int(a), int(b) + 1)]
+            p, a = a.rpartition('.')[::2]  # 2.6–2.8 = 2.6, 2.7, 2.8
+            p += '.' if p else ''
+            out += [p + str(i) for i in range(int(a), int(b.rpartition('.')[2]) + 1)]
         else:
             out.append(part)
     return out
+
+
+def number_key(n):
+    return [(0, int(p), '') if p.isdigit() else (1, 0, p) for p in n.split('.')]
 
 
 def slides_of(src, sec):
@@ -115,10 +128,13 @@ def main():
     a = ap.parse_args()
     kinds = a.kinds.split(',')
     KIND = '(' + '|'.join(map(re.escape, kinds)) + ')'
-    REF = re.compile(KIND + r' ?(\d+(?:[・–]\d+)*)')
+    REF = re.compile(KIND + r' ?' + NUM)
 
     stated, uses, pstart, pend, deps = {}, {}, {}, {}, {}
-    text = a.src.read_text(encoding="utf-8").translate(WIDE)
+    text = a.src.read_text(encoding="utf-8")
+    if re.search(r'kamishibai\.js', text):  # the numbers the engine gives (<html numbering="…">)
+        text = numbering.expand(text, numbering.kinds_of(text, a.src))
+    text = text.translate(WIDE)
     if re.search(r'kamishibai\.js', text):
         pages = [(n, html.unescape(h), x, engine_boxes(x)) for n, h, x in engine_slides_of(text, a.sec)]
     else:
@@ -133,12 +149,12 @@ def main():
             t = html.unescape(re.sub(r'<[^>]+>', '', title)).strip()
             if t in ('証明', '証明の方針'):
                 # a bare title belongs to the last statement on the slide, else to the heading
-                hm = re.match(KIND + r' ?(\d+(?:[・–]\d+)*) ?の証明', h2)
+                hm = re.match(KIND + r' ?' + NUM + r' ?の証明', h2)
                 if last_lemma:
                     t = f'{last_lemma} の{t}'
                 elif hm:
                     t = f'{hm.group(1)} {hm.group(2)} の{t}'
-            m = re.match(KIND + r' ?(\d+(?:[・–]\d+)*)(.*)', t)
+            m = re.match(KIND + r' ?' + NUM + r'(.*)', t)
             proved = []
             if m and 'の証明' not in m.group(3):
                 for k in expand(m.group(2)):
@@ -169,7 +185,7 @@ def main():
         return e
 
     order = {k: i for i, k in enumerate(kinds)}
-    keys = sorted(stated, key=lambda k: (order[k.split()[0]], int(k.split()[1])))
+    keys = sorted(stated, key=lambda k: (order[k.split()[0]], number_key(k.split()[1])))
     print(f'{"":7}{"stated":>7}{"1st use":>8}{"proof":>10}')
     warns = []
     for k in keys:

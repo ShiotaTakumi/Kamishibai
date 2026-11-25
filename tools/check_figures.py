@@ -10,7 +10,7 @@ with <side><div>text</div><figure>…</figure></side>.
 
   caption   <figcaption>, <p class="cap">, or a paragraph or item that starts with "図：", "左：", "右：", "上：", "下："
   below     a top-level element of the page after its first figure, other than another figure, a source line
-            (class="src") or an empty step (<span step cards="n"></span>, which only advances a figure)
+            (class="src" or <credit>) or an empty step (<span step cards="n"></span>, which only advances a figure)
   side      <side> whose first part is a figure, or that does not hold exactly one text part and one figure
 
 A figure is drawn at the width it is shown, not shrunk to fit. The check warns (it does not fail) when a
@@ -36,7 +36,7 @@ CAPTION = [
     re.compile(r"<(p|item|li)\b[^>]*>\s*(図|左|右|上|下)：", re.I),
 ]
 EMPTY_STEP = re.compile(r"""<span\b[^>]*\bstep\b[^>]*>\s*</span>""", re.I)
-SRC = re.compile(r"""^<p\b[^>]*\bclass=(["'])[^"']*\bsrc\b""", re.I)
+SRC = re.compile(r"""^<(?:credit\b|p\b[^>]*\bclass=(["'])[^"']*\bsrc\b)""", re.I)
 ZOOM = re.compile(r"zoom:\s*([\d.]+)")
 FONT = re.compile(r"font-size[=:]\s*[\"']?([\d.]+)")
 MIN_TEXT_PX, MIN_ZOOM = 10.0, 0.5
