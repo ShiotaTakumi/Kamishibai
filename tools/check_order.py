@@ -45,7 +45,7 @@ def expand(nums):
     out = []
     for part in nums.split('・'):
         if '–' in part:
-            a, b = part.split('–')
+            a, b = part.split('–')[0], part.split('–')[-1]  # 1–2–3 = 1–3
             p, a = a.rpartition('.')[::2]  # 2.6–2.8 = 2.6, 2.7, 2.8
             p += '.' if p else ''
             out += [p + str(i) for i in range(int(a), int(b.rpartition('.')[2]) + 1)]

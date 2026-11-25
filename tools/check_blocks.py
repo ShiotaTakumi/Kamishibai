@@ -25,7 +25,15 @@ from pathlib import Path
 
 ENGINE_TAG = re.compile(r"""<script\b[^>]*\bsrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*</script>""", re.I)
 PAGE = re.compile(r"<(cover|slide|divider)\b(.*?)</\1>", re.S | re.I)
-BOX = re.compile(r"<(block|alertblock|exampleblock)\b([^>]*)>(.*?)</\1>", re.S | re.I)
+ATTRS = r"""((?:"[^"]*"|'[^']*'|[^>"'])*)"""  # the attributes of a start tag; a ">" inside quotes does not end it
+BOX = re.compile(r"<(block|alertblock|exampleblock)\b" + ATTRS + r">(.*?)</\1>", re.S | re.I)
+TAG = re.compile(r"<[a-zA-Z]" + ATTRS + ">")
+QUOTED = re.compile(r""""[^"]*"|'[^']*'""")
+
+
+def names_only(text):
+    """text with the values of the attributes of its start tags emptied (to look for an attribute by name)."""
+    return TAG.sub(lambda m: QUOTED.sub('""', m.group(0)), text)
 RULES = [
     ("step", re.compile(r"<[a-z]+\b[^>]*\sstep\b|<later\b", re.I)),
     ("figure", re.compile(r"<(figure|img|svg|flip|switch)\b", re.I)),
@@ -49,14 +57,14 @@ def problems(src, kinds):
     out = []
     for n, pg in enumerate(PAGE.finditer(text), 1):
         for b in BOX.finditer(pg.group(2)):
-            t = re.search(r"""\btitle=(["'])(.*?)\1""", b.group(2), re.S)
+            t = re.search(r"""(?:^|\s)title\s*=\s*(["'])(.*?)\1""", b.group(2), re.S | re.I)
             title = html.unescape(t.group(2)).strip() if t else ""
             if not head.match(title):
                 out.append((n, b.group(1), title, "title"))
-            if re.search(r"\sstep\b", b.group(2)):
+            if re.search(r"\sstep\b", QUOTED.sub('""', b.group(2))):
                 out.append((n, b.group(1), title, "step"))
             for name, rx in RULES:
-                if rx.search(b.group(3)):
+                if rx.search(names_only(b.group(3)) if name == "step" else b.group(3)):
                     out.append((n, b.group(1), title, name))
     return out
 

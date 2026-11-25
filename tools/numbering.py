@@ -228,6 +228,8 @@ def expand(src, kinds):
     for e in sorted((e for e in entries if e["insert"]), key=lambda e: e["box"]["at"]):
         b = e["box"]
         m = TITLE.search(src, b["at"], b["end"])
+        if not m:  # a title with no quotes: left as it is
+            continue
         q, t = m.group(2)[0], html.unescape(m.group(2)[1:-1])
         h = kinds.head(t)
         t = t[:h.end(1)] + " " + e["number"] + t[h.end(1):]

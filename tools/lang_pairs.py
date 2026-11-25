@@ -96,8 +96,8 @@ class Tree(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.src = src
         self.offsets = [0]
-        for line in src.splitlines(keepends=True):
-            self.offsets.append(self.offsets[-1] + len(line))
+        for line in src.split("\n"):  # as HTMLParser counts lines (splitlines also splits at U+2028 etc.)
+            self.offsets.append(self.offsets[-1] + len(line) + 1)
         self.root = El("#root", [], None, 1, 0, "")
         self.stack = [self.root]
         self.texts = []  # (str, parent El, line)
@@ -260,7 +260,8 @@ def stamp(path, force):
     out, last = [], 0
     for off in sorted(edits):
         old, new = edits[off]
-        assert src[off:off + len(old)] == old, f"start tag not found at offset {off}"
+        if src[off:off + len(old)] != old:  # never write a draft from wrong offsets
+            sys.exit(f"{path}: start tag not found at offset {off}; nothing written")
         out += [src[last:off], new]
         last = off + len(old)
     out.append(src[last:])

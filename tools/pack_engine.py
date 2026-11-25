@@ -480,6 +480,8 @@ def main():
     a = ap.parse_args()
     src = a.src.resolve()
     out = a.out or src.with_name(src.stem + ".dist.html")
+    if out.resolve() == src:  # fail() below removes the output: never the draft
+        sys.exit(f"{out}: the output is the draft itself")
 
     def fail(msg):
         if out.exists():  # an older packed file would pass for this draft
@@ -495,11 +497,11 @@ def main():
         check_figures.report(figures)
         fail(f"{src}: {len(boxes)} problems in boxes (tools/check_blocks.py), "
              f"{len(figures)} with figures (tools/check_figures.py); nothing packed")
-    check_figures.report_warnings(check_figures.warnings(src.read_text(encoding="utf-8")))
-    text = src.read_text(encoding="utf-8")
-    for p, what in numbering.numbers(text, numbering.kinds_of(text, src))[1]:
-        print(f"warning: page {p}: {what} (tools/numbering.py)", file=sys.stderr)
     try:
+        text = src.read_text(encoding="utf-8")
+        check_figures.report_warnings(check_figures.warnings(text))
+        for p, what in numbering.numbers(text, numbering.kinds_of(text, src))[1]:
+            print(f"warning: page {p}: {what} (tools/numbering.py)", file=sys.stderr)
         data, n = pack(src, a.theme, a.allow)
     except SystemExit as e:
         fail(e.code if isinstance(e.code, str) else f"{src}: nothing packed")
