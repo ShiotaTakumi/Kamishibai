@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="ja" theme="Boadilla">
+<html lang="ja" theme="Boadilla" numbering="deck" unnumbered="問題">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kamishibai の見本</title>
 <!-- 見た目と動きは engine/ フォルダ（書き方は engine/kamishibai.js の最初にある）。このファイルには中身だけを書く。
      テーマは <html theme="…"> で選ぶ。?theme=Madrid を URL に付けると 4:3 の Madrid で開く。
+     <html numbering="deck"> なので、定義・定理の番号は題に書かず、name を付けて \ref{名前} で参照する。
      英語の文を <ja>…</ja><en>…</en> の対で並べると、L キーか ?lang=en で英語版に切り替わる -->
 <script src="kamishibai.js"></script>
 
@@ -102,7 +103,7 @@
 </slide>
 
 <slide title="定理と証明" title-en="A lemma and its proof" sec="証明" sec-en="Proofs" title-en-ja="a9c23f5d" sec-en-ja="1d745431">
-  <block title="補題１" title-en="Lemma 1" title-en-ja="ad82ba3c"><ja>$n \ge 1$ のとき $1 + 2 + \cdots + n = n(n+1)/2$</ja><en ja="012305d9">For $n \ge 1$, $1 + 2 + \cdots + n = n(n+1)/2$.</en></block>
+  <block title="補題" title-en="Lemma" name="sum" title-en-ja="cbcd0e16"><ja>$n \ge 1$ のとき $1 + 2 + \cdots + n = n(n+1)/2$</ja><en ja="012305d9">For $n \ge 1$, $1 + 2 + \cdots + n = n(n+1)/2$.</en></block>
   <plan><ja>帰納法。$n$ から $n+1$ へ、両辺に $n+1$ を足す。</ja><en ja="05db90a8">Induction: from $n$ to $n+1$, add $n+1$ to both sides.</en></plan>
   <proof step><ja>$n = 1$ は明らか。$n$ で成り立てば</ja><en ja="9ea11a4d">The case $n = 1$ is clear. If it holds for $n$, then</en>
     \[\sum_{i=1}^{n+1} i = \frac{n(n+1)}{2} + (n+1) = \frac{(n+1)(n+2)}{2}.\]
@@ -122,7 +123,7 @@
     </nums>
   </div>
   $$\sum_{v \in V} \deg(v) = 2|E|$$
-  <later title="補題２（後で証明）" title-en="Lemma 2 (proved later)" step title-en-ja="62ad4b7a"><ja>奇数次の頂点の個数は偶数</ja><en ja="cc82e83e">The number of vertices of odd degree is even.</en></later>
+  <later title="補題（後で証明）" title-en="Lemma (proved later)" name="odd" step title-en-ja="7c58ef35"><ja>奇数次の頂点の個数は偶数</ja><en ja="cc82e83e">The number of vertices of odd degree is even.</en></later>
 </slide>
 
 <slide title="部品" title-en="Parts" sec="部品" sec-en="Parts" title-en-ja="3bacb05a" sec-en-ja="3bacb05a">
@@ -184,6 +185,7 @@
 <slide title="まとめ" title-en="Summary" title-en-ja="0b839365">
   <list>
     <item size="24"><ja>小さな字（size="24"）</ja><en ja="7803873a">Small type (size="24")</en></item>
+    <item><ja>番号の参照：\ref{sum} と \ref{odd}</ja><en ja="426ae8a0">References: \ref{sum} and \ref{odd}</en></item>
     <item><ja>$x \in \mathbb{R}$ を含む行</ja><en ja="07e21051">A line with $x \in \mathbb{R}$</en></item>
   </list>
 </slide>
