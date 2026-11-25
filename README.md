@@ -14,6 +14,9 @@ PDF ではできない次のことに使います。
 ビルドなしで見られ、配るときは `make pack` で一つのファイル（配布用ファイル）にまとめます。
 テーマはほかに Madrid（4:3、Beamer の Madrid に倣った見た目）があります。原稿の書き方は [engine/README.md](engine/README.md) にあります。
 定義・定理・証明を見せるスライドの書き方の規則は [docs/math-slides.md](docs/math-slides.md) にあります。AI にスライドを書かせるときや見直させるときにも、この文書を基本の規則として渡します。
+
+Kamishibai は CC0 1.0 で公開していて、許諾も引用もなしに自由に使えます（KaTeX・書体などは対象外。[ライセンス](#ライセンス)）。
+
 エンジンより前の、`html/slide.src.html` をビルドして `slide.html` を作る形もあります。この形で作った資料を直す人のために、最後の節で説明します。
 
 ## 準備
@@ -174,6 +177,12 @@ SVG の文字はページの書体で描かれます（`font-family="LMItalic"` 
 埋め込む書体にない文字があるとビルドが止まるので、記号を足したら `tools/build_html.py` の `FONTS` を見ます。
 
 ## ライセンス
+
+Kamishibai は CC0 1.0 で公開しています。エンジンも文書も、許諾も引用もなしに、複製・改変・再配布・商用利用を含めて自由に使えます。Kamishibai で作ったスライドの公開や配布にも、Kamishibai についての許諾や表記は要りません。
+ただし、KaTeX・書体・塩田さんの発表スライドの画面はこの限りではありません（下の表）。それぞれのライセンスと権利表示を確かめ、各自の判断と責任で使ってください。
+引用の義務はありませんが、使うときのこの repository（https://github.com/ShiotaTakumi/Kamishibai）への言及、フィードバック（[Issues](https://github.com/ShiotaTakumi/Kamishibai/issues)）、Pull Request を歓迎します。
+
+範囲は次のとおりです。
 
 KaTeX（移植した部分を含む）と書体、塩田さんの発表スライドの画面（下の表）を除き、この repository のファイル（エンジン、`html/`、`tools/`、`Makefile`、文書）は
 CC0 1.0 Universal で、著作権と隣接する権利を放棄してパブリックドメインに置きます（[LICENSE](LICENSE)）。
