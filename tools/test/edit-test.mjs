@@ -182,13 +182,13 @@ test("H2: of two kept folders that hold the draft's path, the file with the page
   await d.edit("次の項目", "直した項目");
   eq(d.text(), SIMPLE.replace("次の項目", "直した項目"));
   eq(readFileSync(join(d.dir, "copy", "draft.html"), "utf8"), SIMPLE, "the copy");
-  eq(await d.page.evaluate(() => __picked), 0, "folder pickers");
+  eq(d.picked, 0, "folder pickers");
 });
 
 test("L8: a kept folder that does not answer stays after the folder picker; one that is gone does not", async draft => {
   const d = await fresh(draft, { text: SIMPLE }, d => d.keep([["", "elsewhere", { hang: true }], ["gone/", "gone", { gone: true }]]));
   await d.enter();
-  eq(await d.page.evaluate(() => __picked), 1, "folder pickers");
+  eq(d.picked, 1, "folder pickers");
   await d.page.waitForFunction(() => !__pageEdit.saving);
   eq(JSON.stringify(await d.kept()), JSON.stringify([d.name, "elsewhere"]));
 });
@@ -211,15 +211,22 @@ test("U4: the kept folders are listed and forgotten", async draft => {
   eq(await d.msg(), "");
 });
 
-test("C5: the folders and the edit mode kept under the old names move over", async draft => {
+test("C5: the edit mode kept under the old name moves over; the folders kept in the page's own storage are removed", async draft => {
   const d = await fresh(draft, { text: SIMPLE }, async function (d) {
-    await d.keep([["", d.name]], "slide-edit");
+    await d.keep([["", d.name]]);
+    await d.page.evaluate(() => Promise.all(["page-edit", "slide-edit"].map(n => new Promise(function (ok, no) {
+      const r = indexedDB.open(n, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("dirs").put("x", "list");
+      r.onsuccess = () => { r.result.close(); ok(); };
+      r.onerror = () => no(r.error);
+    }))));
+    await d.page.reload({ waitUntil: "load" });
+    await d.ready();
     await d.page.evaluate(() => sessionStorage.setItem("slide-edit-on:" + location.pathname, "1"));
   });
   await d.page.waitForFunction(() => document.body.classList.contains("sed-on"));
-  eq(await d.page.evaluate(() => __picked), 0, "folder pickers");
-  eq(JSON.stringify(await d.kept()), JSON.stringify([d.name]));
-  await d.page.waitForFunction(async () => !(await indexedDB.databases()).some(x => x.name === "slide-edit"));
+  eq(d.picked, 0, "folder pickers");
+  await d.page.waitForFunction(async () => !(await indexedDB.databases()).length);
   eq(JSON.stringify(await d.page.evaluate(() => [sessionStorage.getItem("slide-edit-on:" + location.pathname), sessionStorage.getItem("page-edit-on:" + location.pathname)])), '[null,"1"]');
   await d.edit("次の項目", "直した項目");
   eq(d.text(), SIMPLE.replace("次の項目", "直した項目"));
@@ -417,7 +424,7 @@ test("C9: an engine without the three modes gets a Japanese button; a failed wri
   eq(await d.page.evaluate(() => document.querySelector(".sed-start-btn").textContent), "編集 " + (KEY === "Meta" ? "⌘E" : "Ctrl+E"));
   const e = await draft({ text: SIMPLE });
   await e.enter();
-  await e.page.evaluate(() => { window.__fail = { name: "NoModificationAllowedError", message: "locked" }; });
+  e.fail = { name: "NoModificationAllowedError", message: "locked" };
   await e.start("次の項目"); await e.type("直した項目"); await keys(e, "Enter");
   await e.page.waitForFunction(() => /保存できませんでした/.test(document.querySelector(".sed-bar").textContent));
   ok((await e.msg()).includes("ほかのプログラムが使っているか") && (await e.msg()).includes("直した項目"), await e.msg());

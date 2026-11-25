@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>page-edit</title>
+<style>
+:root { color-scheme: light dark; }
+body { font: 14px/1.7 system-ui, "Hiragino Sans", sans-serif; margin: 20px; color: CanvasText; background: Canvas; }
+h1 { font-size: 16px; margin: 0 0 8px; }
+p { margin: 0 0 12px; }
+#path { font-size: 12px; overflow-wrap: anywhere; opacity: .75; }
+#say { color: #b3261e; }
+#say:empty { display: none; }
+@media (prefers-color-scheme: dark) { #say { color: #f2b8b5; } }
+button { font: inherit; display: block; width: 100%; margin: 0 0 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid GrayText; background: ButtonFace; color: ButtonText; cursor: pointer; }
+button.main { background: #1f4e8c; border-color: #1f4e8c; color: #fff; }
+</style>
+</head>
+<body>
+<h1 id="head"></h1>
+<p id="path"></p>
+<p id="why"></p>
+<p id="say" role="alert"></p>
+<div id="buttons"></div>
+<script src="store.js"></script>
+<script src="folder.js"></script>
+</body>
+</html>

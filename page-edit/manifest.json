@@ -1,10 +1,25 @@
 {
   "manifest_version": 3,
   "name": "page-edit",
-  "version": "3.11",
-  "description": "Edit the text of a WebSlide slide or a Kamishibai draft opened as a local file (file://) and write it back to the draft, through a folder the author allows once (File System Access API). No server, no native host.",
+  "version": "4.0",
+  "description": "Edit the text of a WebSlide slide or a Kamishibai draft opened as a local file (file://) and write it back to the draft, through a folder the author allows once in a window of the extension (File System Access API). No server, no native host.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAreX8AbRHKTeOali+ZmCQ3NqAMM17XtSyhQRJ2Hgv5q6gDCXLgfMSm6zl/bnzWuN7VJDpm2uwI6+7Z5DOX+emGDy5A58TEQ04z8GrhVxagZAZzTTYcS3PJleI9n+5Iy8i5mx5vbYJY/s7FsOywnVPkjkVA6wY/hX3aEdV88Sn+JB2PDmohD4J3fzSWBvZliV23YzYAAEu/lvlp+A69ezbxdTRxNk1dBgnxvMGJynAotq0hGF3eotdeHpxL+U3/VrTSVXDWCaRIkVrydRX5gKVRfUsQeNx1FRelGCAdk2YQqfCoaqRGRt86GNHRUb1UCs2OCjVeF/IYZZ1b/JzReL9tQIDAQAB",
+  "background": {
+    "service_worker": "files.js"
+  },
+  "host_permissions": [
+    "file:///*"
+  ],
   "content_scripts": [
+    {
+      "matches": [
+        "file:///*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start"
+    },
     {
       "matches": [
         "file:///*"

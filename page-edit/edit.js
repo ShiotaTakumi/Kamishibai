@@ -2,23 +2,24 @@
    browser and write it back to the source HTML. A file packed by make pack (NAME.dist.html) is not edited:
    edit the draft it was made from.
    No server and no app: open the slide as a local file (file://) in a Chromium-based browser.
-   Loaded by the page-edit extension (a content script on file:// pages). Reading and writing use the browser's File System Access API: the author allows, once, a folder
-   that holds the draft (the project folder or one above it), and every draft below an allowed folder opens without
-   choosing anything again.
+   Loaded by the page-edit extension (a content script on file:// pages). The author allows, once, a folder that holds
+   the draft (the project folder or one above it), and every draft below an allowed folder opens without choosing
+   anything again. The folders are the extension's (store.js, files.js); this script, which runs with the page's own
+   scripts, asks the extension through bridge.js and gets texts and times, never a handle of a file or a folder.
    The slide itself is not changed in any other way and still opens in any browser.
 
    How it works
    - Engines with the three-mode panel (Kamishibai.setEditor): page-edit adds no button or key of its own. It hands the
      engine {enter, leave, exportHTML}; the engine's heading "編集 ⌘E" enters edit mode, its "出力" mode calls
      exportHTML for "HTML：1 ファイル" (NAME.dist.html next to the draft, in the order of pack_engine.py's pack(),
-     read through the allowed folder; fonts are not subset and KaTeX is whole, and pack's checks are not run).
+     made by files.js through the allowed folder; fonts are not subset and KaTeX is whole, and pack's checks are not run).
    - Older engines without the three modes (and WebSlide): page-edit puts its own "編集 ⌘E" button in the tool
      panel and takes ⌘E itself; where the engine still uses ⌘E for its select mode, ⌘E switches both together.
    - Also editable: text written straight in a slide (e.g. display math after a list), the attributes title,
      cite, label, short, and aff and sec (a name in several places: editing one rewrites every place with that
      name). A footer item without short="…" goes to the cover and edits the text it is taken from.
-   - Activation: entering edit mode finds the draft inside an allowed folder (or asks for a folder, remembered in
-     IndexedDB), then rebuilds the page from that source.
+   - Activation: entering edit mode has the extension find the draft inside an allowed folder (or ask for a folder, in
+     a small window of its own), then rebuilds the page from that source.
    - Rebuild: document.open/write the source with this script inserted before the engine, so that mark()
      runs before the engine's build() and every editable text segment is wrapped in <span data-sed=i>.
    - Save: re-read the file, check that the span still holds the old source, write, and rebuild.
@@ -41,7 +42,7 @@
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function pageEdit() {
   "use strict";
-  const VERSION = "3.11";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
+  const VERSION = "4.0";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
   const S = window.__pageEdit || (window.__pageEdit = { gen: 0, edit: false });
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)
@@ -212,36 +213,52 @@
   }
   S.parse = parse;   // exposed for checks from the console
 
-  /* ===== File access (File System Access API) ===== */
-  // The author allows a folder once (one that holds the open draft, e.g. the project folder); the folders
-  // are kept in IndexedDB, so every draft below an allowed folder opens without choosing anything again.
-  const DB = "page-edit", OLD_DB = "slide-edit";   // OLD_DB: the name up to 3.10 (version 3, the same store)
-  function idb(mode, fn) {
-    return new Promise(function (resolve, reject) {
-      const r = indexedDB.open(DB, 1);
-      // A tab that still runs an older copy of this script can hold the store: work without the kept folders then.
-      const late = setTimeout(() => reject(new Error("the store of kept folders does not answer")), 1500);
-      r.onblocked = () => { clearTimeout(late); reject(new Error("the store of kept folders is in use by an older tab")); };
-      r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains("dirs")) r.result.createObjectStore("dirs"); };
-      r.onerror = () => { clearTimeout(late); reject(r.error); };
-      r.onsuccess = function () {
-        clearTimeout(late);
-        const db = r.result;
-        db.onversionchange = () => db.close();   // never in the way of a newer copy of this script
-        let tx, q;
-        try { tx = db.transaction("dirs", mode); q = fn(tx); }
-        catch (e) { db.close(); reject(e); return; }
-        tx.oncomplete = () => { db.close(); resolve(q && q.result); };
-        tx.onabort = () => { db.close(); reject(tx.error); };
-      };
-    });
+  /* ===== The extension's side (bridge.js, files.js): what it can do is listed at the top of files.js =====
+     S.call(op, args, say): what files.js answers, or an error {name, message, conflict}. say(text): called when the
+     author is asked for a folder in between. One port for as long as the page lives, kept over rebuilds: a listener
+     on the window would go with document.open, a port does not. */
+  if (!S.call) {
+    const RELOAD = "。ページを再読み込みしてください", waits = new Map();
+    let last = 0, port = null, linked = null;
+    const link = function () {
+      return new Promise(function (ok, no) {
+        const ch = new MessageChannel();
+        port = ch.port1;
+        const late = setTimeout(() => no(new Error("page-edit の拡張とつながりません" + RELOAD)), 3000);
+        port.onmessage = function (e) {
+          const m = e.data || {}, w = waits.get(m.id);
+          if (m.hello) { clearTimeout(late); ok(); return; }
+          if (!w) return;
+          if (m.say) { if (w.say) w.say(m.say); return; }
+          waits.delete(m.id);
+          if (m.error) w.no(Object.assign(new Error(m.error.message), { name: m.error.name || "Error", conflict: m.error.conflict }));
+          else w.ok(m.ok);
+        };
+        window.postMessage({ pageEdit: "link" }, "*", [ch.port2]);   // to this window only; bridge.js takes the port
+      });
+    };
+    S.call = async function (op, args, say) {
+      await (linked || (linked = link()));
+      return new Promise(function (ok, no) {
+        const id = ++last;
+        waits.set(id, { ok: ok, no: no, say: say });
+        port.postMessage({ id: id, req: Object.assign({}, args, { op: op }) });
+      });
+    };
   }
-  // The source of the draft. A BOM stays in the text (file.text() drops it), so that a save writes it back.
+  // fresh: the first request of a page just loaded looks for the draft anew
+  function call(op, args) {
+    const fresh = !S.called;
+    S.called = true;
+    return S.call(op, Object.assign({ fresh: fresh }, args), t => msg(t));
+  }
+  // The draft now, {text, mtime, size}. ask: a folder is asked for when none is allowed; otherwise null then.
   // strict: a file that is not UTF-8 is refused, because writing it back would change its other bytes.
-  async function readText(file, strict) {
-    const bytes = await file.arrayBuffer();   // a file that cannot be read fails with its own message
-    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(bytes); }
-    catch (e) { throw new Error("原稿の文字コードが UTF-8 ではないので、書き込めません"); }
+  async function source(ask, strict) {
+    const r = await call("open", { ask: ask, strict: !!strict });
+    if (!r.none) return r;
+    if (ask) throw new Error("書き込みが許可されませんでした");
+    return null;
   }
   // What went wrong, for the author: the File System Access API's errors in Japanese, with their own name after it.
   const ERRORS = {
@@ -251,246 +268,14 @@
     AbortError: "途中で止まりました"
   };
   const why = e => e && ERRORS[e.name] ? ERRORS[e.name] + "（" + e.name + "）" : String(e && e.message || e);
-  const DIRS = "list";
-  async function keptDirs() {
-    try { await moveOld(); return (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || []; }
-    catch (e) { return []; }
-  }
-  // The folders kept under the old name: null when there is no such store (or it cannot be read now). Opening a
-  // store that is not there would make it: that upgrade is aborted, so nothing is left behind.
-  function oldDirs() {
-    return new Promise(function (resolve) {
-      const late = setTimeout(() => done(null), 1500);
-      const done = v => { clearTimeout(late); resolve(v); };
-      let r;
-      try { r = indexedDB.open(OLD_DB); } catch (e) { done(null); return; }
-      r.onupgradeneeded = () => r.transaction.abort();
-      r.onerror = () => done(null);
-      r.onblocked = () => done(null);
-      r.onsuccess = function () {
-        const db = r.result;
-        db.onversionchange = () => db.close();
-        try {
-          const q = db.transaction("dirs", "readonly").objectStore("dirs").get(DIRS);
-          q.onsuccess = () => { db.close(); done(Array.isArray(q.result) ? q.result : []); };
-          q.onerror = () => { db.close(); done(null); };
-        } catch (e) { db.close(); done(null); }
-      };
-    });
-  }
-  // Once per page: the folders of the old store go to the end of the list, then the old store is deleted (a tab
-  // that still has it open closes it, see idb). When this fails the old store stays and the folders are asked for again.
-  function moveOld() {
-    if (!S.moved) S.moved = (async function () {
-      const old = await oldDirs();
-      if (!old) return;
-      if (old.length) {
-        const now = (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || [];
-        await idb("readwrite", tx => tx.objectStore("dirs").put(now.concat(old), DIRS));
-      }
-      indexedDB.deleteDatabase(OLD_DB);
-    })().catch(function () { /* left for the next page */ });
-    return S.moved;
-  }
-  // A folder kept by an earlier Chrome can come back dead after an update: none of its methods ever settles (seen in
-  // Chrome 158, 2026-11-24). So the first call on a kept folder is given up after a while. Not for calls that show a
-  // prompt, and short enough that the click still allows the folder picker afterwards (5 s in Chrome).
-  const DEAD = {};
-  const answer = p => Promise.race([p, new Promise((ok, no) => setTimeout(() => no(DEAD), 1500))]);
-  // Whether kept folder x is folder d: true, false, or null when that cannot be told now (it does not answer in
-  // time, or fails for a reason other than being gone). Only a folder that is gone (NotFoundError) counts as d, so
-  // that it is dropped; one that is slow for a moment stays in the list.
-  const sameAs = (x, d) => answer(x.isSameEntry(d)).catch(e => e && e.name === "NotFoundError" ? true : null);
-  async function keepDir(d) {
-    const list = await keptDirs(), out = [d];
-    // the others stay, except this same folder and those that are gone
-    const same = await Promise.all(list.map(x => sameAs(x, d)));
-    list.forEach((x, i) => { if (same[i] !== true) out.push(x); });
-    try { await idb("readwrite", tx => tx.objectStore("dirs").put(out, DIRS)); } catch (e) { /* storage unavailable */ }
-  }
-  // Forget the kept folder at k of the list, named name (k null: all of them). By its place in the list, not by
-  // isSameEntry, so that a folder that no longer answers can be forgotten too. The open tab keeps its file until
-  // it is loaded again.
-  async function forgetDir(k, name) {
-    const list = k === null ? [] : await keptDirs();
-    if (k !== null) {
-      if (!list[k] || list[k].name !== name) throw new Error("覚えているフォルダの一覧が、ほかのタブで変わっていました。一覧を開き直してください");
-      list.splice(k, 1);
-    }
-    await idb("readwrite", tx => tx.objectStore("dirs").put(list, DIRS));
-  }
-  // The open file inside folder d: d's name is one of the folders on the page's path, and the rest of the path
-  // leads from there to the file. {fh, gap}, gap how far the file's date is from the page's own (when d's name
-  // occurs more than once, the nearest one), or null.
-  async function findIn(d) {
-    const ps = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    const want = Date.parse(document.lastModified);
-    let best = null, gap = Infinity;
-    for (let i = 0; i < ps.length - 1; i++) {
-      if (ps[i] !== d.name) continue;
-      try {
-        let h = d;
-        for (let j = i + 1; j < ps.length - 1; j++) h = await h.getDirectoryHandle(ps[j]);
-        const fh = await h.getFileHandle(ps[ps.length - 1]);
-        const g = isNaN(want) ? 0 : Math.abs((await fh.getFile()).lastModified - want);
-        // where it is inside d: the folders from d down to the draft (exportHTML reads the engine through d)
-        if (g < gap) { best = fh; gap = g; fh.__loc = { root: d, dirs: ps.slice(i + 1, ps.length - 1) }; }
-      } catch (e) { /* not this one */ }
-    }
-    return best && { fh: best, gap: gap };
-  }
-  // ask: called from a click or key (may show Chrome's prompt or the folder picker); else only a granted folder
-  async function allowed(h, ask) {
-    if (!h.queryPermission) return true;
-    const o = { mode: "readwrite" };
-    if (await h.queryPermission(o) === "granted") return true;
-    return ask && await h.requestPermission(o) === "granted";
-  }
-  async function getHandle(ask) {
-    if (ask === undefined) ask = true;
-    if (S.handle && await allowed(S.handle, ask)) return S.handle;
-    const above = location.pathname.split("/").filter(Boolean).slice(0, -1).map(decodeURIComponent);
-    const kept = (await keptDirs()).filter(d => above.indexOf(d.name) >= 0);
-    // A folder is read only once it is allowed: after Chrome is started again (or every tab of the folder is closed)
-    // a kept folder has to be allowed again, and reading it before that fails. Allowed ones first, then ask.
-    // Of all the allowed folders that hold a file at the page's path, the file whose date is nearest the page's
-    // (a copy of the draft in another kept folder is not taken for it).
-    const asked = [];
-    let dead = "", best = null;
-    const state = await Promise.all(kept.map(d => answer(allowed(d, false)).catch(e => e)));
-    for (let i = 0; i < kept.length; i++) {
-      const d = kept[i];
-      try {
-        if (state[i] === DEAD) { dead = d.name; continue; }   // skipped for this load only; it stays in the list
-        if (state[i] === false) asked.push(d);
-        if (state[i] !== true) continue;
-        const f = await findIn(d);
-        if (f && (!best || f.gap < best.gap)) best = f;
-      } catch (e) { /* folder moved: try the next */ }
-    }
-    if (best) return best.fh;
-    if (!ask) return null;
-    for (const d of asked) {
-      msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
-      try { if (!await allowed(d, true)) throw new Error("フォルダ「" + d.name + "」の編集が許可されませんでした"); }
-      catch (e) {
-        if (e.name === "NotFoundError" || e.name === "SecurityError") continue;   // folder moved, or the click is too long ago
-        throw e;
-      }
-      const f = await findIn(d).catch(() => null);
-      if (f) return f.fh;
-    }
-    if (!window.showDirectoryPicker) {
-      throw new Error("このブラウザは原稿への書き込みに対応していません。Chrome・Edge・Brave など Chromium 系のブラウザで開いてください");
-    }
-    msg(dead ? "前に選んだフォルダ「" + dead + "」は、今の Chrome では使えなくなっています。もう一度選ぶと編集が始まります"
-             : "原稿を含むフォルダを選ぶ画面を開いています。フォルダを選ぶと編集が始まります");
-    const d = await showDirectoryPicker({ id: "page-edit", mode: "readwrite" });
-    msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
-    const f = await findIn(d), fh = f && f.fh;
-    const here = decodeURIComponent(location.pathname.split("/").pop());
-    if (!fh) throw new Error("選んだフォルダ「" + d.name + "」の中に、開いている " + here + " がありません。この下書きを含むフォルダを選んでください");
-    if (!await allowed(d, true)) throw new Error("書き込みが許可されませんでした");
-    await keepDir(d);
-    return fh;
-  }
-
-  /* ===== One HTML file, as make pack (tools/pack_engine.py) does it, written next to the draft as NAME.dist.html =====
-     Through the allowed folder: the engine's files are read from it, so the engine has to be inside that folder.
-     Unlike make pack, the math is not rendered beforehand (KaTeX itself goes in), the fonts are not cut down to
-     the characters used, and the checks of boxes and figures do not run. */
-  const unescape = function (t) { const x = document.createElement("textarea"); x.innerHTML = t; return x.value; };
-  async function replaceAsync(str, re, fn) {
-    const parts = [], ms = [];
-    let at = 0;
-    str.replace(re, function () {
-      const a = [].slice.call(arguments), m = a[0], off = a[a.length - 2];
-      parts.push(str.slice(at, off)); ms.push(a); at = off + m.length; return m;
-    });
-    const done = await Promise.all(ms.map(a => fn.apply(null, a)));
-    let out = "";
-    parts.forEach((t, k) => { out += t + done[k]; });
-    return out + str.slice(at);
-  }
+  // One HTML file, written next to the draft as NAME.dist.html (files.js)
   async function exportHTML() {
     try {
       msg("HTML を作っています…");
-      const fh = await getHandle(true), loc = fh.__loc;
-      if (!loc) throw new Error("許可したフォルダの中での原稿の場所がわかりません。一度ページを開き直してください");
-      const text = await (await fh.getFile()).text();
-      // what the comments hide is not read (a reference in a comment stays as it is); same offsets as text
-      const COMMENT = /<!--[\s\S]*?-->/g, seen = text.replace(COMMENT, c => " ".repeat(c.length));
-      const decode = q => { try { return decodeURIComponent(q); } catch (e) { return q; } };   // a "%" of the name itself
-      const join = function (dirs, ref) {
-        const out = dirs.slice();
-        ref.split("/").forEach(function (q) {
-          if (!q || q === ".") return;
-          if (q !== "..") { out.push(decode(q)); return; }
-          if (!out.length) throw new Error("許可したフォルダ「" + loc.root.name + "」の外のファイルです：" + ref);
-          out.pop();
-        });
-        return out;
-      };
-      const dirOf = async function (parts) { let h = loc.root; for (const q of parts) h = await h.getDirectoryHandle(q); return h; };
-      const get = async function (parts) {
-        try { return await (await (await dirOf(parts.slice(0, -1))).getFileHandle(parts[parts.length - 1])).getFile(); }
-        catch (e) { throw new Error("ファイルがありません：" + parts.join("/")); }
-      };
-      const read = async parts => (await get(parts)).text();
-      const has = async parts => { try { await get(parts); return true; } catch (e) { return false; } };
-      const m = /<script\b[^>]*\ssrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*<\/script\s*>/i.exec(seen);
-      if (!m) throw new Error("この原稿には kamishibai.js の読み込みがありません");
-      const eng = join(loc.dirs, unescape(m[2] || "./"));
-      const t = /<html\b[^>]*\stheme=(["']?)([A-Za-z]+)\1/i.exec(seen), theme = t ? t[2] : "Boadilla";
-      if (!await has(eng.concat("themes", theme + ".css"))) throw new Error("テーマがありません：" + theme);
-      // a file beside the draft: not a URL with a scheme, not "#…", not a path from the top ("/…" stays as it is);
-      // "?…" and "#…" after the name are not part of the file's name
-      const local = function (ref) {
-        ref = unescape(ref).trim();
-        if (/^(?:[a-z][\w+.-]*:|[#\/?\\])/i.test(ref)) return null;
-        ref = ref.replace(/[?#][\s\S]*$/, "");
-        return ref ? join(loc.dirs, ref) : null;
-      };
-      const dataURI = f => new Promise(function (ok, no) {
-        const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsDataURL(f);
-      });
-      // each pattern starts with a comment, which is given back unchanged
-      const inline = async function (src) {
-        src = await replaceAsync(src, /<!--[\s\S]*?-->|(<(?:img|qr|image|source)\b[^>]*?\s(?:src|href|xlink:href)=)(["'])([^"']*)\2/gi,
-          async function (all, a, qt, ref) { const q = a && local(ref); return q ? a + qt + await dataURI(await get(q)) + qt : all; });
-        src = await replaceAsync(src, /<!--[\s\S]*?-->|<script\b[^>]*?\ssrc=(["'])([^"']*)\1[^>]*>\s*<\/script\s*>/gi,
-          async function (all, qt, ref) { const q = qt && local(ref); return q ? "<script>" + (await read(q)).replace(/<\/script/gi, "<\\/script") + "<\/script>" : all; });
-        return replaceAsync(src, /<!--[\s\S]*?-->|<link\b[^>]*>/gi, async function (all) {
-          if (/^<!--/.test(all) || !/rel=["']?stylesheet/i.test(all)) return all;
-          const h = /href=(["'])([^"']*)\1/i.exec(all), q = h && local(h[2]);
-          return q ? "<style>" + (await read(q)).replace(/<\/style/gi, "<\\/style") + "</style>" : all;
-        });
-      };
-      let head = text.slice(0, m.index), tail = text.slice(m.index + m[0].length);
-      head = head.replace(/(<html\b[^>]*\stheme=)(["']?)[A-Za-z]+\2/i, (all, a) => a + '"' + theme + '"');
-      const own = /<script\b/i.test(seen.slice(0, m.index) + seen.slice(m.index + m[0].length));
-      head = await inline(head); tail = await inline(tail);
-      const fontFiles = { Madrid: ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"] }[theme] || ["fonts/kamishibai-fonts.css"];
-      let fonts = "", noFont = [];
-      for (const f of fontFiles) {
-        const q = eng.concat(f.split("/"));
-        if (await has(q)) fonts += await read(q) + "\n"; else noFont.push(f);
-      }
-      const style = css => "<style data-kamishibai>\n" + css.replace(/\n+$/, "").replace(/<\/style/gi, "<\\/style") + "\n</style>\n";
-      const script = (code, attr) => "<script" + (attr || "") + ">\n" + code.replace(/\n+$/, "").replace(/<\/script/gi, "<\\/script") + "\n<\/script>\n";
-      const name = fh.name.replace(/\.html?$/i, "");
-      const block = "<!-- Packed from " + fh.name + " by page-edit (theme " + theme + "). Edit the draft, not this file. -->\n"
-        + style(await read(eng.concat("katex", "katex.css"))) + (fonts ? style(fonts) : "")
-        + style(await read(eng.concat("base.css"))) + style(await read(eng.concat("themes", theme + ".css")))
-        + script(await read(eng.concat("kamishibai.js")), ' data-packed="' + theme + '"')
-        + script(await read(eng.concat("katex", "katex.js")))
-        + (own ? script(await read(eng.concat("figure.js"))) : "");
-      const out = head + block.replace(/\n+$/, "") + tail;
-      const w = await (await (await dirOf(loc.dirs)).getFileHandle(name + ".dist.html", { create: true })).createWritable();
-      await w.write(out);
-      await w.close();
-      msg(name + ".dist.html を書きました（" + Math.round(new Blob([out]).size / 1024 / 1024 * 10) / 10 + " MB）"
-        + (noFont.length ? "。書体 " + noFont.join("・") + " が無いので手元の書体で出ます" : ""), 8000);
+      const r = await call("export", { ask: true });
+      if (r.none) throw new Error("書き込みが許可されませんでした");
+      msg(r.name + ".dist.html を書きました（" + Math.round(r.size / 1024 / 1024 * 10) / 10 + " MB）"
+        + (r.noFont.length ? "。書体 " + r.noFont.join("・") + " が無いので手元の書体で出ます" : ""), 8000);
     } catch (e) { msg(e.name === "AbortError" ? "" : "HTML を書けませんでした：" + why(e), 10000); }
   }
 
@@ -632,26 +417,27 @@
     return x;
   }
 
-  // The kept folders, each with a button that forgets it (U4). Forgetting takes it out of the list in IndexedDB;
+  // The kept folders, each with a button that forgets it (U4). Forgetting takes it out of the extension's list;
   // what Chrome allowed is taken back in Chrome's settings.
   async function showDirs() {
-    const list = await keptDirs(), nodes = [];
+    let list, nodes = [];
+    try { list = await call("dirs"); } catch (e) { msg(why(e), 8000); return; }
     if (list.length) {
       const ul = document.createElement("ul");
-      list.forEach(function (d, k) {
+      list.forEach(function (d) {
         const li = document.createElement("li");
-        li.append(d.name + "　", button("忘れる", "このフォルダを忘れる", () => forget(k, d.name)));
+        li.append(d.name + "　", button("忘れる", "このフォルダを忘れる", () => forget(d.id)));
         ul.appendChild(li);
       });
-      nodes.push(ul, button("全て忘れる", "覚えているフォルダを全て忘れる", () => forget(null, "")));
+      nodes.push(ul, button("全て忘れる", "覚えているフォルダを全て忘れる", () => forget(null)));
     }
     note((list.length ? "page-edit が覚えているフォルダです。" : "page-edit が覚えているフォルダはありません。")
-      + "この一覧は、この Chrome のプロファイルで file:// から開いたページの全てが使えます。"
+      + "この一覧は page-edit の拡張だけが持ち、file:// から開いたページには、その下にある自分の原稿の読み書きだけを渡します。"
       + "忘れたフォルダは、次に「編集」を押したときに選び直します（開いているこのタブは、再読み込みするまで今の原稿に書けます）。"
       + "書き込みの許可そのものは Chrome の設定（chrome://settings/content/filesystem）で取り消せます。", nodes);
   }
-  async function forget(k, name) {
-    try { await forgetDir(k, name); } catch (e) { msg(why(e), 8000); }
+  async function forget(id) {
+    try { await call("forget", { id: id }); } catch (e) { msg(why(e), 8000); }
     showDirs();
   }
   const FOLDER = "M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z";
@@ -733,21 +519,19 @@
       }
       S.edit = sessionStorage.getItem(EDIT_KEY) === "1";
     } catch (e) { /* storage unavailable */ }
-    const open = async function (h) {
-      S.handle = h;
-      const f = await h.getFile();
-      rebuild(await readText(f), f.lastModified);
-    };
+    const open = function (f) { S.linked = true; rebuild(f.text, f.mtime); };
     // Started by hand (button or key): the rebuilt page comes up in edit mode.
     // left: the author went back to another mode while Chrome was asking; the page is then rebuilt outside edit mode.
     let left = false, waitingFor = null;
     const begin = function () {
       left = false;
-      if (!waitingFor) waitingFor = start().finally(() => { waitingFor = null; });   // asked again while Chrome is asking: the same one
+      // asked again while the author is being asked: the same one, its window brought to the front
+      if (waitingFor) call("front").catch(() => {});
+      else waitingFor = start().finally(() => { waitingFor = null; });
       return waitingFor;
     };
     const start = async function () {
-      try { msg("原稿を開いています…"); const h = await getHandle(); S.edit = !left; await open(h); return true; }
+      try { msg("原稿を開いています…"); const f = await source(true); S.edit = !left; open(f); return true; }
       catch (e) {
         S.edit = false;
         msg(e.name === "AbortError" ? "フォルダを選ばなかったので、編集を始めていません" : "開けませんでした：" + why(e), 8000);
@@ -765,7 +549,7 @@
       K.setEditor({ enter: function () { waiting = false; begin().then(function (ok) { if (!ok) K.mode("show"); }); },
                     leave: function () { left = true; }, exportHTML: exportHTML });
       (async function () {
-        try { const h = await getHandle(false); if (h && waiting) await open(h); }
+        try { const f = await source(false); if (f && waiting) open(f); }
         catch (e) { /* folder moved: the heading still asks */ }
       })();
       return;
@@ -773,7 +557,7 @@
     bar([{ cls: "sed-start-btn", text: "編集 " + EDIT_KEY_LABEL, title: "ページの文を直して、原稿に書き戻します。初めは、この原稿を含むフォルダ（原稿のフォルダかプロジェクトのフォルダ）を選んで許可します。その下の原稿は、次から選ばずに開けます",
            run: begin }, DIRS_BTN]);
     // Cmd+E (Ctrl+E elsewhere) does the same as the button; a key press counts as the user
-    // gesture the folder picker needs.
+    // gesture that asking for a folder needs.
     addEventListener("keydown", function (e) {
       if (!isEditKey(e)) return;
       if (!document.querySelector(".sed-start-btn")) return;   // already started, or the page was rebuilt
@@ -782,8 +566,8 @@
     // A folder allowed before that holds this page, with write access still granted: start at once, without the button.
     (async function () {
       try {
-        const h = await getHandle(false);
-        if (h && document.querySelector(".sed-start-btn")) await open(h);
+        const f = await source(false);
+        if (f && document.querySelector(".sed-start-btn")) open(f);
       } catch (e) { /* folder moved: fall back to the button */ }
       // No startup hint on the slide: the button's tooltip explains the key.
     })();
@@ -1796,15 +1580,14 @@
 
   async function write(it, neu) {
     S.saving = true;
-    const h = await getHandle();
-    const file = await h.getFile(), cur = await readText(file, true);
+    const file = await source(true, true), cur = file.text;
     const list = it.kind === "attr" ? "attrs" : "spans", t = parse(cur), s = t[list][it.i];
     // The place is found by its position in the list. After a change elsewhere the same position may be another
     // text with the same source: the texts before it must be the same as when the page was built.
     const moved = cur !== S.text && D[list].slice(0, it.i).some((o, j) => !t[list][j] || S.text.slice(o.start, o.end) !== cur.slice(t[list][j].start, t[list][j].end));
     if (!s || moved || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
-      err.conflict = { text: cur, mtime: file.lastModified };
+      err.conflict = { text: cur, mtime: file.mtime };
       throw err;
     }
     // what the save replaces: [{at, a, b}], a the source there now, b the new one, in the order of the source
@@ -1832,7 +1615,7 @@
     }
     parts.sort((x, y) => x.at - y.at);
     const next = replaced(cur, parts);
-    const mtime = await put(h, file, next);
+    const mtime = await put(file, next);
     remember(cur, next, parts);
     S.saving = false;
     S.notice = "保存しました";
@@ -1846,18 +1629,7 @@
     return out + cur.slice(from);
   }
   // Write text to the draft that was read as file; a change made in between is a conflict. Returns the new time.
-  async function put(h, file, text) {
-    const now = await h.getFile();
-    if (now.lastModified !== file.lastModified || now.size !== file.size) {
-      const err = new Error("原稿が先に変わっていました");
-      err.conflict = { text: await readText(now), mtime: now.lastModified };
-      throw err;
-    }
-    const w = await h.createWritable();
-    await w.write(text);
-    await w.close();
-    return (await h.getFile()).lastModified;
-  }
+  const put = async (file, text) => (await call("write", { text: text, was: { mtime: file.mtime, size: file.size } })).mtime;
 
   /* ===== Undo and redo =====
      A step is one save: {parts, before, after, lang}. parts: [{at, a, b, la, ra, lb, rb}] in the order of the source:
@@ -1965,16 +1737,15 @@
     S.saving = true;
     let cur, file;
     try {
-      const h = await getHandle();
-      file = await h.getFile();
-      cur = await readText(file, true);
+      file = await source(true, true);
+      cur = file.text;
       const list = places(cur, g, back);
       if (!list) {
         const err = new Error("この箇所か、そのすぐ前後が、原稿の外での変更で変わっています");
-        err.conflict = { text: cur, mtime: file.lastModified };
+        err.conflict = { text: cur, mtime: file.mtime };
         throw err;
       }
-      const next = replaced(cur, list), mtime = await put(h, file, next);
+      const next = replaced(cur, list), mtime = await put(file, next);
       from.pop();
       to.push(g);
       keepHist();
@@ -2100,23 +1871,25 @@
 
   /* ===== Rebuild when the source file changes elsewhere (editor, AI) ===== */
   function poll() {
+    let asking = false;   // one at a time
     clearInterval(S.poll);
     S.poll = setInterval(async function () {
-      if (!live() || !S.handle || S.building || S.editing || S.saving) return;
+      if (!live() || !S.linked || S.building || S.editing || S.saving || asking) return;
+      asking = true;
       try {
-        const f = await S.handle.getFile();
+        const now = await call("stat");
         S.lost = false;
-        if (f.lastModified === S.mtime) return;
-        const text = await readText(f);
+        if (now.mtime === S.mtime) return;
+        const f = await call("read");
         if (!live()) return;   // rebuilt while reading
-        S.mtime = f.lastModified;
-        if (text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(text); }
+        S.mtime = f.mtime;
+        if (f.text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(f.text); }
       } catch (e) {
         // moved, deleted or no longer allowed: said once, until it can be read again
         if (!live() || S.lost) return;
         S.lost = true;
         msg("原稿を読めなくなりました：" + why(e) + "。外での変更は、読めるようになるまで画面に出ません", 15000);
-      }
+      } finally { asking = false; }
     }, 1000);
   }
 
