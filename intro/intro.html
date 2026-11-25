@@ -10,9 +10,9 @@
   html qr { right: 30px; bottom: 60px; width: 150px }
   html qr img { width: 150px; height: 150px }
   html qr .qcap { position: absolute; left: 0; top: 148px; width: 100%; text-align: center; font-size: var(--footnote, 16px) }
-  .tdemo iframe { border: 1px solid #8a8a8a; display: block; margin: 12px auto 0 }
+  .tdemo iframe { border: 1px solid var(--faint); display: block; margin: 12px auto 0 }
   .tprint { display: none; justify-content: center; align-items: center; gap: 30px; height: 327px }
-  .tprint img { height: 230px; border: 1px solid #8a8a8a }
+  .tprint img { height: 230px; border: 1px solid var(--faint) }
   @media print { .tdemo iframe { display: none } .tprint { display: flex } .tsw { visibility: hidden } }
   .mu { position: relative; flex: none; margin-bottom: 28px }
   .mu img { display: block; border-radius: 12px }
@@ -20,8 +20,8 @@
   .exs a { display: block; width: 400px; text-align: center }
   .exs img { display: block; width: 400px; height: 300px; border: 1px solid #262686; box-sizing: border-box; margin-bottom: 6px }
   .exs .exs-t, .exs .exs-s { display: block; font-size: 22px; line-height: 30px; white-space: nowrap }
-  .exs-c { flex: 0 0 100%; margin-top: 10px; text-align: center; font-size: 15px; line-height: 20px; color: #262626; white-space: nowrap }
-  .exs .exs-s { font-size: 16px; line-height: 22px; color: #262626 }
+  .exs-c { flex: 0 0 100%; margin-top: 10px; text-align: center; font-size: 15px; line-height: 20px; color: var(--ink); white-space: nowrap }
+  .exs .exs-s { font-size: 16px; line-height: 22px; color: var(--ink) }
   .phone { display: block; border-radius: 12px }
   .mu .ml { position: absolute; left: 50px; font-size: 13px; line-height: 20px; white-space: nowrap }
   .mu .mc { position: absolute; left: 0; bottom: -26px; font-size: 14px; font-weight: bold; white-space: nowrap }
@@ -217,7 +217,7 @@
 </slide>
 
 <slide title="左の道具の列" title-en="The tool column on the left" sec="機能" sec-en="Features" title-en-ja="080023af" sec-en-ja="9812f9fb">
-  <list style="font-size:.8em">
+  <list style="font-size:.8em;gap:2px">
     <item style="white-space:nowrap"><ja>マウスを動かすとページの左に出る。ボタンに重ねると名前とキーが出る</ja><en ja="14b539ca">Appears as the mouse moves; hovering a button shows its name and key</en></item>
     <item style="white-space:nowrap"><ja>下のカード：モードの切り替えと取っ手。既定はプレゼン</ja><en ja="6679eb60">Lower card: the modes and the handle; present is the default</en></item>
     <item style="white-space:nowrap"><ja>上のカード：今のモードの道具</ja><en ja="b2cf91e5">Upper card: the tools of the current mode</en></item>
@@ -233,23 +233,25 @@
         <span class="ml" style="top:76px"><ja>出力 ⌘P</ja><en ja="6c437ccb">Output ⌘P</en></span>
         <span class="ml" style="top:112px"><ja>開く・しまう</ja><en ja="0b0f0140">Open, fold</en></span>
         <span class="mc"><ja>下のカード（共通）</ja><en ja="759163aa">Lower card (all modes)</en></span></div>
-      <div class="mu" style="width:196px;height:207px"><img src="menu-edit.png" width="40" height="207" alt="">
+      <div class="mu" style="width:196px;height:239px"><img src="menu-edit.png" width="40" height="239" alt="">
         <span class="ml" style="top:10px"><ja>取り消し ⌘Z</ja><en ja="31f4a705">Undo ⌘Z</en></span>
         <span class="ml" style="top:42px"><ja>やり直し ⇧⌘Z</ja><en ja="f3439d6e">Redo ⇧⌘Z</en></span>
         <span class="ml" style="top:74px"><ja>覚えているフォルダ</ja><en ja="8ff928bf">Folders allowed</en></span>
         <span class="ml" style="top:113px"><ja>ページ一覧 ⌘B</ja><en ja="ff8c2ae7">Page list ⌘B</en></span>
         <span class="ml" style="top:145px"><ja>日本語 ⇄ English L</ja><en ja="e2d4426e">Japanese ⇄ English L</en></span>
-        <span class="ml" style="top:177px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+        <span class="ml" style="top:177px"><ja>ダークモード D</ja><en ja="da773404">Dark mode D</en></span>
+        <span class="ml" style="top:209px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
         <span class="mc"><ja>上のカード：編集</ja><en ja="8691d2b5">Upper card: edit</en></span></div>
-      <div class="mu" style="width:196px;height:278px"><img src="menu-show.png" width="40" height="278" alt="">
+      <div class="mu" style="width:196px;height:310px"><img src="menu-show.png" width="40" height="310" alt="">
         <span class="ml" style="top:10px"><ja>全画面 ⌘F</ja><en ja="db569ca7">Full screen ⌘F</en></span>
         <span class="ml" style="top:42px"><ja>ポインター ⌘K</ja><en ja="c05c10cf">Pointer ⌘K</en></span>
         <span class="ml" style="top:74px"><ja>段階表示 S</ja><en ja="ebdae1a2">Steps S</en></span>
         <span class="ml" style="top:106px"><ja>ページ一覧 ⌘B</ja><en ja="ff8c2ae7">Page list ⌘B</en></span>
         <span class="ml" style="top:138px"><ja>日本語 ⇄ English L</ja><en ja="e2d4426e">Japanese ⇄ English L</en></span>
-        <span class="ml" style="top:177px"><ja>選択 ⌘I</ja><en ja="f23d1d96">Select ⌘I</en></span>
-        <span class="ml" style="top:209px"><ja>キー無効 ⌘U</ja><en ja="1274a1a0">Lock ⌘U</en></span>
-        <span class="ml" style="top:248px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+        <span class="ml" style="top:170px"><ja>ダークモード D</ja><en ja="da773404">Dark mode D</en></span>
+        <span class="ml" style="top:209px"><ja>選択 ⌘I</ja><en ja="f23d1d96">Select ⌘I</en></span>
+        <span class="ml" style="top:241px"><ja>キー無効 ⌘U</ja><en ja="1274a1a0">Lock ⌘U</en></span>
+        <span class="ml" style="top:280px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
         <span class="mc"><ja>上のカード：プレゼン</ja><en ja="d4121740">Upper card: present</en></span></div>
       <div class="mu" style="width:180px;height:136px"><img src="menu-out.png" width="40" height="136" alt="">
         <span class="ml" style="top:10px"><ja>PDF：段階ごとに 1 枚</ja><en ja="e7dda93a">PDF: a sheet per step</en></span>

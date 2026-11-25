@@ -11,6 +11,9 @@
   --theme: #0096c8; --alert: #ff4c00;
   --head: #19a0ce; --head-dim: #8cd0e6;
   --bt: #cceaf4; --bt-ink: #004b64; --bb: #e6f4fa;
+  --head-cur: var(--theme);   /* 見出し帯の、今の節の名前 */
+  --at: #ffd9c7; --ati: #8a2a00; --ab: #fff0e9;   /* alertblock */
+  --et: #cfeedb; --eti: #0b5e31; --eb: #e9f7ef;   /* exampleblock */
   /* 部品（note・表・ボタンなど）が使う色 */
   --navy: #0096c8; --blue: #0096c8;
   --sans: "LMSans", "JPGothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
@@ -53,7 +56,7 @@ p { line-height: 1.6; margin: 0 0 17px }
   display: flex; justify-content: space-between; padding: 0 30px 0 25px; pointer-events: none; line-height: 1 }
 .hl .hs { display: flex; flex-direction: column; gap: 3px; padding-top: 5px }
 .hl .hn { font-size: var(--tiny); font-weight: 700; line-height: 1; color: var(--head-dim); white-space: nowrap }
-.hl .hs.cur .hn { color: var(--theme) }
+.hl .hs.cur .hn { color: var(--head-cur) }
 .hl .hf { display: flex; gap: 2.8px }
 .hl .hf i { width: 8.5px; height: 8.5px; border-radius: 50%; box-shadow: inset 0 0 0 1.1px var(--head-dim) }
 .hl .hs.cur .hf i { box-shadow: inset 0 0 0 1.1px #fff }
@@ -79,8 +82,8 @@ item item::before { left: 16px; top: .6em; width: 11px; height: 11px }
 /* ---- block（Beamer の block、rounded、影なし。枠は本文の左右へ 4pt 張り出す）。class="blk" でも使える ---- */
 :is(block, alertblock, exampleblock, .blk) { display: block; margin: 12px -12px 0; border-radius: 11px; overflow: hidden;
   --t: var(--bt); --ti: var(--bt-ink); --b: var(--bb) }
-alertblock { --t: #ffd9c7; --ti: #8a2a00; --b: #fff0e9 }
-exampleblock { --t: #cfeedb; --ti: #0b5e31; --b: #e9f7ef }
+alertblock { --t: var(--at); --ti: var(--ati); --b: var(--ab) }
+exampleblock { --t: var(--et); --ti: var(--eti); --b: var(--eb) }
 .bt { display: flex; align-items: baseline; gap: .5em; background: var(--t); color: var(--ti); font-weight: 700;
   padding: 3px 12px; line-height: 1.4 }
 .bt cite { margin-left: auto; font-weight: 400; font-size: .8em }
@@ -109,3 +112,15 @@ qr .qcap { text-align: center; font-size: var(--footnote) }
 divider { position: absolute; inset: 0; padding: 0 31px; display: flex; align-items: center }
 .sbox { flex: 1; margin: 0 -12px; padding: 30px 24px; border-radius: 11px; background: var(--bt); color: var(--bt-ink);
   text-align: center; font-size: var(--Large); font-weight: 700; line-height: 1.27 }
+
+/* ---- ダークモード（値の決め方は base.css の「ダークモード」）：見出し帯は沈めた青、block は暗い地に明るい見出し ---- */
+@media screen {
+  html.dark body {
+    --ink: #dcdddf; --theme: #28a7d1; --navy: #28a7d1; --blue: #28a7d1; --alert: #ff7e3e;
+    --head: #0d4a61; --head-dim: #86bcd0; --head-cur: #fff;
+    --bt: #173a47; --bt-ink: #a9dcee; --bb: #1c2b32;
+    --at: #532a18; --ati: #ffc4a8; --ab: #2f211b;
+    --et: #1b4530; --eti: #a6e3bd; --eb: #1b2a22;
+  }
+  html.dark .page [light] { --head-cur: var(--l-theme); --at: #ffd9c7; --ati: #8a2a00; --ab: #fff0e9; --et: #cfeedb; --eti: #0b5e31; --eb: #e9f7ef }
+}

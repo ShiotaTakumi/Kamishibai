@@ -91,16 +91,22 @@
     道具はページの左の隙間に縦一列のアイコンで並ぶ（名前はアイコンに指を置くと出る）。下のつまみで上へ開く。上の板に今のモードの道具、
     下の板にくぼんだ溝に入った三つのモード（編集・プレゼン・出力）とつまみ。畳むと編集・出力のときだけそのモードのアイコンが残り、プレゼンの道具が
     オンのときはつまみに橙の点が付く。ページは左にこの欄の幅（52px）の隙間を必ず空けて置く。既定はプレゼン。モードのキーをもう一度押すとプレゼンに戻る（Windows では Ctrl）。
-    編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。編集する言語・ページ一覧 ⌘B・日本語の太さ。
+    編集 ⌘E：文をクリックして直し原稿へ書き戻す（Chrome 拡張 page-edit が要る。無いときは灰色）。編集する言語・ダークモード・ページ一覧 ⌘B・日本語の太さ。
       原稿に誤り（組めない数式、読めない画像、参照と番号、囲みの題、収まらないページ、編集できない文）があると、モードのアイコンの上に件数の付いた
       三角の印が出て、押すと誤りの一覧が開く。選ぶとその場所を示す。page-edit が無いときは、⌘E で一覧だけを見る。
-    プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、日本語の太さ、
+    プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、日本語と英語 L、ダークモード D、日本語の太さ、
       選択 ⌘I（文字を選べ、クリックでは送らず ← → だけで送る）、キー無効 ⌘U（キーでもクリックでも送らない）。選択とキー無効はどちらか一方。
     出力 ⌘P：印刷の版面を画面に並べる。PDF（段階ごとに 1 枚／全段階を 1 枚に）は印刷の画面から、
       HTML（1 ファイル）は page-edit があるとき原稿の隣に 原稿.dist.html を書く（無いときは make pack）。
     #s5 を付けると 5 枚目から開く。
-    ブラウザが覚える設定（段階表示 "kamishibai-steps"・言語 "kamishibai-lang"・日本語の太さ "kamishibai-ja-stroke"）は
+    ブラウザが覚える設定（段階表示 "kamishibai-steps"・言語 "kamishibai-lang"・明暗 "kamishibai-scheme"・日本語の太さ "kamishibai-ja-stroke"）は
     localStorage に入る。同じオリジン（file:// では多くのブラウザで全てのファイル）の原稿で共通になる。
+
+  ■ ダークモード
+    プレゼンと編集の道具「ダークモード」かキー D。URL に ?scheme=dark（または light）。選んだほうはブラウザが覚える。
+    既定は明るい。<html scheme="dark"> と書いた原稿は暗い。OS の設定には従わない（発表で不意に暗くならないように）。
+    印刷・PDF・出力モードはいつも明るい。SVG の図は明暗を反転する（色相は保つ）。写真・動画・PNG・canvas はそのまま（透明なところは白）。
+    light を付けた要素は、明るいまま白い台紙に載る。色は base.css と themes/ の変数で決まるので、原稿の style でも色の変数を使う。
 
   ■ 日本語と英語
     一つの原稿に日本語と英語を並べて書き、どちらか一方を出す。英語は外で作り（手か翻訳）、エンジンは切り替えと組みだけを行う。
@@ -147,6 +153,16 @@ Kamishibai.packed = !!packed;
 const q = packed ? null : (location.search.match(/[?&]theme=([A-Za-z]+)/) || [])[1];
 const name = packed || q || document.documentElement.getAttribute("theme") || "Boadilla";
 Kamishibai.theme = /^[A-Za-z]+$/.test(name) ? name : "Boadilla";
+/* Dark mode: <html class="dark">, set here, before anything is drawn. ?scheme=, then what the browser remembers,
+   then <html scheme> */
+const CKEY = "kamishibai-scheme", rootEl = document.documentElement;
+let dark = rootEl.getAttribute("scheme") === "dark";
+(function () {
+  let v = (location.search.match(/[?&]scheme=(dark|light)\b/) || [])[1];
+  if (!v) try { v = localStorage.getItem(CKEY); } catch (e) {}
+  if (v === "dark" || v === "light") dark = v === "dark";
+  rootEl.classList.toggle("dark", dark);
+})();
 if (!packed) {
   const dir = me.src.replace(/[^/]*$/, "");
   /* font stylesheets per theme (missing files are tolerated: the theme falls back to system fonts) */
@@ -1167,8 +1183,9 @@ function render() {
   C.toggle("op", show && st.op);
   C.toggle("mode-edit", st.mode === "edit");
   C.toggle("mode-out", st.mode === "out");
+  root.classList.toggle("dark", dark && st.mode !== "out");   // what is printed is light
   C.toggle("print-steps", st.mode === "out" && st.out === "steps");
-  const on = { side: st.side, ptr: st.ptr, sel: st.sel, op: st.op, steps: stepMode, lang: hasEn && lang === "en",
+  const on = { side: st.side, ptr: st.ptr, sel: st.sel, op: st.op, steps: stepMode, lang: hasEn && lang === "en", dark: dark,
                edit: st.mode === "edit", show: show, out: st.mode === "out",
                "o-steps": st.out === "steps", "o-all": st.out === "all", "o-html": st.out === "html" };
   Object.keys(lit).forEach(k => lit[k].forEach(b => b.classList.toggle("on", !!on[k])));
@@ -1204,6 +1221,7 @@ function tool(name) {
   if (name === "edit" || name === "out") { setMode(st.mode === name ? "show" : name); return; }
   if (name === "show") { setMode("show"); return; }
   if (name === "lang") { setLang(lang === "en" ? "ja" : "en"); return; }
+  if (name === "dark") { setScheme(dark ? "light" : "dark"); return; }
   if (name === "side") { st.side = !st.side; render(); fit(); if (st.side) showCurrent(); return; }
   if (/^o-/.test(name)) { st.out = name.slice(2); render(); toast(outText(), 2500); return; }
   setMode("show");
@@ -1233,6 +1251,7 @@ const ICON = {
   op: "M3 7h18v10H3zM7 11h1M11 11h1M15 11h1M8 14h8M3 3l18 18",
   stroke: "M5 20l7-16 7 16M8 14h8",
   lang: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
+  dark: "M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z",
   "o-steps": "M8 3h12v14H8zM5 6v15h11",
   "o-all": "M5 3h14v18H5zM8 7h8M8 11h8M8 15h8",
   "o-html": "M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14",
@@ -1305,9 +1324,9 @@ function group(cls, items) {
 const sep = c => $new("div", "sep" + (c ? " " + c : ""));
 const outBtn = button(null, "出力", "go", "it go");
 outBtn.addEventListener("click", output);
-group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), strokeTool()]);
+group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), button("dark", "ダークモード D"), strokeTool()]);
 group("grp g-show", [button("full", "全画面 " + mod + "F", "full", "it" + (canFull ? "" : " no")), button("ptr", "ポインター " + mod + "K", "ptr", "it nt"), button("steps", "段階表示 S"),
-  button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), sep("nt"), button("sel", "選択 " + mod + "I", "sel", "it nt"), button("op", "キー無効 " + mod + "U", "op", "it nt"), sep(), strokeTool()]);
+  button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), button("dark", "ダークモード D"), sep("nt"), button("sel", "選択 " + mod + "I", "sel", "it nt"), button("op", "キー無効 " + mod + "U", "op", "it nt"), sep(), strokeTool()]);
 group("grp g-out", [button("o-steps", "PDF：段階ごとに 1 枚"), button("o-all", "PDF：全段階を 1 枚に"), button("o-html", "HTML：1 ファイル"), outBtn]);
 /* the modes and the handle sit on a card of their own, below the card of the current mode's tools */
 const dock = $new("div", "dock");
@@ -1421,6 +1440,16 @@ function setLang(L) {
   document.dispatchEvent(new CustomEvent("kamishibai:lang", { detail: L }));
 }
 Kamishibai.lang = function (L) { if (L !== undefined) setLang(L); return lang; };
+/* Colours shown: "light" or "dark"; event kamishibai:scheme on a change. Printing and the output mode are always light */
+function setScheme(v) {
+  if (v !== "dark" && v !== "light" || (v === "dark") === dark) return;
+  dark = v === "dark";
+  try { localStorage.setItem(CKEY, v); } catch (e) {}
+  render();
+  toast(dark ? "ダークモード" : "ライトモード");
+  document.dispatchEvent(new CustomEvent("kamishibai:scheme", { detail: v }));
+}
+Kamishibai.scheme = function (v) { if (v !== undefined) setScheme(v); return dark ? "dark" : "light"; };
 /* in English, what is left to translate (shown on entering edit mode) */
 function langNote() {
   if (!hasEn || lang !== "en") return "";
@@ -1543,6 +1572,7 @@ document.addEventListener("keydown", function (e) {
   else if (!edit && k === "End") { e.preventDefault(); go(secs.length - 1); }
   else if (!edit && !e.shiftKey && (k === "s" || k === "S")) { e.preventDefault(); toggleSteps(); }
   else if ((!edit || st.mode === "edit") && !e.shiftKey && (k === "l" || k === "L")) { e.preventDefault(); tool("lang"); }
+  else if ((!edit || st.mode === "edit") && !e.shiftKey && (k === "d" || k === "D")) { e.preventDefault(); tool("dark"); }
 });
 /* sliders and buttons in a slide give the focus back once used, so keys turn pages again */
 ["change", "pointerup"].forEach(function (t) {

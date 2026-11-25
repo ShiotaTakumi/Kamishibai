@@ -43,7 +43,7 @@
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function pageEdit() {
   "use strict";
-  const VERSION = "4.2";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
+  const VERSION = "4.3";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
   const S = window.__pageEdit || (window.__pageEdit = { gen: 0, edit: false });
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)
@@ -332,7 +332,7 @@
       ".sed-fmt { position: fixed; z-index: 99998; display: flex; gap: 2px; padding: 3px; background: #1e1e1e; border: 1px solid #444;",
       "  border-radius: 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }",
       ".sed-fmt button { font: 700 16px/1 system-ui, sans-serif; min-width: 30px; height: 28px; padding: 0 6px; color: #fff; background: none; border: 0; border-radius: 5px; cursor: pointer; }",
-      ".sed-fmt button i { display: inline-block; padding: 3px 6px; border-radius: 4px; background: #fff; font-style: normal; }",
+      ".sed-fmt button i { display: inline-block; padding: 3px 6px; border-radius: 4px; background: var(--paper, #fff); font-style: normal; }",
       ".sed-fmt button:hover { background: #3a3a3a; }",
       ".sed-fmt button.on { background: #e07000; }",
       // Theme headers and footers pass clicks through (pointer-events: none); take them back while editing.
@@ -343,6 +343,14 @@
       "body.sed-on .deck .sed-part + .sed-part { margin-left: .5em; }",
       ".deck .sed-flash { animation: sed-flash 1.6s ease-out; }",
       "@keyframes sed-flash { from { background: #ffd98a; } }",
+      // dark mode of the engine (html.dark)
+      "html.dark .deck .sed-editing { background: #37301c; }",
+      "html.dark .deck :is([light], qr) .sed-editing, html.dark .deck [light].sed-editing { background: #fff8ec; }",
+      "html.dark .deck .sed-src { color: #f0a868 !important; }",
+      "html.dark .deck .sed-flash { animation-name: sed-flash-dark; }",
+      "@keyframes sed-flash-dark { from { background: #6b5418; } }",
+      "html.dark ::highlight(sed-math) { color: #f0a868; }",
+      "html.dark ::highlight(sed-tag) { color: #a8a8a8; }",
       // The message line, just above the engine's tool panel (.tools, bottom left) while a message is up. A page
       // without that panel: the buttons are in this bar too, always there, faint until pointed at.
       ".sed-bar { position: fixed; left: 12px; bottom: 64px; z-index: 99999; display: flex; gap: 6px; align-items: center;",
@@ -1293,7 +1301,7 @@
   // The small bar over the text being edited.
   const FMT = [["alert", "強調（" + (MAC ? "⌘" : "Ctrl+") + "K）", "var(--alert)"], ["navy", "色（" + (MAC ? "⌘⇧" : "Ctrl+Shift+") + "K）", "var(--navy)"],
                ["orange", "橙", "var(--c-orange)"], ["blue", "青", "var(--c-blue)"], ["green", "緑", "var(--c-green)"],
-               ["b", "太字（" + (MAC ? "⌘" : "Ctrl+") + "B）", "#000"]];
+               ["b", "太字（" + (MAC ? "⌘" : "Ctrl+") + "B）", "var(--ink, #000)"]];
   function bubble() {
     let b = document.querySelector(".sed-fmt");
     if (!rich) { if (b) b.remove(); return; }

@@ -25,6 +25,21 @@ body > :is(cover, slide, divider) { display: none }
   /* 日本語の字（太字でないところ）に足す線の太さ（pt）。ふだんは 0（Beamer と同じ太さ）。
      細く見えるときは、左の道具の「A」を押して出る「+」「−」で 0.1pt ずつ変えられる */
   --ja-stroke: 0pt;
+  /* 紙と、部品の地・枠・字の色。ダークモード（下の「ダークモード」）で替わるので、部品にはこの変数を使う */
+  --paper: #fff;
+  --k-plate: #fff; --k-hover: #E9E9F3; --k-on-theme: #fff; --k-stripe: #E9E9F3;   /* ボタンの地、載せたとき、--theme・--blue の地の上の字、表の縞 */
+  --k-box: #f4f7fb; --k-plan: #f6f9fb;                          /* box・boxed の地、証明の方針の地 */
+  --k-dim: #5a5a5a; --k-rem: #5a6070; --k-credit: #555;         /* 後で証明する主張・注釈・出典の字 */
+  --k-note-line: #006000; --k-note: #E5EFE5; --k-label-line: #e97132; --k-label: #fff9e6; --k-pink-line: #FF2F92; --k-pink: #FFF0F7;
+  --k-wrong: #d00; --k-warn: #e80;                              /* 直すモードの印 */
+  /* 明るいときの値。図（SVG）と light の付いた要素の中は、ダークでもこの値で書き、図はそのあと色を反転する */
+  --l-ink: var(--ink); --l-paper: var(--paper); --l-faint: var(--faint); --l-theme: var(--theme); --l-alert: var(--alert); --l-red: var(--red);
+  --l-navy: var(--navy); --l-blue: var(--blue); --l-bt: var(--bt, var(--bb)); --l-bt-ink: var(--bt-ink); --l-bb: var(--bb);
+  --l-head: var(--head, var(--theme)); --l-head-dim: var(--head-dim); --l-c-orange: var(--c-orange); --l-c-blue: var(--c-blue); --l-c-green: var(--c-green);
+  --l-plate: var(--k-plate); --l-hover: var(--k-hover); --l-on-theme: var(--k-on-theme); --l-stripe: var(--k-stripe);
+  --l-box: var(--k-box); --l-plan: var(--k-plan); --l-dim: var(--k-dim); --l-rem: var(--k-rem); --l-credit: var(--k-credit);
+  --l-note-line: var(--k-note-line); --l-note: var(--k-note); --l-label-line: var(--k-label-line); --l-label: var(--k-label);
+  --l-pink-line: var(--k-pink-line); --l-pink: var(--k-pink);
 }
 * { box-sizing: border-box }
 /* スマホのブラウザは、幅の広い文の字を勝手に大きくすることがある。ページは全体を縮めて見せるので、させない */
@@ -36,7 +51,7 @@ body { font-family: var(--font); color: var(--ink); line-break: strict }
 .deck { position: fixed; inset: 0; touch-action: manipulation }
 /* 位置と倍率は fit() が決める。発表モードでは、クリックしても文字を選ばない */
 .stage { position: absolute; left: 0; top: 0; width: var(--W); height: var(--H);
-  background: #fff; overflow: hidden; transform-origin: 0 0; user-select: none; -webkit-user-select: none }
+  background: var(--paper); overflow: hidden; transform-origin: 0 0; user-select: none; -webkit-user-select: none }
 body.edit .stage { user-select: text; -webkit-user-select: text; cursor: text }
 .page { position: absolute; inset: 0; display: none; font-size: var(--pt24); line-height: 1.2 }
 .page.on { display: block }
@@ -70,7 +85,7 @@ num { display: block; padding: 0 .2em; border-bottom: 2px solid var(--ink) }
 den { display: block; padding: 0 .2em }
 
 /* display: table にすると、中の字と数式の間の空白が消える */
-note { display: block; width: fit-content; margin: 8px auto; padding: 2px 14px; border: 3px solid #006000; border-radius: 7px; background: #E5EFE5; line-height: 1.4 }
+note { display: block; width: fit-content; margin: 8px auto; padding: 2px 14px; border: 3px solid var(--k-note-line); border-radius: 7px; background: var(--k-note); line-height: 1.4 }
 down { display: block; margin: 6px 0; text-align: center }
 down::before { content: ""; display: block; width: 40px; height: 26px; margin: 0 auto 6px; background: var(--red);
   clip-path: polygon(30% 0, 70% 0, 70% 42%, 100% 42%, 50% 100%, 0 42%, 30% 42%) }
@@ -91,11 +106,11 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .qa-label navy { display: inline-block; width: 2em }
 /* ラベル（<span class="label">）。枠は行の高さに収め、前後の行の間隔を変えない。
    段落・項目・block の先頭に置くと、続く文は枠の右にそろえて折り返す（.labeled、kamishibai.js が付ける） */
-.label { display: inline-block; padding: 0 .3em; background: #fff9e6; border: 2px solid #e97132; border-radius: 4px;
+.label { display: inline-block; padding: 0 .3em; background: var(--k-label); border: 2px solid var(--k-label-line); border-radius: 4px;
   font-size: .85em; line-height: 1.25; white-space: nowrap }
 .labeled { display: grid; grid-template-columns: auto 1fr; column-gap: .45em; align-items: baseline }
 .labeled > .label { justify-self: start }
-.pink { width: fit-content; margin: 8px auto; padding: 0 12px; border: 3px solid #FF2F92; background: #FFF0F7; line-height: 1.4 }
+.pink { width: fit-content; margin: 8px auto; padding: 0 12px; border: 3px solid var(--k-pink-line); background: var(--k-pink); line-height: 1.4 }
 .frame { position: absolute; border: 5px solid var(--red); border-radius: 21px; pointer-events: none }
 /* 何も表示しない step。行の高さを取らない */
 .mark { display: none }
@@ -106,23 +121,23 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 .bar > span { width: 64px; text-align: right; font-family: KaTeX_SansSerif; font-variant-numeric: tabular-nums }
 /* 再生のボタン：角を丸めた白の四角に、青の細い枠と青の三角 */
 .play { position: relative; width: 52px; height: 32px; padding: 0; border: none; border-radius: 7px;
-  background: #fff; box-shadow: inset 0 0 0 2px var(--blue); cursor: pointer }
+  background: var(--k-plate); box-shadow: inset 0 0 0 2px var(--blue); cursor: pointer }
 .play::before { content: ""; position: absolute; left: 20px; top: 8px;
   border-left: 14px solid var(--blue); border-top: 8px solid transparent; border-bottom: 8px solid transparent }
-.play:hover { background: #E9E9F3 }
+.play:hover { background: var(--k-hover) }
 /* 切り替えのボタン：字は数式にせず、同じ書体のふつうの文字にする（KaTeX の字の箱はボタンより高く、上下の真ん中に来ないため） */
 .sw { display: flex; gap: 8px; margin: 1px 0 }
-.sw button { flex: 1; height: 26px; padding: 0; border: none; border-radius: 6px; background: #fff; box-shadow: inset 0 0 0 2px var(--blue);
+.sw button { flex: 1; height: 26px; padding: 0; border: none; border-radius: 6px; background: var(--k-plate); box-shadow: inset 0 0 0 2px var(--blue);
   color: var(--blue); font: inherit; font-family: KaTeX_SansSerif; line-height: 1; cursor: pointer }
-.sw button.sel { background: var(--blue); color: #fff }
+.sw button.sel { background: var(--blue); color: var(--k-on-theme) }
 .sw button:disabled { cursor: default }
 /* 表。色は --edge（見出しの地）・--ink2（左の列の字）・--zebra（1 行おきの地）で変える */
-.tbl { --edge: var(--blue); --ink2: var(--navy); --zebra: #E9E9F3; border-collapse: collapse; line-height: 1.15 }
+.tbl { --edge: var(--blue); --ink2: var(--navy); --zebra: var(--k-stripe); border-collapse: collapse; line-height: 1.15 }
 .tbl th, .tbl td { padding: 1px 12px }
-.tbl th { padding-top: 2px; padding-bottom: 2px; font-weight: 400; color: #fff; background: var(--edge) }
+.tbl th { padding-top: 2px; padding-bottom: 2px; font-weight: 400; color: var(--k-on-theme); background: var(--edge) }
 .tbl td { text-align: right; font-family: KaTeX_SansSerif; font-variant-numeric: tabular-nums }
 .tbl td:first-child { text-align: center; color: var(--ink2) }
-.tbl :is(th, td):first-child { border-right: 3px solid #fff }
+.tbl :is(th, td):first-child { border-right: 3px solid var(--paper) }
 .tbl tbody tr:nth-child(even) { background: var(--zebra) }
 .tbl tbody tr:last-child td { border-bottom: 1.5px solid var(--edge) }
 /* 赤の ×：.on が付いたら一度に出す。1 画ずつ引く動きは付けない（破線で隠すと、Safari が線の終わりに赤い点を描く） */
@@ -142,7 +157,7 @@ body > .side { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; overfl
   background: #333; padding: 12px 12px 64px 36px }
 body.side-on > .side { display: block }
 .thumb { position: relative; margin: 0 0 12px; cursor: pointer }
-.thumb .tbox { position: relative; width: 192px; height: calc(192px * var(--ratio, .75)); overflow: hidden; background: #fff; outline: 1px solid #555 }
+.thumb .tbox { position: relative; width: 192px; height: calc(192px * var(--ratio, .75)); overflow: hidden; background: var(--k-sheet, #fff); outline: 1px solid #555 }
 .thumb .tbox > .page { display: block; width: var(--W); height: var(--H); transform: scale(var(--tscale, .2)); transform-origin: 0 0; pointer-events: none }
 .thumb.cur .tbox { outline: 3px solid #4da3ff }
 .thumb .tno { position: absolute; right: 200px; top: 0; font: 13px/1 Arial, sans-serif; color: #ccc }
@@ -223,11 +238,11 @@ body.op .badge { display: block }
 .tools .no { display: none }
 .tap-nav { display: none }
 .touch .tap-nav { display: block; position: fixed; z-index: 40; width: 64px; height: 44px; padding: 0; border: none; border-radius: 8px;
-  background: #fff; box-shadow: inset 0 0 0 2px var(--blue); -webkit-tap-highlight-color: transparent; touch-action: manipulation }
+  background: var(--k-plate); box-shadow: inset 0 0 0 2px var(--blue); -webkit-tap-highlight-color: transparent; touch-action: manipulation }
 .tap-nav::before { content: ""; position: absolute; top: 12px; border-top: 10px solid transparent; border-bottom: 10px solid transparent }
 .tap-prev::before { left: 23px; border-right: 17px solid var(--blue) }
 .tap-next::before { left: 25px; border-left: 17px solid var(--blue) }
-.tap-nav:active { background: #e8f2fd }
+.tap-nav:active { background: var(--k-press, #e8f2fd) }
 .tap-prev { left: calc(50% - 76px); bottom: 20px }
 .tap-next { left: calc(50% + 12px); bottom: 20px }
 .touch body.side-on .tap-nav { display: none }
@@ -290,15 +305,15 @@ body.mode-out .print [step] { transition: none }
 .pf { display: block; margin: 10px -12px 0; border-left: 5px solid var(--theme); padding: 2px 12px 4px 14px }
 .pf .pt, .ph .pt { font-weight: 700; color: var(--bt-ink); line-height: 1.4 }
 .pf p, .ph p { margin: 0 }
-.pf.pl { border-left-color: var(--head-dim); background: #f6f9fb }
+.pf.pl { border-left-color: var(--head-dim); background: var(--k-plan) }
 .ph { display: block; margin: 12px -12px 0; border: 2px dashed var(--faint); border-radius: 11px; padding: 4px 12px 8px }
 .ph .pt { color: var(--faint) }
-.ph > :not(.pt) { color: #5a5a5a }
+.ph > :not(.pt) { color: var(--k-dim) }
 /* 番号つきの手順（<nums> と ol.nums）。<nums labels> と <item label="(i)"> では、丸数字の代わりに文字のラベル（.lb） */
 .nums { display: flex; flex-direction: column; gap: 10px; list-style: none; margin: 0 0 8px; padding: 0; counter-reset: n }
 .nums > :is(li, item) { display: block; position: relative; padding-left: 61.5px; margin: 0; line-height: 1.5; counter-increment: n }
 .nums > :is(li, item)::before { content: counter(n); position: absolute; left: 21px; top: .2em; width: 31px; height: 31px;
-  border-radius: 50%; background: var(--theme); color: #fff; font-size: 17px; font-weight: 700;
+  border-radius: 50%; background: var(--theme); color: var(--k-on-theme); font-size: 17px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; clip-path: none }
 .nums.lab > :is(li, item) { padding-left: 92px }
 .nums.lab > :is(li, item)::before { content: none }
@@ -307,7 +322,7 @@ body.mode-out .print [step] { transition: none }
    <flow wrap> は箱を中身の幅にし、入らなければ折り返す */
 flow { display: flex; align-items: stretch; justify-content: center; margin: 12px 0 14px; font-size: .72em; line-height: 1.4 }
 box { display: block; flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 8px 10px; border: 2px solid var(--theme); border-radius: 8px;
-  background: #f4f7fb; text-align: center }
+  background: var(--k-box); text-align: center }
 box > .pt { font-weight: 700; color: var(--bt-ink); font-size: 1.06em; margin-bottom: 2px }
 to { flex: none; display: block; align-self: center; text-align: center; min-width: 36px; box-sizing: border-box;
   padding: 0 6px; color: var(--bt-ink); font-size: .9em; line-height: 1.25; white-space: nowrap }
@@ -316,7 +331,7 @@ flow[wrap] { flex-wrap: wrap; align-items: center; row-gap: 8px }
 flow[wrap] > box { flex: 0 1 auto }
 /* 枠の囲み：<boxed>。強調する数式や条件を囲む。title を付けると見出しが出る */
 boxed { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; margin: 10px auto; padding: 6px 16px; border: 2px solid var(--theme);
-  border-radius: 8px; background: #f4f7fb; line-height: 1.45 }
+  border-radius: 8px; background: var(--k-box); line-height: 1.45 }
 boxed > .pt { font-weight: 700; color: var(--bt-ink); font-size: .86em }
 boxed p { margin: 0 }
 /* アルゴリズム：<algo title="名前"> の中に、入出力 <io> と行 <ln>（番号は自動、in="1"〜"4" で字下げ）。注釈は <rem> */
@@ -329,9 +344,9 @@ ln[in="1"] { --in: 1 }
 ln[in="2"] { --in: 2 }
 ln[in="3"] { --in: 3 }
 ln[in="4"] { --in: 4 }
-rem { color: #5a6070 }
+rem { color: var(--k-rem) }
 /* 出典の行：<credit>。ページの下端に小さく出す（下の帯・ページ番号に重ねない） */
-credit { display: block; position: absolute; left: 31px; right: 110px; bottom: 8px; font-size: 18px; line-height: 1.3; color: #555 }
+credit { display: block; position: absolute; left: 31px; right: 110px; bottom: 8px; font-size: 18px; line-height: 1.3; color: var(--k-credit) }
 /* 2 段組（class="two"）と、図と文を左右に並べる <side>（class="side"）。
    図は文の下に置くのが既定。<side> は段階を追う説明の例外で、文が左、図が右（書いた順によらず図を右に置く） */
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start }
@@ -366,19 +381,19 @@ table.tb.nr { border: 0 }
   width: 118px; display: flex; flex-direction: column; align-items: stretch; gap: 7px }
 .ctrl.below { position: static; transform: none; margin: 9px 0 0; width: auto;
   flex-direction: row; align-items: center; justify-content: center; gap: 10px }
-.ctrl button { font: inherit; font-size: 15px; font-weight: 700; line-height: 1.4; color: #fff; white-space: nowrap;
+.ctrl button { font: inherit; font-size: 15px; font-weight: 700; line-height: 1.4; color: var(--k-on-theme); white-space: nowrap;
   background: var(--theme); border: 0; border-radius: 7px; padding: 5px 14px; cursor: pointer }
 .ctrl button:hover { filter: brightness(.9) }
-.ctrl button.sub2 { background: #fff; color: var(--theme); box-shadow: inset 0 0 0 1.5px var(--theme) }
+.ctrl button.sub2 { background: var(--k-plate); color: var(--theme); box-shadow: inset 0 0 0 1.5px var(--theme) }
 .ctrl button.sub2:hover { background: var(--bb); filter: none }
 .ctrl .ja { -webkit-text-stroke: 0 }
 
 /* A box whose title names no kind of statement (kamishibai.js, while drafting only; the packed file has none) */
-.bad-box { outline: 4px dashed #d00; outline-offset: 2px }
-.bad-box::before { content: "block には主張を一つだけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }
+.bad-box { outline: 4px dashed var(--k-wrong); outline-offset: 2px }
+.bad-box::before { content: "block には主張を一つだけ（題を「定義」「定理」などで始める）"; display: block; color: var(--k-wrong); font-size: 18px; font-weight: bold }
 
 /* \ref・\num の名前の主張が無いとき（<html numbering> の原稿） */
-.ref-bad { color: #d00; font-weight: bold; fill: #d00 }
+.ref-bad { color: var(--k-wrong); font-weight: bold; fill: var(--k-wrong) }
 
 /* ---- 日本語と英語（kamishibai.js が対を見つけたときだけ html に .bi が付く）----
    <p><ja>…</ja><en>…</en></p> または <X lang="ja">…</X><X lang="en">…</X>。対の相手が無いものは両方の言語で出す（.solo） */
@@ -396,6 +411,46 @@ html[lang|=en] .page { --fit: var(--fit-en, 1) }
 .page > :is(slide, cover, divider) > * { zoom: var(--fit) }
 /* 直すモードの印：古い訳（赤）、訳の無い文・相手の無い対（橙）、縮めても収まらない頁（赤枠） */
 body.mode-edit :is(ja, en):is(.en-stale, .solo) { display: inline }  /* display: contents のままでは枠が描かれない（隠す規則のほうが強い） */
-body.mode-edit .en-stale { outline: 2px dashed #d00; outline-offset: 2px }
-html[lang|=en] body.mode-edit :is(.untr, .L-ja.solo), body.mode-edit .L-en.solo { outline: 2px dashed #e80; outline-offset: 2px }
-html:not([lang|=en]) body.mode-edit .page.over-ja, html[lang|=en] body.mode-edit .page.over-en { outline: 4px solid #d00; outline-offset: -4px }
+body.mode-edit .en-stale { outline: 2px dashed var(--k-wrong); outline-offset: 2px }
+html[lang|=en] body.mode-edit :is(.untr, .L-ja.solo), body.mode-edit .L-en.solo { outline: 2px dashed var(--k-warn); outline-offset: 2px }
+html:not([lang|=en]) body.mode-edit .page.over-ja, html[lang|=en] body.mode-edit .page.over-en { outline: 4px solid var(--k-wrong); outline-offset: -4px }
+
+/* ===== ダークモード（道具の月のアイコンか D。kamishibai.js が html に .dark を付ける）=====
+   画面だけのもの：印刷・PDF・出力モードはいつも明るい。明るい値は :root にそのまま残し、暗い値を body に置く（原稿で替えるときも body に書く）。
+   テーマごとの色は themes/ にある。紙は黒にせず #1e1e1e にし、字も真っ白にしない（まぶしさと字のにじみを抑える）。
+   図（SVG）は描いた色のまま反転する：明暗を入れ替え、色相は元に戻す（白は紙の色に、#0096c8 は #28a7d1 になる）。
+   文の色（--theme・--c-orange など）の暗い値は、同じ反転で得た色なので、図と文の色がそろう */
+@media screen {
+  html.dark { --bg: #0e0f11; color-scheme: dark }
+  html.dark, html.dark body { background: var(--bg) }
+  html.dark .stage { box-shadow: 0 0 0 1px #2c2d2f }
+  html.dark body {
+    --paper: #1e1e1e; --k-sheet: #1e1e1e; --ink: #ececec; --faint: #989898; --red: #ff9090;
+    --c-orange: #d4884a; --c-blue: #7db3f1; --c-green: #61a458;
+    --k-plate: #26292b; --k-hover: #33373a; --k-press: #33373a; --k-on-theme: #0e1a20; --k-stripe: #2b2c31;
+    --k-box: #22282c; --k-plan: #20282c; --k-dim: #b4b4b4; --k-rem: #a2a8b4; --k-credit: #a5a5a5;
+    --k-note-line: #6bb56b; --k-note: #1f2f22; --k-label-line: #d98350; --k-label: #37301c; --k-pink-line: #e0609a; --k-pink: #3a2230;
+    --k-wrong: #ff6b66; --k-warn: #ffa24d;
+  }
+  html.dark .deck, html.dark .thumb .tbox { color: var(--ink) }
+  /* 図の中と light の中：明るい値に戻す */
+  html.dark .page :is(svg:not(.katex *, svg svg), [light]) {
+    --ink: var(--l-ink); --paper: var(--l-paper); --faint: var(--l-faint); --theme: var(--l-theme); --alert: var(--l-alert); --red: var(--l-red);
+    --navy: var(--l-navy); --blue: var(--l-blue); --bt: var(--l-bt); --bt-ink: var(--l-bt-ink); --bb: var(--l-bb);
+    --head: var(--l-head); --head-dim: var(--l-head-dim); --c-orange: var(--l-c-orange); --c-blue: var(--l-c-blue); --c-green: var(--l-c-green);
+    --k-plate: var(--l-plate); --k-hover: var(--l-hover); --k-on-theme: var(--l-on-theme); --k-stripe: var(--l-stripe);
+    --k-box: var(--l-box); --k-plan: var(--l-plan); --k-dim: var(--l-dim); --k-rem: var(--l-rem); --k-credit: var(--l-credit);
+    --k-note-line: var(--l-note-line); --k-note: var(--l-note); --k-label-line: var(--l-label-line); --k-label: var(--l-label);
+    --k-pink-line: var(--l-pink-line); --k-pink: var(--l-pink); color: var(--l-ink); color-scheme: light }
+  html.dark .page svg:not([light], [light] *, .katex *, svg svg),
+  html.dark .page img:is([src$=".svg" i], [src*=".svg?" i], [src*=".svg#" i], [src^="data:image/svg+xml"]):not([light], [light] *, qr *) {
+    filter: invert(.89) hue-rotate(180deg) brightness(1.08) }
+  /* 写真・PNG・canvas は描いた色のまま。透明なところは白の台紙で埋める。QR は、読み取れるように、添える文とまとめて白い札に載せる */
+  html.dark .page :is(img:not([src$=".svg" i], [src*=".svg?" i], [src*=".svg#" i], [src^="data:image/svg+xml"]), canvas, [light]) { background-color: #fff }
+  html.dark .page qr { background: #fff; box-shadow: 0 0 0 10px #fff; isolation: isolate; color: var(--l-ink) }
+  html.dark .page qr .qcap::before { content: ""; position: absolute; inset: 0 -10px -4px; z-index: -1; background: #fff }
+  html.dark .page [light] { border-radius: 4px; box-shadow: 0 0 0 6px #fff }
+  /* 図のボタン：暗い地では、載せたときに明るくする */
+  html.dark .ctrl button:hover { filter: brightness(1.1) }
+  html.dark .ctrl button.sub2:hover { filter: none }
+}
