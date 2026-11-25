@@ -47,6 +47,18 @@ test("\\$ in the text is the character $, not the start of a formula", async dra
   eq(got[0], "$5 と $6 の間に # と # がある"); eq(got[1], 2); eq(got[2], "\\$7");
 });
 
+test("a box titled with the English name of a kind is a statement; a page drawn smaller is listed", async draft => {
+  const d = await draft({ text: head().replace('lang="ja"', 'lang="en"') + `<cover><headline>Title</headline></cover>
+<slide title="One"><block title="Main Theorem 1 (Euler)">text</block><block title="lemma">text</block><block title="Theorems of note">text</block></slide>
+<slide title="Two">${Array.from({ length: 9 }, (_, k) => "<p>line " + (k + 1) + "</p>").join("")}</slide>
+` + TAIL, edit: false });
+  await settle(d, 2);
+  const got = await all(d);
+  eq(got.filter(p => p[2] === "block").map(p => p[3].replace(/^.*「|」$/g, "")).join(), "Theorems of note", JSON.stringify(got));
+  const fit = got.filter(p => p[2] === "fit");
+  eq(fit.length, 1, JSON.stringify(got)); eq(fit[0][0], 3); ok(/に縮めて収めています/.test(fit[0][3]), fit[0][3]);
+});
+
 test("each kind of mistake is found once, with its page", async draft => {
   const d = await draft({ text: BAD, edit: false });
   await settle(d, 6);

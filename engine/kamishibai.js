@@ -135,8 +135,8 @@ var Kamishibai = {};
    Fonts are inside CSS files, because a page opened from file:// cannot fetch font files. */
 /* Packed file (tools/pack_engine.py): this script is inline with data-packed="THEME"; the CSS, fonts,
    math and figure helpers are already in the file, so nothing is loaded and the theme is fixed */
-/* Kinds of statement a box (<block>, <alertblock>, <exampleblock>) may hold: its title starts with one of them.
-   tools/check_blocks.py reads this list */
+/* Kinds of statement a box (<block>, <alertblock>, <exampleblock>) may hold: its title starts with one of them,
+   or with its English name (KIND_EN) in a draft written in English. tools/check_blocks.py reads both lists */
 const BLOCK_KINDS = ["定義", "定理", "主定理", "補題", "系", "命題", "主張", "予想", "未解決問題", "問題", "主結果", "仮定", "公理"];
 const BLOCK_HEAD = new RegExp("^(" + BLOCK_KINDS.slice().sort((a, b) => b.length - a.length).join("|") + ")(\\s|\\d|（|$)");
 /* The same kinds in English (numbering and references; tools/numbering.py reads this list) */
@@ -642,7 +642,7 @@ pages.forEach(function (pg, i) {
     const bt = $new("div", "bt"), bb = $new("div", "bb"), tp = pair(b, "title"), title = tp.ja;
     /* A box holds one statement (BLOCK_KINDS). While drafting, a box whose title names no kind is marked;
        tools/check_blocks.py checks the rest, and tools/pack_engine.py packs no draft that fails it */
-    if (!packed && !BLOCK_HEAD.test(title.trim())) {
+    if (!packed && !BLOCK_HEAD.test(title.trim()) && !HEAD_EN.test(title)) {
       b.classList.add("bad-box");
       console.warn("Kamishibai: page " + (i + 1) + ": a box titled \"" + title + "\" is not a statement (" + BLOCK_KINDS.join(", ") + ")");
       problem("block", i, "囲みの題が主張の種類（定義・定理など）で始まっていません「" + title + "」", b);
@@ -1086,6 +1086,8 @@ function shrinkPages() {
       });
       if (over) console.warn("Kamishibai: page " + (i + 1) + " (" + L + ") overflows even at " + FIT_MIN);
       if (over && !packed) problem("fit", i, "文字を " + Math.round(FIT_MIN * 100) + "% まで縮めても、ページに収まりません", null, hasEn ? L : null);
+      /* a page drawn smaller is listed too: the shrink keeps a talk from running off the page, it is not a way to write */
+      if (!over && z < 1 && !packed) problem("fit", i, "文字を " + Math.round(z * 100) + "% に縮めて収めています（文か図を直すと元の大きさに戻ります）", null, hasEn ? L : null);
       return { zoom: z, over: over };
     });
   });

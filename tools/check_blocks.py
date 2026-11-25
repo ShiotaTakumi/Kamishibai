@@ -47,19 +47,24 @@ def kinds_of(engine_js):
     m = re.search(r"BLOCK_KINDS\s*=\s*\[([^\]]*)\]", engine_js)
     if not m:
         sys.exit("engine/kamishibai.js has no BLOCK_KINDS")
-    return re.findall(r'"([^"]+)"', m.group(1))
+    en = re.search(r"KIND_EN\s*=\s*\{([^}]*)\}", engine_js)  # the same kinds in English: "定理": "Theorem"
+    return re.findall(r'"([^"]+)"', m.group(1)), re.findall(r':\s*"([^"]+)"', en.group(1)) if en else []
 
 
 def problems(src, kinds):
     """[(page, box tag, title, rule)] for the draft text src; pages are numbered as on screen."""
     text = re.sub(r"<!--.*?-->", "", src, flags=re.S)
+    kinds, kinds_en = kinds if isinstance(kinds, tuple) else (kinds, [])
     head = re.compile(r"(%s)(\s|\d|（|$)" % "|".join(map(re.escape, sorted(kinds, key=len, reverse=True))))
+    # as HEAD_EN of the engine: Theorem, Theorem 3, Main Theorem (Euler)
+    head_en = re.compile(r"(%s)(\s+[0-9]|[\s(\[]|$)" % "|".join(
+        re.escape(k).replace(r"\ ", r"\s+") for k in sorted(kinds_en, key=len, reverse=True)), re.I) if kinds_en else None
     out = []
     for n, pg in enumerate(PAGE.finditer(text), 1):
         for b in BOX.finditer(pg.group(2)):
             t = re.search(r"""(?:^|\s)title\s*=\s*(["'])(.*?)\1""", b.group(2), re.S | re.I)
             title = html.unescape(t.group(2)).strip() if t else ""
-            if not head.match(title):
+            if not head.match(title) and not (head_en and head_en.match(title)):
                 out.append((n, b.group(1), title, "title"))
             if re.search(r"\sstep\b", QUOTED.sub('""', b.group(2))):
                 out.append((n, b.group(1), title, "step"))
