@@ -114,7 +114,7 @@ test("a file that is not UTF-8 is not written", async draft => {
   const d = await draft({ bytes });
   await d.enter(); await d.go(2);
   await d.start("一つ目の項目"); await d.type("x"); await d.key("Enter");
-  await d.page.waitForFunction(() => /UTF-8/.test(document.querySelector(".sed-msg").textContent));
+  await d.page.waitForFunction(() => /UTF-8/.test(document.querySelector(".sed-note-text")?.textContent));   // stays until it is closed
   ok(d.bytes().equals(bytes));
 });
 
@@ -154,7 +154,7 @@ test("a change elsewhere in the file is kept", async draft => {
 test("a change not yet read by the page is kept", async draft => {
   const d = await opened(draft, PLAIN, 2);
   await d.edit("一つ目の項目", "直した項目");
-  await d.page.evaluate(() => clearInterval(__slideEdit.poll));
+  await d.page.evaluate(() => clearInterval(__pageEdit.poll));
   d.outside(d.text().replace("最後の文", "外の文"));
   await d.undo();
   same(d, PLAIN.replace("最後の文", "外の文"));
@@ -167,7 +167,7 @@ for (const [name, change] of [["the same text", t => t.replace("直した項目"
     const d = await opened(draft, PLAIN, 2);
     await d.edit("一つ目の項目", "直した項目");
     const t = change(d.text());
-    await d.page.evaluate(() => clearInterval(__slideEdit.poll));
+    await d.page.evaluate(() => clearInterval(__pageEdit.poll));
     d.outside(t);
     await d.rebuilt(() => d.key("Mod+z"));
     same(d, t);
@@ -184,7 +184,7 @@ test("changed outside so that the place is not unique: nothing is written", asyn
   await d.edit("最後の文", "別の文");
   const s = d.text(), slide = s.slice(s.lastIndexOf("<slide"), s.indexOf("</body>"));
   const t = s.replace("</body>", slide + slide + "</body>");
-  await d.page.evaluate(() => clearInterval(__slideEdit.poll));
+  await d.page.evaluate(() => clearInterval(__pageEdit.poll));
   d.outside(t);
   await d.rebuilt(() => d.key("Mod+z"));
   same(d, t);
@@ -204,7 +204,7 @@ test("a change between reading and writing is not overwritten", async draft => {
   const d = await opened(draft, PLAIN, 2);
   await d.edit("一つ目の項目", "直した項目");
   const t = d.text().replace("最後の文", "間に入った文");
-  await d.page.evaluate(() => clearInterval(__slideEdit.poll));
+  await d.page.evaluate(() => clearInterval(__pageEdit.poll));
   d.hook = () => { d.hook = null; d.outside(t); };
   await d.rebuilt(() => d.key("Mod+z"));
   same(d, t);
@@ -229,12 +229,12 @@ test("the steps survive a reload of the tab", async draft => {
 test("at most 100 steps are kept", async draft => {
   const d = await opened(draft, PLAIN, 2);
   await d.edit("一つ目の項目", "直した項目");
-  await d.page.evaluate(() => { const u = __slideEdit.hist.undo; while (u.length < 130) u.unshift(u[0]); });
+  await d.page.evaluate(() => { const u = __pageEdit.hist.undo; while (u.length < 130) u.unshift(u[0]); });
   await d.edit("二つ目", "2番目");
-  eq(await d.page.evaluate(() => __slideEdit.hist.undo.length), 100);
-  await d.page.evaluate(() => { const u = __slideEdit.hist.undo; u.forEach(g => { g.pad = "x".repeat(50000); }); });
+  eq(await d.page.evaluate(() => __pageEdit.hist.undo.length), 100);
+  await d.page.evaluate(() => { const u = __pageEdit.hist.undo; u.forEach(g => { g.pad = "x".repeat(50000); }); });
   await d.edit("2番目", "二番目");
-  ok(await d.page.evaluate(() => JSON.stringify(__slideEdit.hist).length) <= 1000000, "size");
+  ok(await d.page.evaluate(() => JSON.stringify(__pageEdit.hist).length) <= 1000000, "size");
   await d.undo(); await d.undo();
   same(d, PLAIN.replace("一つ目の項目", "直した項目"));
 });
