@@ -123,7 +123,7 @@
     数式はまとめるときに組んである。直すのは原稿のほう
 
   ■ このフォルダ（engine/）
-    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0、MIT License。CC0 の外）・
+    kamishibai.js（このファイル）・figure.js・base.css・themes/・katex/（KaTeX 0.19.0。コードは MIT License、書体は SIL Open Font License 1.1。CC0 の外）・
     fonts/（Madrid の書体は同梱。Boadilla の kamishibai-fonts.css は make engine-fonts で作り、git で追跡しない）
 */
 var Kamishibai = {};
@@ -715,7 +715,8 @@ stage.querySelectorAll("[line]").forEach(function (e) {
    Elements already holding rendered math (.katex, e.g. pre-rendered by a build) are skipped ===== */
 const DOLLAR = "\uE000", MATH_SKIP = ".katex, script, noscript, style, textarea, pre, code, option, svg";
 /* \$ in the text (outside a formula) is the character $: KaTeX's auto-render has no escape there, so it is kept as
-   a private-use character while the math is set, and dollars() puts the $ back */
+   a private-use character while the math is set, and dollars() puts the $ back. How the end of a formula is found
+   follows KaTeX's auto-render (findEndOfMath, MIT License: the licence text is at the top of katex/katex.js) */
 function escapedDollars(root) {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
   while (w.nextNode()) if (w.currentNode.nodeValue.indexOf("\\$") >= 0) hits.push(w.currentNode);
@@ -1221,7 +1222,7 @@ function output() {
 /* Icons: 24 × 24 line drawings (stroke only) */
 const ICON = {
   up: "M6 15l6-6 6 6", down: "M6 9l6 6 6-6",
-  edit: "M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4",
+  edit: "M4 21h16M7 17l.8-3.8 8.7-8.7 3 3-8.7 8.7zM14.1 6.9l3 3",
   show: "M3 4h18v12H3zM12 16v4M8 20h8M10 7.5l4.5 2.5-4.5 2.5z",
   out: "M7 9V3h10v6M7 17H4V9h16v8h-3M7 14h10v7H7z",
   full: "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5",

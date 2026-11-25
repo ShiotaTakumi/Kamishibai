@@ -63,6 +63,30 @@ FONT_HEADER = """/* Fonts of the Kamishibai engine, subset to the characters of 
 THEME_FONT_CSS = {"Madrid": ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"]}
 
 # ===== Math: the engine's auto-render call (kamishibai.js), ported =====
+# find_end() and split_math() are ported to Python from KaTeX 0.19.0, contrib/auto-render/splitAtDelimiters.ts
+# (which adapts Khan/perseus, src/perseus-markdown.jsx). They are under KaTeX's licence, not CC0:
+#
+# The MIT License (MIT)
+#
+# Copyright (c) 2013-2020 Khan Academy and other contributors
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 DELIMS = [("$$", "$$", True), ("\\[", "\\]", True), ("\\(", "\\)", False), ("$", "$", False)]
 LEFT = re.compile(r"(\\\$|" + "|".join(re.escape(d[0]) for d in DELIMS) + ")")  # \$ in the text is the character $
 IGNORED_TAGS = {"script", "noscript", "style", "textarea", "pre", "code", "option", "svg"}
@@ -72,7 +96,7 @@ VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "met
 
 
 def find_end(delim, text, start):
-    """KaTeX auto-render's findEndOfMath: the end delimiter outside braces, skipping \\x."""
+    """KaTeX auto-render's findEndOfMath (MIT License, above): the end delimiter outside braces, skipping \\x."""
     r, depth = start, 0
     while r < len(text):
         if depth <= 0 and text.startswith(delim, r):
@@ -89,7 +113,8 @@ def find_end(delim, text, start):
 
 
 def split_math(text):
-    """KaTeX auto-render's splitAtDelimiters with the engine's delimiters: [(TeX, display), ...]."""
+    """KaTeX auto-render's splitAtDelimiters (MIT License, above) with the engine's delimiters:
+    [(TeX, display), ...]."""
     out = []
     while True:
         m = LEFT.search(text)
@@ -255,7 +280,7 @@ def math_script(items, rendered):
             "  if (h === undefined) { el.className = \"katex-missing\"; el.textContent = tex; console.warn(\"kamishibai: math not packed: \" + tex); return; }\n"
             "  el.innerHTML = h;\n} };\n})();\n")
     ar = (KATEX_DIST / "contrib" / "auto-render.min.js").read_text(encoding="utf-8").strip()
-    return stub + "/* KaTeX auto-render (MIT License, Khan Academy and other contributors) */\n" + ar + "\n"
+    return stub + "/* KaTeX auto-render (MIT License, Copyright (c) 2013-2020 Khan Academy and other contributors; the license text is in the stylesheet of KaTeX in this file) */\n" + ar + "\n"
 
 
 def katex_css(engine, rendered, other_css):

@@ -7,9 +7,15 @@ under the CC0 1.0 Universal Public Domain Dedication reproduced below.
 
 This dedication does not cover the third-party components bundled with or
 fetched by Kamishibai, which keep their own licenses (see README.md at the top of the Kamishibai repository):
-  - KaTeX 0.19.0 (engine/katex/, and the Computer Modern Sans font in
-    engine/fonts/cm-sans.css): MIT License; the stretchy-symbol part is under
-    the SIL Open Font License 1.1. The license texts are in those files.
+  - KaTeX 0.19.0 (engine/katex/): the code is under the MIT License; its fonts
+    and its stretchy symbols are under the SIL Open Font License 1.1. The
+    license texts are in those files.
+  - Computer Modern Sans (engine/fonts/cm-sans.css, the KaTeX_SansSerif fonts
+    of KaTeX): SIL Open Font License 1.1; the license text is in that file.
+  - The parts ported from KaTeX's auto-render (find_end and split_math in
+    tools/pack_engine.py, and how the end of a formula is found in
+    engine/kamishibai.js): MIT License; the license text is in
+    tools/pack_engine.py and in engine/katex/katex.js.
   - IPA P-Gothic (engine/fonts/ipa-pgothic.css): IPA Font License Agreement
     v1.0; the license text is in that file.
   - Harano Aji Gothic: SIL Open Font License 1.1; Latin Modern: GUST Font

@@ -328,4 +328,4 @@ page-edit が無くても、誤りがあれば ⌘E で一覧を見られます�
 - `base.css`・`themes/`：見た目
 - `katex/`：KaTeX 0.19.0（版を上げる手順は ../README.md の「ファイル」）
 - `fonts/`：書体の CSS。Madrid の `cm-sans.css`・`ipa-pgothic.css` は同梱、Boadilla の `kamishibai-fonts.css` は `make engine-fonts` で作る
-- 許諾は [LICENSE](LICENSE)（エンジンは CC0 1.0。KaTeX と書体はそれぞれのライセンスのまま）
+- 許諾は [LICENSE](LICENSE)（エンジンは CC0 1.0。KaTeX（移植した部分を含む）と書体はそれぞれのライセンスのまま）
