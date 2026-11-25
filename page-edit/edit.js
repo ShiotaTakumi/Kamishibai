@@ -35,7 +35,7 @@
    other as it is. In English, Japanese text that has no English is shown grey and is not edited.
    click        edit that text (in edit mode)
     Enter        save            Shift+Enter  line break      Esc  cancel
-    Cmd+K        emphasis        Cmd+Shift+K  blue            Cmd+B  bold    (on the selection)
+    Cmd+K        emphasis        Cmd+Shift+K  navy            Cmd+B  bold    (on the selection)
     Cmd+Z        undo the last save; while a text is being edited, undo the last change made in that text
     Shift+Cmd+Z  redo (elsewhere Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y); both are also buttons in the panel
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
@@ -197,7 +197,8 @@
   // The source of the draft. A BOM stays in the text (file.text() drops it), so that a save writes it back.
   // strict: a file that is not UTF-8 is refused, because writing it back would change its other bytes.
   async function readText(file, strict) {
-    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(await file.arrayBuffer()); }
+    const bytes = await file.arrayBuffer();   // a file that cannot be read fails with its own message
+    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(bytes); }
     catch (e) { throw new Error("原稿の文字コードが UTF-8 ではないので、書き込めません"); }
   }
   const DIRS = "list";
@@ -379,7 +380,8 @@
 
   /* ===== Rebuild the page from source text, with this script inserted before webslide.js ===== */
   function rebuild(text, mtime) {
-    const m = WEBSLIDE_RE.exec(text);
+    // a tag inside a comment is not the engine: look in a copy with the comments blanked (same offsets)
+    const m = WEBSLIDE_RE.exec(text.replace(/<!--[\s\S]*?-->/g, c => " ".repeat(c.length)));
     if (!m) { msg("この原稿には webslide.js（または kamishibai.js）の読み込みがありません", 8000); return; }
     S.text = text;
     if (mtime !== undefined) S.mtime = mtime;
@@ -1396,7 +1398,8 @@
   }
 
   function start(el, x, y) {
-    if (editing) finish(true);
+    // a save rebuilds the page: a text opened meanwhile would lose what is typed into it
+    if (editing) { finish(true); if (S.saving) return; }
     const it = info(el), src = it.src;
     const lead = src.match(/^\s*/)[0], trail = src.slice(lead.length).match(/\s*$/)[0];
     const raw = src.slice(lead.length, src.length - trail.length);
@@ -1501,7 +1504,7 @@
         return;
       }
       restore(el);
-      msg("保存できませんでした：" + e.message, 8000);
+      msg("保存できませんでした：" + e.message + "　入力した文：" + text, 30000);   // what was typed can be copied back
     });
   }
 
@@ -1509,8 +1512,11 @@
     S.saving = true;
     const h = await getHandle();
     const file = await h.getFile(), cur = await readText(file, true);
-    const t = parse(cur), s = (it.kind === "attr" ? t.attrs : t.spans)[it.i];
-    if (!s || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
+    const list = it.kind === "attr" ? "attrs" : "spans", t = parse(cur), s = t[list][it.i];
+    // The place is found by its position in the list. After a change elsewhere the same position may be another
+    // text with the same source: the texts before it must be the same as when the page was built.
+    const moved = cur !== S.text && D[list].slice(0, it.i).some((o, j) => !t[list][j] || S.text.slice(o.start, o.end) !== cur.slice(t[list][j].start, t[list][j].end));
+    if (!s || moved || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
       err.conflict = { text: cur, mtime: file.lastModified };
       throw err;
@@ -1789,6 +1795,7 @@
         const f = await S.handle.getFile();
         if (f.lastModified === S.mtime) return;
         const text = await readText(f);
+        if (!live()) return;   // rebuilt while reading
         S.mtime = f.lastModified;
         if (text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(text); }
       } catch (e) { /* file moved or permission lost */ }

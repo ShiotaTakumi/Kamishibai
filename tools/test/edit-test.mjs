@@ -122,4 +122,38 @@ test("one language: the other is left, the reference is set in the language show
   eq(d.text(), BOTH.replace("Next by", "NextQ by"));
 });
 
+test("a text that moved while it was open is not saved into another text with the same source", async draft => {
+  const text = doc("", `<slide title="s"><p>Z</p><p>X</p><p>X</p></slide>`);
+  const d = await draft({ text });
+  await d.enter();
+  await d.start("X");
+  await d.page.keyboard.press("End");
+  await d.page.keyboard.type("NEW");
+  const gone = text.replace("<p>Z</p>", "");
+  d.outside(gone);
+  await d.rebuilt(() => d.page.keyboard.press("Enter"));
+  eq(d.text(), gone, "the file");
+  ok((await d.msg()).includes("XNEW"), await d.msg());
+});
+
+test("a change after the text that is open does not stop its save", async draft => {
+  const text = doc("", `<slide title="s"><p>first</p><p>last</p></slide>`);
+  const d = await draft({ text });
+  await d.enter();
+  await d.start("first");
+  await d.page.keyboard.press("End");
+  await d.page.keyboard.type("Q");
+  d.outside(text.replace("last", "LAST"));
+  await d.rebuilt(() => d.page.keyboard.press("Enter"));
+  eq(d.text(), text.replace("last", "LAST").replace("first", "firstQ"));
+});
+
+test("an engine tag inside a comment is not taken for the engine", async draft => {
+  const text = doc("", `<slide title="s"><p>first</p></slide>`).replace("<head>", `<head><!-- <script src="old/kamishibai.js"></script> -->`);
+  const d = await draft({ text });
+  await d.enter();
+  await d.edit("first", "firstQ");
+  eq(d.text(), text.replace("first", "firstQ"));
+});
+
 run(process.argv[2]);
