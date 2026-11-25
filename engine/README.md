@@ -33,6 +33,7 @@ Madrid の下の帯に出す短い形は、`author`・`headline`・`date` の `s
 - 証明など：強調 `alert`、証明 `proof`、証明の方針 `plan`、後で証明する主張 `later`、番号つきの手順 `nums`
 - 図の切り替え：重ねた図 `flip` と、それを切り替えるボタン `switch`。組み上がる図は `flip anim`（下の「図の切り替え」「組み上がる図」）
 - ラベル：行の中の小さな枠 `span.label`（下の「ラベル」）
+- 主張の番号と参照：`<html numbering>` と `name`・`\ref{…}`（下の「主張の番号と参照」）
 - 数式：文の中は `$…$`・`\(…\)`、別の行に取るときは `$$…$$`・`\[…\]`
 - 段階表示：どの要素にも `step` を付けると、クリックや → で一つずつ出ます。`with="prev"` を付けると直前の段階と一緒に出ます
 
@@ -59,6 +60,61 @@ Madrid の下の帯に出す短い形は、`author`・`headline`・`date` の `s
 ラベル（`<span class="label">`）は行の高さに収まる小さな枠です。段落・項目・block の先頭に置くと、続く文は枠の右にそろえて折り返します。
 ラベルの後ろの空白は要りません（置いても除かれます）。文の途中に置けば行の中に出ます。
 
+### 主張の番号と参照
+
+定義・定理などの番号を、エンジンに付けさせることができます。主張を足したり並べ替えたりしても、番号とそれを指す文がそろいます。
+使うのは `<html>` に `numbering` を書いた原稿だけで、書かない原稿の番号は手で書いたまま変わりません。
+
+```html
+<html lang="ja" theme="Boadilla" numbering="section">
+…
+<slide title="上界" sec="主結果">
+  <block title="定理（上界）" title-en="Theorem (upper bound)" name="upper">…</block>
+  <p><ja>\ref{upper} は \ref{gadget} から従う。</ja><en>\ref{upper} follows from \ref{gadget}.</en></p>
+</slide>
+<slide title="\ref{upper} の証明の骨格" title-en="Outline of the proof of \ref{upper}" sec="証明">
+```
+
+この例の題は「定理 1.1（上界）」「Theorem 1.1 (upper bound)」と出て、文の `\ref{upper}` は「定理 1.1」「Theorem 1.1」になります。
+
+| 書くところ | 書き方 | 働き |
+|---|---|---|
+| `<html>` | `numbering="deck"` | 発表を通した番号（定理 3） |
+| | `numbering="section"` | 節の番号つき（定理 3.1）。節は `sec` の変わるページで始まり、番号は 1 から順に付く |
+| | `numbering="deck each"`・`numbering="section each"` | 定義・定理などの種類ごとに数える。`each` が無ければ種類をまたいで数える（定義 1、定理 2、補題 3、…） |
+| | `unnumbered="問題 主定理"` | 並べた種類には番号を付けない |
+| `<slide>` | `secno="5"`・`secno="A"` | そのページからの節の番号（次の節は 6、B と続く）。`secno="none"` は節の番号なし |
+| `block`・`alertblock`・`exampleblock`・`later` | `name="upper"` | 参照のための名前 |
+| | `number="none"` | 番号を付けない |
+| | `number="8"` | 8 にして、次は 9 から数える |
+| | `number="A.1"` | 書いたとおりの番号にする（数えない） |
+| | `number="auto"` | `unnumbered` の種類でも番号を付ける |
+| | `same="upper"` | 名前 `upper` の主張と同じ番号にする（主張の再掲・続き・先に示す主定理） |
+| 文と、`title`・`cite`・`label`・`sec`・`short` などの属性 | `\ref{upper}` | 種類と番号（定理 3、英語では Theorem 3）。番号と種類の間では改行しない |
+| | `\num{upper}` | 番号だけ（「補題 `\num{a}`・`\num{b}`」） |
+| 図のコード | `Kamishibai.ref("upper")` | 出している言語での種類と番号 |
+
+- 番号が付くのは、題が主張の種類で始まる箱です。番号は題の種類のすぐ後に入ります（「定理（上界）」は「定理 3（上界）」）。
+  英語は `title-en` の種類（Theorem など）の後に入るので、`title-en` も種類で始めます。参照の英語もその語です。
+- 題に手で番号を書いた箱はその番号のまま残り、数えません。手書きの原稿を少しずつ移せます（その箱にも `name` を付けて参照できます）。
+- 参照は、前の主張でも後の主張でも指せます。名前には `{` `}` のほかどの文字も使えます。
+- `\ref` の文字をそのまま見せたいときは `<code>\ref{…}</code>` と書きます。数式（`$…$`）の中の `\ref` は KaTeX のものです。
+- 参照をクリックしても、その主張のページへは移りません。発表中のクリックはページを送る操作で、参照の上で押しただけでページが飛ぶと、
+  元のページへ戻る操作も要り、聴衆も話の筋を見失うためです（ページは一覧 ⌘B で移れます）。
+- 英語の記録（下の「日本語と英語」の `make lang`）は名前で書いた原稿の文字で比べるので、番号がずれても英語は古くなりません。
+- 配布用ファイル（`make pack`）・印刷・ページ一覧でも同じ番号が出ます。読む順の検査（`make order`）は番号を入れた文を読みます。
+- page-edit の編集モードでは、番号の無い題と `\ref{…}` が原稿のまま出て、そのまま書き戻します。編集を終えると番号に戻ります。
+
+次の誤りは、原稿を開いたときブラウザの console に、`make pack` では警告に、ページの番号つきで出ます。`make numbers SRC=…` は、付いた番号の一覧とともに出し、誤りがあれば終了コード 1 で終わります。
+名前の見つからない参照は、ページに赤い「??」で出ます。
+
+- `\ref`・`\num`・`same` の名前の主張が無い、または番号が要るところで番号の無い主張を指している
+- 同じ名前が二つある
+- 同じ種類と番号の主張が二つある（`same` で結んだものと、どちらも手書きのものを除く）
+- `numbering="section"` で、節の番号の無いページに番号の付く主張がある
+- 題が主張の種類で始まらない箱に `name`・`number`・`same` がある、`title-en` が種類で始まらない、または `title-en` にだけ番号が書いてある
+- `numbering` の無い原稿に `\ref`・`\num` がある（文字のまま出ます）
+
 ### 規則
 
 聴衆が一度で読み取れるページにするため、次の規則を置いています。ここに挙げるのは機械で確かめる規則で、定義・定理・証明の文の書き方は [docs/math-slides.md](../docs/math-slides.md) にあります。
@@ -84,6 +140,7 @@ Madrid の下の帯に出す短い形は、`author`・`headline`・`date` の `s
 ```
 make preview SRC=talk/talk.html            # スライド用のブラウザで開く（開いていれば再読み込み）
 make order SRC=talk/talk.html              # 定理・補題・定義の読む順の警告（../README.md の「読む順の検査」。GAP=・SHORT= で閾値）
+make numbers SRC=talk/talk.html            # 付いた番号の一覧と、番号・参照の誤り（上の「主張の番号と参照」）
 make shot SRC=talk/talk.html PAGES="4 12"  # 4 ページ目と 12 ページ目を 1280×720 の PNG に撮る（shots/p4.png など）
 ```
 

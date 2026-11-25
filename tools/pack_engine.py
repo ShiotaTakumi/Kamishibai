@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_html import ROOT, font_path, subset  # noqa: E402
 import check_blocks  # noqa: E402
 import check_figures  # noqa: E402
+import numbering  # noqa: E402
 
 KATEX_DIST = ROOT / "tools" / "node_modules" / "katex" / "dist"
 
@@ -440,6 +441,8 @@ def pack(src_path, theme=None, allow=()):
     if theme == "Boadilla":
         text = re.sub(r"<!--.*?-->", "", draft, flags=re.S)
         text += strip_js_comments(js + fig) + strip_css_comments(base_css + theme_css)
+        if re.search(r"<html\b[^>]*\snumbering\s*=", draft, re.I):
+            text += "\u00a0."  # between the kind and the number of a reference
         chars = "".join(sorted((set(html.unescape(text)) | set("0123456789/ ")) - {"\n", "\r", "\t"}))
         fonts = fonts_css(chars)
     else:
@@ -493,6 +496,9 @@ def main():
         fail(f"{src}: {len(boxes)} problems in boxes (tools/check_blocks.py), "
              f"{len(figures)} with figures (tools/check_figures.py); nothing packed")
     check_figures.report_warnings(check_figures.warnings(src.read_text(encoding="utf-8")))
+    text = src.read_text(encoding="utf-8")
+    for p, what in numbering.numbers(text, numbering.kinds_of(text, src))[1]:
+        print(f"warning: page {p}: {what} (tools/numbering.py)", file=sys.stderr)
     try:
         data, n = pack(src, a.theme, a.allow)
     except SystemExit as e:

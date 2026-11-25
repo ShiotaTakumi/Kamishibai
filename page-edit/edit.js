@@ -639,7 +639,7 @@
         if (!(n in secs) || (!secs[n].hasAttribute("sec-en") && sl.hasAttribute("sec-en"))) secs[n] = sl;
       });
       deck.querySelectorAll(".hn").forEach(function (h) {
-        const n = (h.querySelector(".L-ja") || h).textContent;   // in a deck with English: the Japanese is the name
+        const n = h.dataset.name || (h.querySelector(".L-ja") || h).textContent;   // in a deck with English: the Japanese is the name
         if (n in secs) put(h, secs[n], "sec");
       });
       // Footer: taken from the cover. With short="…" it is that attribute, edited in place; else a click goes to

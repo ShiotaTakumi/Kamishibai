@@ -123,7 +123,7 @@ async function draft(o, open) {
   d.go = async n => { await page.evaluate(k => { location.hash = "#s" + k; }, n); await page.waitForFunction(k => location.hash === "#s" + k && document.querySelectorAll(".deck section.page")[k - 1].classList.contains("on"), n); };
   d.key = k => page.keyboard.press(k.replace("Mod", KEY));
   // open the text whose source contains old on the page shown, replace its whole source by neu
-  d.start = async function (old, sel) {
+  const click = async function (old, sel) {
     const at = await page.evaluate(([t, s]) => {
       const el = [].find.call(document.querySelectorAll(s || ".page.on .sed-part, .page.on [data-sed]:not(.sed-parts), .page.on [data-sedt]:not(.sed-parts)"), e => e.textContent.includes(t) && e.getClientRects().length);
       if (!el) return null;
@@ -132,9 +132,15 @@ async function draft(o, open) {
     }, [old, sel]);
     if (!at) throw new Error("no editable text " + old);
     await page.mouse.click(at[0], at[1]);
-    await page.waitForSelector(".sed-editing");
+    return page.waitForSelector(".sed-editing", { timeout: 1500 }).then(() => true, () => false);
   };
-  d.type = async function (neu) { await page.keyboard.press(KEY + "+a"); await page.keyboard.insertText(neu); };
+  // again when the page was laid out anew between the two (just after a build)
+  d.start = async function (old, sel) {
+    for (let k = 0; k < 4; k++) if (await click(old, sel)) return;
+    throw new Error("the text does not open: " + old);
+  };
+  // key by key where it can be: insertText of several words over the whole of a heading loses the text (Chromium)
+  d.type = async function (neu) { await page.keyboard.press(KEY + "+a"); await page.keyboard[neu.includes("\n") ? "insertText" : "type"](neu); };
   d.edit = async function (old, neu, sel) {
     await d.start(old, sel);
     const src = await page.evaluate(() => document.querySelector(".sed-editing").textContent);

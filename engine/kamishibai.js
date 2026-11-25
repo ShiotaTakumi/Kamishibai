@@ -55,6 +55,17 @@
 
   数式：$…$・\(…\)（文の中）、$$…$$・\[…\]（別の行に取って中央）。もう組んである数式（.katex）を含む要素は組み直さない
 
+  主張の番号と参照（<html> に numbering を書いた原稿だけ。無ければ番号は手で書いたまま）
+    <html numbering="deck">             通し番号（定理 3）。numbering="section" は節の番号つき（定理 3.1）。"deck each" のように each を足すと種類ごとに数える。
+                                        unnumbered="問題 主定理" の種類には付けない
+    <block title="定理（上界）" name="upper">   題が主張の種類で始まる block・alertblock・exampleblock・later の、種類の後に番号が入る（定理 3（上界））。
+                                        name は参照のための名前。number="none" は番号なし、number="8" は 8 から数え直し、number="A.1" のような数でない番号はそのまま。
+                                        same="upper" は、その名前の主張と同じ番号（再掲・続き）。題に手で書いた番号はそのまま残し、数えない
+    <slide sec="…" secno="A">           節の番号（numbering="section"）。書かなければ sec の順に 1, 2, …。secno="none" は節の番号なし
+    \ref{upper} は「定理 3」（英語では「Theorem 3」）、\num{upper} は番号「3」だけ。文の中と、題などの属性の中に書ける（<code> の中はそのまま）。
+                                        前の主張も後の主張も指せる。図のコードからは Kamishibai.ref("upper")
+    同じ名前・同じ番号が二つある、名前の主張が無いなどは、ページに「??」を出し（番号の誤りは出さない）、console と make pack・make numbers が知らせる
+
   段階表示：どのタグにも step を付けると、クリック（→）で 1 つずつ出る。with="prev" を付けると直前の step と一緒に出る
         （← で戻るときも一緒に消える）。class="reveal" も step と同じ。既定でオン。
         キー S で「全部出す」と切り替える（ページだけを送る。組み上がる図は、ページを開いたときに最後まで動く）。
@@ -118,6 +129,9 @@ var Kamishibai = {};
    tools/check_blocks.py reads this list */
 const BLOCK_KINDS = ["定義", "定理", "主定理", "補題", "系", "命題", "主張", "予想", "未解決問題", "問題", "主結果", "仮定", "公理"];
 const BLOCK_HEAD = new RegExp("^(" + BLOCK_KINDS.slice().sort((a, b) => b.length - a.length).join("|") + ")(\\s|\\d|（|$)");
+/* The same kinds in English (numbering and references; tools/numbering.py reads this list) */
+const KIND_EN = { "定義": "Definition", "定理": "Theorem", "主定理": "Main Theorem", "補題": "Lemma", "系": "Corollary", "命題": "Proposition",
+  "主張": "Claim", "予想": "Conjecture", "未解決問題": "Open Problem", "問題": "Problem", "主結果": "Main Result", "仮定": "Assumption", "公理": "Axiom" };
 const me = document.currentScript, packed = me && me.getAttribute("data-packed");
 Kamishibai.packed = !!packed;
 const q = packed ? null : (location.search.match(/[?&]theme=([A-Za-z]+)/) || [])[1];
@@ -227,6 +241,173 @@ function both(p, make) {
   return s;
 }
 
+/* ===== Numbers of the statements and references to them =====
+   Off unless <html numbering="deck"> (1, 2, 3, …) or numbering="section" (3.1, 3.2, …) asks for it; adding
+   "each" counts every kind by itself. Numbered: the boxes (block, alertblock, exampleblock, later) whose
+   title starts with a kind and has no number written by hand. name="…" names a box, number="none" takes its
+   number away, number="8" counts from there, same="…" gives it the number of a named box. In the text and in
+   the attributes of LATTR, \ref{name} becomes "定理 3" / "Theorem 3" and \num{name} becomes "3" (after the
+   math is set, so the source and the recorded translations keep the names). tools/numbering.py does the
+   same for the checks: change both together (tools/test/numbering-test.mjs compares them) */
+const NUMBERING = (root.getAttribute("numbering") || "").trim().split(/\s+/);
+const numbering = NUMBERING.find(m => m === "deck" || m === "section") || null;
+const problems = [];   // {type, page (from 0, or null), text, el}: what the draft has wrong, for the author
+function problem(type, page, text, el) {
+  if (problems.some(p => p.type === type && p.page === page && p.text === text && (p.el || null) === (el || null))) return;
+  problems.push({ type: type, page: page, text: text, el: el || null });
+}
+const BOXES = "block, alertblock, exampleblock, later";
+const byLen = (a, b) => b.length - a.length, alt = l => l.slice().sort(byLen).join("|");
+/* the kind a title starts with, and the number written by hand after it: [whole, kind, number] */
+const HEAD_JA = new RegExp("^\\s*(" + alt(BLOCK_KINDS) + ")(?:\\s*([0-9０-９]+(?:[.．][0-9０-９]+)*)|(?=[\\s（(［\\[「]|$))");
+const HEAD_EN = new RegExp("^\\s*(" + alt(Object.values(KIND_EN)).replace(/ /g, "\\s+") + ")(?:\\s+([0-9]+(?:\\.[0-9]+)*)|(?=[\\s(\\[]|$))", "i");
+const headOf = s => s.match(HEAD_JA) || s.match(HEAD_EN);
+const kindOf = w => KIND_EN[w] ? w : Object.keys(KIND_EN).find(k => KIND_EN[k].toLowerCase() === w.toLowerCase().replace(/\s+/g, " "));
+const numOf = new Map(), named = new Map();   // box -> its entry; name -> the entry it refers to
+Kamishibai.numbers = [];
+if (numbering) (function () {
+  const each = NUMBERING.includes("each"), off = (root.getAttribute("unnumbered") || "").trim().split(/\s+/);
+  let sec = null, name = null, count = {}, auto = 0;
+  /* the number of the section after s: 2 -> 3, A -> B */
+  const after = s => /^\d+$/.test(s) ? String(+s + 1) : /^[A-Y]$/.test(s) ? String.fromCharCode(s.charCodeAt(0) + 1) : String(auto + 1);
+  pages.forEach(function (pg, i) {
+    if (numbering === "section" && pg.tagName === "SLIDE") {
+      const was = sec, n = pg.hasAttribute("secno") ? pg.getAttribute("secno").trim() : null;
+      const starts = pg.hasAttribute("sec") && pg.getAttribute("sec") !== name;
+      if (pg.hasAttribute("sec")) name = pg.getAttribute("sec");
+      if (n) sec = n === "none" ? null : n;
+      else if (starts) sec = after(sec == null ? String(auto) : sec);
+      if (/^\d+$/.test(sec)) auto = +sec;
+      if (sec !== was) count = {};
+    }
+    const boxes = [].slice.call(pg.querySelectorAll(BOXES));
+    boxes.forEach(function (b) {
+      const p = pair(b, "title"), h = headOf(p.ja), id = (b.getAttribute("name") || "").trim();
+      const own = b.hasAttribute("number") ? b.getAttribute("number").trim() : null;
+      const like = b.hasAttribute("same") ? b.getAttribute("same").trim() : null;
+      if (!h) {
+        if (id || own || like) problem("number", i, "番号を付けられません：題が主張の種類（定義・定理など）で始まっていません「" + p.ja + "」", b);
+        return;
+      }
+      const he = p.en == null ? null : headOf(p.en), kind = kindOf(h[1]);
+      const e = { page: i, box: b, name: id, kind: kind, ja: BLOCK_KINDS.includes(h[1]) ? h[1] : kind,
+                  en: he ? he[1].replace(/\s+/g, " ") : kindOf(h[1]) === h[1] ? KIND_EN[kind] : h[1], number: null, same: like };
+      /* the English box of a pair of boxes (lang="ja", lang="en") has the number of the Japanese one */
+      const E = b.closest(".L-en:not(.solo)"), J = E && E.previousElementSibling;
+      const of = r => r.matches(BOXES) ? [r].concat([].slice.call(r.querySelectorAll(BOXES))) : [].slice.call(r.querySelectorAll(BOXES));
+      const mate = J && numOf.get(of(J)[of(E).indexOf(b)]);
+      let insert = true;
+      if (mate) { mate.en = e.en; e.mate = mate; }
+      else if (like) { /* after every box has its number */ }
+      else if (own === "none" || (own == null && off.includes(kind))) insert = false;
+      else if (own == null && h[2]) { e.number = h[2]; insert = false; }   // written by hand: kept, not counted
+      else if (own != null && own !== "auto" && !/^\d+$/.test(own)) e.number = own;
+      else {
+        const k = each ? kind : "";
+        count[k] = own != null && own !== "auto" ? +own : (count[k] || 0) + 1;
+        e.number = (numbering === "section" && sec != null ? sec + "." : "") + count[k];
+        if (numbering === "section" && sec == null) problem("number", i, "節の番号がありません（番号の付いた節より前の主張です）「" + p.ja + "」", b);
+      }
+      e.insert = insert;
+      if (insert && he && he[2] && !h[2]) problem("number", i, "英語の題に番号が手で書かれています「" + p.en + "」", b);
+      e.keepEn = !!(he && he[2] && !h[2]);
+      if (insert && p.en != null && !he) problem("number", i, "英語の題に番号を付けられません：title-en が主張の種類（Theorem など）で始まっていません「" + p.en + "」", b);
+      numOf.set(b, e);
+      if (mate) return;
+      Kamishibai.numbers.push(e);
+      if (!id) return;
+      if (named.has(id)) problem("number", i, "名前「" + id + "」が二度付いています（始めは " + (named.get(id).page + 1) + " 枚目）", b);
+      else named.set(id, e);
+    });
+  });
+  Kamishibai.numbers.forEach(function (e) {
+    if (!e.same) return;
+    let t = named.get(e.same);
+    for (let n = 0; t && t.same && n < 50; n++) t = named.get(t.same);
+    if (!t || t.same || t.number == null) {
+      problem("number", e.page, !t ? "same の名前「" + e.same + "」の主張がありません" : "same の名前「" + e.same + "」の主張に番号がありません", e.box);
+      e.number = "??";
+    } else e.number = t.number;
+  });
+  numOf.forEach(function (e) { if (e.mate) e.number = e.mate.number; });
+  /* the same kind and number twice, one of them given here */
+  const seen = new Map();
+  Kamishibai.numbers.forEach(function (e) {
+    if (e.same || e.number == null) return;
+    const k = e.kind + " " + e.number.normalize("NFKC"), f = seen.get(k);
+    if (!f) seen.set(k, e);
+    else if (e.insert || f.insert) problem("number", e.page, "「" + e.ja + " " + e.number + "」が二つあります（始めは " + (f.page + 1) + " 枚目。同じ主張なら same を付けます）", e.box);
+  });
+})();
+/* the title p of box b with its number after the kind */
+function numbered(b, p) {
+  const e = numOf.get(b);
+  if (!e || !e.insert || e.number == null) return p;
+  const put = function (s) {
+    const h = s == null ? null : headOf(s);
+    return h ? s.slice(0, h[0].indexOf(h[1]) + h[1].length) + " " + e.number + s.slice(h[0].indexOf(h[1]) + h[1].length) : s;
+  };
+  return { ja: put(p.ja), en: e.keepEn ? p.en : put(p.en), stale: p.stale };
+}
+const REF = /\\(ref|num)\{([^{}]*)\}/g;
+const hasRef = s => /\\(ref|num)\{[^{}]*\}/.test(s);
+/* the text of \ref{name} or \num{name} in language L, or null with the problem reported */
+function refText(cmd, id, L, page, el) {
+  const e = named.get(id.trim());
+  if (!e) { problem("ref", page, "\\" + cmd + "{" + id + "} の名前の主張がありません", el); return null; }
+  if (cmd === "num" && e.number == null) { problem("ref", page, "\\num{" + id + "} の主張に番号がありません", el); return null; }
+  return cmd === "num" ? e.number : (L === "en" ? e.en : e.ja) + (e.number == null ? "" : "\u00a0" + e.number);
+}
+const refsIn = (s, L, page, el) => s.replace(REF, function (m, c, id) { const t = refText(c, id, L, page, el); return t == null ? "??" : t; });
+/* for the figures drawn by code: Kamishibai.ref("name") is "定理 3" in the shown language */
+Kamishibai.ref = (id, L) => refText("ref", id, L || lang, null, null) || "??";
+function references() {
+  const skip = ".katex, script, style, noscript, textarea, pre, code, option", jp = /[぀-ヿ㐀-䶿一-鿿]/;
+  const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), hits = [];
+  while (w.nextNode()) {
+    const p = w.currentNode.parentElement;
+    if (hasRef(w.currentNode.nodeValue) && p && !p.closest(skip)) hits.push(w.currentNode);
+  }
+  const pageOf = e => { const s = e.closest(".page"); return s ? +s.dataset.k : null; };
+  if (!numbering) {   // the names stay as they are written
+    hits.forEach(t => problem("ref", pageOf(t.parentElement), "\\ref・\\num がありますが、<html> に numbering がありません", t.parentElement));
+    return;
+  }
+  hits.forEach(function (t) {
+    const p = t.parentElement, svg = p.namespaceURI === "http://www.w3.org/2000/svg", page = pageOf(p);
+    const el = (cls, l, s) => {
+      const x = svg ? document.createElementNS(p.namespaceURI, "tspan") : document.createElement(l || "span");
+      if (cls) x.setAttribute("class", cls);
+      if (l) x.setAttribute("lang", l);
+      if (s != null) x.textContent = s;
+      return x;
+    };
+    const side = p.closest(".L-ja, .L-en"), s = t.nodeValue;
+    /* a text in neither language of a pair shows the word of the shown language, unless it is Japanese */
+    const L = side ? (side.classList.contains("L-en") ? "en" : "ja") : !hasEn ? LANG0 : jp.test(s.replace(REF, "")) ? "ja" : null;
+    const frag = document.createDocumentFragment();
+    let at = 0, run = "";   // run: text not put in yet (one node, so that the brackets and runs below are seen whole)
+    const flush = () => { if (run) frag.append(run); run = ""; };
+    s.replace(REF, function (m, c, id, k) {
+      run += s.slice(at, k);
+      at = k + m.length;
+      const ja = refText(c, id, L || "ja", page, p), en = L || c === "num" || ja == null ? ja : refText(c, id, "en", page, p);
+      if (ja == null) { flush(); frag.append(el("ref-bad", null, "??")); }
+      else if (ja === en) run += ja;
+      else { flush(); const b = el(); b.append(el("L-ja", "ja", ja), el("L-en", "en", en)); frag.append(b); }
+      return m;
+    });
+    run += s.slice(at);
+    flush();
+    p.replaceChild(frag, t);
+  });
+  /* captions of the flip figures are put in later as text */
+  stage.querySelectorAll("[data-caps], [data-caps-en]").forEach(function (c) {
+    if (c.dataset.caps && hasRef(c.dataset.caps)) c.dataset.caps = refsIn(c.dataset.caps, hasEn ? "ja" : LANG0, pageOf(c), c);
+    if (c.dataset.capsEn && hasRef(c.dataset.capsEn)) c.dataset.capsEn = refsIn(c.dataset.capsEn, "en", pageOf(c), c);
+  });
+}
+
 /* Footer text (Madrid) taken from the cover; short="…" (short-en="…") wins. <rt> dropped, <br> -> space */
 function shortOf(e, L) {
   if (L === "en" && e.hasAttribute("short-en")) return e.getAttribute("short-en");
@@ -283,7 +464,7 @@ function arrows(root) {
 /* Title strip of a box: one span (flex would split the text), full-width digits in .zd */
 function titleSpan(title) {
   const ttl = $new("span");
-  title.split(/([０-９]+)/).forEach(function (s, k) {
+  title.split(numbering ? /([０-９]+)(?![^{}]*\})/ : /([０-９]+)/).forEach(function (s, k) {
     if (s) ttl.appendChild(k % 2 ? $new("span", "zd", s) : document.createTextNode(s));
   });
   return ttl;
@@ -295,7 +476,7 @@ function components(pg) {
   [["proof", "pf", "証明", "Proof"], ["plan", "pf pl", "証明の方針", "Proof sketch"], ["later", "ph", "", ""]].forEach(function (c) {
     pg.querySelectorAll(c[0]).forEach(function (e) {
       c[1].split(" ").forEach(k => e.classList.add(k));
-      const title = pair(e, "title", c[2], c[3]);
+      const title = numbered(e, pair(e, "title", c[2], c[3]));
       e.removeAttribute("title");
       if (title.ja || title.en) { const pt = $new("div", "pt"); pt.appendChild(both(title, titleSpan)); e.prepend(pt); }
     });
@@ -410,7 +591,7 @@ pages.forEach(function (pg, i) {
       b.classList.add("bad-box");
       console.warn("Kamishibai: page " + (i + 1) + ": a box titled \"" + title + "\" is not a statement (" + BLOCK_KINDS.join(", ") + ")");
     }
-    if (title || tp.en) bt.appendChild(both(tp, titleSpan));
+    if (title || tp.en) bt.appendChild(both(numbered(b, tp), titleSpan));
     if (b.hasAttribute("cite")) bt.appendChild($new("cite")).appendChild(both(pair(b, "cite"), txt));
     b.removeAttribute("title");
     while (b.firstChild) bb.appendChild(b.firstChild);
@@ -443,6 +624,7 @@ body.prepend(deck);
         const hs = $new("div", "hs" + (t === sc ? " cur" : "")), hf = $new("div", "hf");
         t.sl.forEach(x => hf.appendChild($new("i", x === pg ? "cur" : null)));
         const hn = $new("div", "hn");
+        if (numbering) hn.dataset.name = t.name;   // as written (page-edit finds the section by it)
         hn.appendChild(both(t.p, txt));
         hs.append(hn, hf);
         hl.appendChild(hs);
@@ -490,6 +672,9 @@ if (window.renderMathInElement && window.katex) {
   });
   pre.forEach(p => p.classList.remove("ks-pre"));
 }
+
+references();
+problems.forEach(p => console.warn("Kamishibai: " + (p.page == null ? "" : "page " + (p.page + 1) + ": ") + p.text));
 
 /* ===== Japanese with no English (in a deck that has English): its element is marked .untr ===== */
 if (hasEn) (function () {

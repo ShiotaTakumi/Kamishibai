@@ -8,7 +8,7 @@ ENGINES ?= chromium,webkit
 # the browser of make open / make preview (a make variable or an environment variable; default Google Chrome)
 export SLIDE_BROWSER
 
-.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order lang lang-stamp test clean
+.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order numbers lang lang-stamp test clean
 all: html
 
 deps: $(VENV)/.ok tools/node_modules/.ok
@@ -82,7 +82,7 @@ check-pack: pack browsers
 
 # Japanese/English pairs of a draft: what has no English or an out-of-date one (exit 1 if any);
 # make lang-stamp SRC=… records the Japanese each English was made from (after the English is written).
-# lang, lang-stamp and order need only Python (no make deps)
+# lang, lang-stamp, order and numbers need only Python (no make deps)
 lang:
 	$(PY) tools/lang_pairs.py check $(SRC)
 
@@ -95,9 +95,13 @@ lang-stamp:
 order:
 	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),$(SRC),html/slide.src.html)$(if $(GAP), --gap $(GAP))$(if $(SHORT), --short $(SHORT))
 
+# the numbers of the statements of a draft with <html numbering>, and what is wrong with them and with the references (exit 1 if any)
+numbers:
+	$(PY) tools/numbering.py $(SRC)
+
 # the tests of page-edit and the engine, in Chromium (tools/test/*-test.mjs); e.g. make test TESTS=tools/test/undo-test.mjs
 TESTS ?= $(wildcard tools/test/*-test.mjs)
-test: tools/node_modules/.ok
+test: deps
 	tools/node_modules/.bin/playwright install chromium
 	$(foreach t,$(TESTS),node $(t) &&) true
 

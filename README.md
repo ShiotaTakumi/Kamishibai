@@ -45,12 +45,14 @@ make deps fonts engine-fonts
 | `make preview SRC=talk/talk.html` | 原稿をそのまま、スライド用のブラウザ（既定は Google Chrome）で開く。そのファイルのタブが既に開いていれば、新しいタブを開かずに再読み込みする。別のブラウザは `SLIDE_BROWSER="Brave Browser"`（make の変数でも環境変数でもよい） |
 | `make pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイル `talk/talk.dist.html`（git で追跡しない）を作る。数式を組み、書体・画像・エンジンを中に入れた一つのファイルになる。先に原稿の規則（[engine/README.md](engine/README.md) の「規則」）を検査し、反する原稿からは作らず、前に作った `.dist.html` を消す。原稿のフォルダと `engine/` の外のファイルは `ALLOW=フォルダ` で許したときだけ入れる |
 | `make check-pack SRC=talk/talk.html [THEME=Madrid]` | 配布用ファイルを作り、行の切れ方のブラウザ間の一致とはみ出しを検査する（下の「改行と書体」と、[engine/README.md](engine/README.md) の「組版の検査」） |
+| `make numbers SRC=talk/talk.html` | エンジンが付けた定義・定理の番号の一覧と、番号・参照の誤り（[engine/README.md](engine/README.md) の「主張の番号と参照」） |
 | `make order SRC=talk/talk.html [GAP=3 SHORT=2]` | 定理・補題・定義の読む順の警告（下の「読む順の検査」） |
 | `make lang SRC=talk/talk.html` | 日本語と英語の対の検査（[engine/README.md](engine/README.md) の「日本語と英語」） |
 | `make shot SRC=talk/talk.html PAGES="4 12"` | 指定したページを 1280×720 の PNG（`shots/p4.png` など、git で追跡しない。置き場は `SHOTS=` で変える）に撮る |
+| `make test` | エンジンと page-edit の操作の自動テスト（`tools/test/`。Chromium で見本の原稿を開いて動かす。`TESTS=tools/test/numbering-test.mjs` で一つだけ） |
 | `make clean SRC=talk/talk.html` | その原稿の `.dist.html`（と、最後の節のビルドする形の `slide.html`）を消す |
 
-`make lang`・`make order` と、英語の記録を書く `make lang-stamp`（[engine/README.md](engine/README.md) の「日本語と英語」）は Python だけで動き、`make deps` は要りません。
+`make lang`・`make order`・`make numbers` と、英語の記録を書く `make lang-stamp`（[engine/README.md](engine/README.md) の「日本語と英語」）は Python だけで動き、`make deps` は要りません。
 直すのは原稿で、`.dist.html` は手で直さず作り直します。
 
 ## カスタマイズの例
@@ -92,7 +94,8 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 定理・補題で組み立てる発表で、主張を述べる前に使っていないかを調べる検査です。
 `make order SRC=…` は、番号付きの主張ごとに、述べたページ・最初に使ったページ・証明のページを表にし、次を警告します。
 番号付きの主張とは、題が「定理 1」「補題 2・3」「定義 4–6」のように種類と番号で始まる block（エンジンでは `block`・`proof` などの囲みの `title`）です。
-全角の数字と、種類と数字の間の空白の有無は区別しません。
+全角の数字と、種類と数字の間の空白の有無は区別しません。「定理 3.1」のような節の番号つきの番号も読みます。
+エンジンに番号を付けさせる原稿（`<html numbering>`）では、付く番号と参照を入れた文を読みます。
 
 - `FORWARD`：述べる前に使っている（証明の方針の中での先取りは除く）
 - `EARLY`：述べてから証明が始まるまでに `GAP=`（既定 3）ページより多く空いている
@@ -112,6 +115,8 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 | `tools/check_figures.py` | 図のキャプションと配置の検査、縮めた図と、読めない `cards`（組み上がる図の指定）の警告（`make pack` が呼ぶ） |
 | `tools/check_layout.mjs` | ブラウザ間の組版の照合（`tools/layout/` の計測の script を各ブラウザで動かす） |
 | `tools/check_order.py` | 番号付きの主張の読む順の検査 |
+| `tools/numbering.py` | エンジンが付ける番号と参照を原稿から求める（`make numbers`。`make order` と `make pack` も使う） |
+| `tools/test/` | 自動テスト（`make test`）。番号と参照（`numbering-test.mjs`）、page-edit の取り消しとやり直し（`undo-test.mjs`） |
 | `tools/shot.mjs` | ページを撮る（`make shot`） |
 | `tools/engine_fonts.py` | 原稿が読む書体の CSS を作る（`make engine-fonts`） |
 | `tools/engine_katex.py` | 原稿が読む KaTeX（`engine/katex/`）を `tools/node_modules` の KaTeX から作り直す（`make engine-katex`）。KaTeX の版を上げるときは、`npm install --prefix tools katex@版` の後に `make engine-katex` を実行する |
@@ -150,6 +155,7 @@ make
   block `div.blk > div.bt + div.bb`、強調 `span.k`（\alert）、左右二段 `.two`、図と文の横並び `.side`、表 `table.tb`。
 - 証明は `div.pf > div.pt + 本文`（左の線）、証明の方針は `div.pf.pl`（淡い地）、後で証明する主張は `div.ph`（破線の枠）。
 - 数式は `\(TeX\)`。
+- 定義・定理の番号と、それを指す文は手で書き、`make order` で食い違いを調べる（番号を付けさせる書き方はエンジンの原稿だけにある）。
 - 段階表示：`.reveal` を付けた要素がクリック・→・Space で一つずつ出る。`data-with="prev"` は直前と同時に出る。
   左 1/4 のクリック・← で戻る。この形では段階表示は既定でオフ（ページを開くと全部出る）で、キー S で切り替える
   （ブラウザに記憶される）。URL の `?steps` で段階表示をオンにして開き、`#s3` で 3 ページ目から開く。

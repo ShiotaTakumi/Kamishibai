@@ -319,6 +319,9 @@ table.tb.nr { border: 0 }
 .bad-box { outline: 4px dashed #d00; outline-offset: 2px }
 .bad-box::before { content: "block には主張を一つだけ（題を「定義」「定理」などで始める）"; display: block; color: #d00; font-size: 18px; font-weight: bold }
 
+/* \ref・\num の名前の主張が無いとき（<html numbering> の原稿） */
+.ref-bad { color: #d00; font-weight: bold; fill: #d00 }
+
 /* ---- 日本語と英語（kamishibai.js が対を見つけたときだけ html に .bi が付く）----
    <p><ja>…</ja><en>…</en></p> または <X lang="ja">…</X><X lang="en">…</X>。対の相手が無いものは両方の言語で出す（.solo） */
 ja, en { display: contents }
