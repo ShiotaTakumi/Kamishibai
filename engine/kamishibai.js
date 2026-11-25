@@ -610,10 +610,11 @@ pages.forEach(function (pg, i) {
     });
     pg.prepend(ct, box, insts, meta);
     pg.querySelectorAll("qr").forEach(function (q) {
-      const img = $new("img"), cap = $new("div", "qcap");
-      img.src = q.getAttribute("src"); img.alt = "";
+      const img = $new("img"), cap = $new("div", "qcap"), src = q.getAttribute("src");
+      img.alt = "";
+      if (src) img.src = src; else problem("image", i, "qr に src（画像のファイル）がありません", q);
       while (q.firstChild) cap.appendChild(q.firstChild);
-      q.append(img, cap);
+      if (src) q.append(img, cap); else q.append(cap);
     });
   }
 
@@ -849,7 +850,7 @@ function pick(v, k, n) {
   if (v === undefined || v === null) return null;
   const p = v.split("|"), x = p[Math.min(k, p.length - 1)].trim();
   if (x === "*") return n;
-  if (!/^\d+$/.test(x)) { console.warn('kamishibai: cards="' + v + '": not a count ("n", "*", or "a|b" per figure)'); return null; }
+  if (!/^\d+$/.test(x)) { console.warn('Kamishibai: cards="' + v + '": not a count ("n", "*", or "a|b" per figure)'); return null; }
   return parseInt(x, 10);
 }
 /* state of figure k of flip f for the shown steps of its page (drop: without the last data-cards step) */
@@ -893,9 +894,9 @@ function setFlip(id, k, anim) {
     const a = state(f, k, true), b = state(f, k, false);
     show(g[k], a.t, a.ov, false); show(g[k], b.t, b.ov, anim);
   }
-  const btns = stage.querySelectorAll('[data-flip="' + id + '"] button');
+  const btns = stage.querySelectorAll('[data-flip="' + CSS.escape(id) + '"] button');
   btns.forEach((b, i) => b.classList.toggle("sub2", i !== k));
-  const c = stage.querySelector('[data-flipcap="' + id + '"]');
+  const c = stage.querySelector('[data-flipcap="' + CSS.escape(id) + '"]');
   if (c && c.dataset.caps !== undefined && btns[k]) {
     f.dataset.k = k;
     const en = hasEn && lang === "en", b = btns[k].cloneNode(true);
@@ -1469,6 +1470,8 @@ document.addEventListener("keydown", function (e) {
   if (e.metaKey || e.ctrlKey || e.altKey || body.classList.contains("op") || st.mode === "out") return;
   const t = e.target;
   if (t && t.closest && (t.closest("input, textarea, select") || t.isContentEditable)) return;
+  /* a button or link of a slide that holds the focus (reached with Tab) takes Space and Enter itself */
+  if ((k === " " || k === "Enter") && t && t.closest && stage.contains(t) && t.closest("button, a[href], summary")) return;
   if (body.classList.contains("side-on") && (k === "ArrowDown" || k === "ArrowUp")) {
     e.preventDefault();
     go(si + (k === "ArrowDown" ? 1 : -1), true);

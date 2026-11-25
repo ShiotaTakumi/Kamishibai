@@ -137,7 +137,7 @@ figcaption { font-size: var(--pt24); margin-top: 4px }
 /* ← で戻るときは、動かさず、すぐ前の形にする（prev() が .step-back を付ける） */
 .step-back .stage *, .step-back .stage *::before, .step-back .stage *::after { transition: none !important; animation: none !important }
 
-/* ---- 一覧（左に並べる。T） ---- */
+/* ---- 一覧（左に並べる。⌘B） ---- */
 body > .side { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; overflow-y: auto; display: none; z-index: 10;
   background: #333; padding: 12px 12px 64px 36px }
 body.side-on > .side { display: block }
@@ -206,7 +206,7 @@ body.mode-edit section.page.wrong-here { outline-offset: -4px !important }
   background: rgba(0, 0, 0, .75); color: #fff; font: 16px/1.4 system-ui, sans-serif; pointer-events: none; opacity: 0; transition: opacity .4s }
 .toast.show { opacity: 1 }
 
-/* ---- ポインター（L）と、選択・キー無効の印（E・U） ---- */
+/* ---- ポインター（⌘K）と、選択・キー無効の印（⌘I・⌘U） ---- */
 .pointer { position: fixed; z-index: 30; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
   background: #ff2020; box-shadow: 0 0 6px 3px rgba(255, 40, 40, .75), 0 0 18px 8px rgba(255, 0, 0, .35);
   pointer-events: none; display: none }
@@ -263,7 +263,7 @@ body.mode-out:not(.print-steps) .ppage:not(.all) { display: none }
 body.mode-out .ppage > .page { display: block }
 body.mode-out .print [step] { transition: none }
 
-/* ---- 印刷（P）：1 ページ 1 枚。step のあるページは、1 つずつ出る様子を別々のページにする
+/* ---- 出力（⌘P）：1 ページ 1 枚。step のあるページは、1 つずつ出る様子を別々のページにする
    （それは PDF のときだけ。Print のときは、step を全部出したページ .all だけを出す） ---- */
 .print { display: none }
 /* 用紙の大きさ（@page）は、テーマの --W・--H から kamishibai.js が書き込む */

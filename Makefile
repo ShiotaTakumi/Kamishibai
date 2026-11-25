@@ -101,7 +101,7 @@ numbers:
 
 # the tests of page-edit and the engine, in Chromium (tools/test/*-test.mjs); e.g. make test TESTS=tools/test/undo-test.mjs
 TESTS ?= $(wildcard tools/test/*-test.mjs)
-test: deps
+test: deps engine-fonts
 	tools/node_modules/.bin/playwright install chromium
 	$(foreach t,$(TESTS),node $(t) &&) true
 

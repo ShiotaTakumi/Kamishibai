@@ -217,4 +217,27 @@ test("a packed file says nothing of it", async draft => {
   ok(!await shown(d, BTN) && !await shown(d, LIST));
 });
 
+test("a figure switch whose id holds a quote works, and a qr with no src is listed", async draft => {
+  const d = await draft({ edit: false, text: head() + `<cover><headline>題目</headline><author>著者</author><qr>読む</qr></cover>
+<slide title="図"><flip id='a"b'><svg width="10" height="10"></svg><svg width="10" height="10"></svg></flip><switch for='a"b'><button>一</button><button>二</button></switch><p>文</p></slide>
+` + TAIL });
+  eq(JSON.stringify(await all(d)), JSON.stringify([[1, null, "image", "qr に src（画像のファイル）がありません"]]));
+  await d.page.evaluate(() => Kamishibai.go(1));
+  await d.page.click(".stage .page.on [data-flip] button:nth-child(2)");
+  eq(await d.page.evaluate(() => [...document.querySelectorAll(".stage .page.on .flip > svg")].map(g => g.classList.contains("cur")).join()), "false,true");
+  eq(d.log.filter(m => m.startsWith("pageerror")).length, 0, d.log.join(" | "));
+});
+
+test("a button of a slide that holds the focus takes Space itself", async draft => {
+  const d = await draft({ edit: false, text: head() + `<slide title="一"><p>文</p><button id="bt" onclick="window.hit = (window.hit || 0) + 1">押す</button></slide>
+<slide title="二"><p>文</p></slide>
+` + TAIL });
+  await d.page.focus("#bt");
+  await d.page.keyboard.press("Space");
+  eq(await d.page.evaluate(() => (window.hit || 0) + "," + Kamishibai.current()), "1,0");
+  await d.page.evaluate(() => document.activeElement.blur());
+  await d.page.keyboard.press("Space");
+  eq(await d.page.evaluate(() => Kamishibai.current()), 1);
+});
+
 await run(process.argv[2]);
