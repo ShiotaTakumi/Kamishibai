@@ -179,7 +179,7 @@ URL の `#s<n>` で開くページを指定できます（`talk.html#s5` は 5 �
 | Boadilla（既定） | 1280 × 720（16:9） | Beamer の Boadilla（上端に節とページの丸の帯、丸い箇条書きの印） |
 | Madrid | 960 × 720（4:3） | Beamer の Madrid |
 
-テーマは `<html theme="…">` で選びます。URL に `?theme=Madrid` を付けると、開くときに変えられます。
+テーマは `<html theme="…">` で選びます。URL に `?theme=Madrid` を付けると、開くときに変えられます。`themes/` に無い名前を書いたときは、原稿のテーマ（それも無ければ Boadilla）で開き、誤りの一覧に出します。
 画面の大きさ、書体、括弧と句読点の空きはテーマの CSS が決め、画面への合わせ方・ページ一覧の縮小・印刷の用紙はその大きさに従います。
 タグの代わりに class で書く `ul.pts`（箇条書き）と `.blk`（block）は、Boadilla でだけ効きます。原稿ではタグ（`list`・`block`）を使います。
 見た目と動きを発表に合わせて変えたスライドの例は、[README の「カスタマイズの例」](../README.md#カスタマイズの例) にあります。
@@ -223,7 +223,7 @@ make pack SRC=talk/talk.html THEME=Madrid  # テーマを変えて作る
 
 `.dist.html` はそれ一つで、ネットにつながずに file:// で開けます。中身はエンジンの JS・CSS、組み終えた数式、画像、書体です。
 中に入れるのは、原稿のフォルダと engine/ のフォルダの中のファイルだけです。その外のファイルを使うときは `ALLOW=フォルダ`（複数は空白で区切る）で許します。
-画像・動画・音声・script・CSS は中に入ります（大きな動画は大きなファイルになります）。リンク先・iframe・object のファイルは入らないので `make pack` が警告し、配るときはそれらを `.dist.html` の隣に置きます。
+画像・動画・音声・script・CSS は中に入ります（大きな動画は大きなファイルになります）。`srcset`、`style` 属性と `<style>` の `url(...)`、CSS が `@import` で読む CSS も入ります。リンク先・iframe・object のファイルは入らないので `make pack` が警告し、配るときはそれらを `.dist.html` の隣に置きます。
 Boadilla の書体は `fonts/` の書体ファイルから原稿で使う字だけを切り出して入れ、見本で約 0.7 MB です。
 Madrid の IPA Pゴシックは許諾の条件により絞らずに入れるので、約 8.8 MB になります。
 `make pack` は `make deps fonts` を先に行うので、`make engine-fonts`（原稿をそのまま開くときの書体）は要りません。
@@ -277,7 +277,7 @@ make browsers && node tools/check_layout.mjs talk/talk.html       # 原稿をそ
 
 - 編集 ⌘E：文をクリックして直し、Enter で原稿へ書き戻します。文は組んだ形のまま出て、クリックした文の数式だけが TeX になります。Chrome 拡張 page-edit（[page-edit/README.md](../page-edit/README.md)）が要り、無いときは見出しが灰色になります（原稿に誤りがあれば、⌘E で「誤りの一覧」だけを見られます）。
   道具はページ一覧 ⌘B と日本語の太さです。英語を持つ原稿では、その上に「あ」（日本語だけを編集）・「A」（英語だけを編集）・「あA」（日本語と英語を一度に編集）が並びます。
-- プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、選択 ⌘I、キー無効 ⌘U、日本語の太さ（「A」を押すと「+」・値・「−」が出て、値を押すとテーマの値に戻る）。
+- プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、選択 ⌘I、キー無効 ⌘U、日本語の太さ（「A」を押すと「+」・値・「−」が出て、値を押すとテーマの値に戻る。1pt まで）。
   選択 ⌘I は文字を選べる状態で、クリックではページを送らず ← → だけで送ります。
   キー無効 ⌘U はキーでもクリックでもページを送らない状態で、その間だけ右上に印が出ます。選択とキー無効はどちらか一方だけになります。
 - 出力 ⌘P：印刷の版面を画面に並べ、形式（段階ごと・全段階・HTML）を選んで「出力」を押します。
@@ -302,6 +302,7 @@ page-edit が無くても、誤りがあれば ⌘E で一覧を見られます�
 | 囲み | 題が主張の種類（定義・定理など）で始まらない `<block>` |
 | 収まり | 文字を 85% まで縮めても収まらないページ（言語ごと） |
 | 画像 | 読めない `<img>` |
+| テーマ | `themes/` に無いテーマの名前（`<html theme>` または `?theme=`） |
 | 編集 | page-edit で直せない文とその理由（page-edit で編集モードに入ったとき） |
 
 自分の `<script>` からも足せます。`Kamishibai.setProblems("名前", [{ type, page, text, el, lang }])` は、その名前で前に渡したものと入れ替えます
@@ -322,6 +323,7 @@ page-edit が無くても、誤りがあれば ⌘E で一覧を見られます�
 
 - `kamishibai.js`：エンジンの本体。最初の説明に書き方の一覧がある
 - `figure.js`：図のコードから使う道具
+  （`mk`・`txt`・`figure`・`follow`・`watchStep`・`fromPrev`・`rot`・`camera`・`shade`・`shadeRGB`・`shadeToWhite`・`lid`・`sub`・`add`・`mul`・`dot`・`cross`・`norm`・`ease`・`FIG`・`RUNNING`・`MMA_AZ`・`MMA_EL` を `window` に置く。原稿の script で同じ名前の大域変数を作らない）
 - `base.css`・`themes/`：見た目
 - `katex/`：KaTeX 0.19.0（版を上げる手順は ../README.md の「ファイル」）
 - `fonts/`：書体の CSS。Madrid の `cm-sans.css`・`ipa-pgothic.css` は同梱、Boadilla の `kamishibai-fonts.css` は `make engine-fonts` で作る

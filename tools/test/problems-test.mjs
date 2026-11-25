@@ -240,4 +240,41 @@ test("a button of a slide that holds the focus takes Space itself", async draft 
   eq(await d.page.evaluate(() => Kamishibai.current()), 1);
 });
 
+const ONE = '<slide title="一"><p>文</p><input id="f"></slide>\n<slide title="二"><p>文</p></slide>\n' + TAIL;
+const themeNow = async d => {
+  await d.page.waitForFunction(() => window.Kamishibai && Kamishibai.theme === "Boadilla" && Kamishibai.ready);
+  return d.page.evaluate(async () => { await Kamishibai.ready; return Kamishibai.problems().filter(p => p.type === "theme").map(p => p.text).join("|") + " " + getComputedStyle(document.documentElement).getPropertyValue("--W").trim(); });
+};
+
+test("a theme with no file in ?theme= opens with the theme of the draft and is listed", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE, query: "?theme=Nope" }).catch(() => null);
+  if (d) eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+  else ok(false, "the draft did not open");
+});
+
+test("a theme with no file in <html theme> opens with Boadilla and stays listed", async draft => {
+  const d = await draft({ edit: false, text: head().replace('theme="Boadilla"', 'theme="Nope"') + ONE });
+  eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+  await d.page.reload();
+  eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+});
+
+test("in a field of a slide the keys of the modes stay the field's", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE });
+  await d.page.focus("#f");
+  await d.page.keyboard.press(KEY + "+p");
+  eq(await d.page.evaluate(() => document.body.classList.contains("mode-out")), false);
+  await d.page.evaluate(() => document.activeElement.blur());
+  await d.page.keyboard.press(KEY + "+p");
+  eq(await d.page.evaluate(() => document.body.classList.contains("mode-out")), true);
+});
+
+test("the stroke of Japanese text stops at 1pt", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE });
+  await d.page.evaluate(() => localStorage.setItem("kamishibai-ja-stroke", "7"));
+  await d.page.reload();
+  await d.page.waitForFunction(() => window.Kamishibai && Kamishibai.ready);
+  eq(await d.page.evaluate(() => document.documentElement.style.getPropertyValue("--ja-stroke")), "1pt");
+});
+
 await run(process.argv[2]);

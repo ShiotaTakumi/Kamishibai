@@ -6,6 +6,7 @@
       <html lang="ja" theme="Boadilla">            テーマ（themes/ の中のファイルの名前。書かなければ Boadilla）
       <script src="engine/kamishibai.js"></script> 原稿からこのファイルへの相対パス
     と書き、その後ろにページをタグで並べる。URL に ?theme=Madrid を付けると、そのテーマで開く。
+    themes/ に無い名前のときは、原稿のテーマ（それも無ければ Boadilla）で開き、誤りの一覧に出す。
     Boadilla の書体は engine/fonts/kamishibai-fonts.css（make engine-fonts で作る）。無ければ手元の書体で出る。
 
   ページ
@@ -151,9 +152,19 @@ if (!packed) {
   /* font stylesheets per theme (missing files are tolerated: the theme falls back to system fonts) */
   const FONT_CSS = { Madrid: ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"] };
   const fontCss = FONT_CSS[Kamishibai.theme] || ["fonts/kamishibai-fonts.css"];
-  ["katex/katex.css"].concat(fontCss, ["base.css", "themes/" + Kamishibai.theme + ".css"]).forEach(function (f) {
+  /* A theme with no file (a mistyped ?theme= or <html theme>): open the draft again with a theme that is there
+     (its own for a wrong ?theme=, else Boadilla) and say so in the list of what the draft has wrong */
+  Kamishibai.themeLost = function () {
+    if (Kamishibai.theme === "Boadilla") return;   // nothing to fall back to
+    try { sessionStorage.setItem("kamishibai-theme-lost", Kamishibai.theme); } catch (e) {}
+    const rest = location.search.replace(/([?&])theme=[^&]*&?/, "$1").replace(/[?&]$/, "");
+    const next = q ? rest : rest + (rest ? "&" : "?") + "theme=Boadilla";
+    location.replace(location.pathname + next + location.hash);
+  };
+  ["katex/katex.css"].concat(fontCss, ["base.css"]).forEach(function (f) {
     document.write('<link rel="stylesheet" href="' + dir + f + '">');
   });
+  document.write('<link rel="stylesheet" href="' + dir + "themes/" + Kamishibai.theme + '.css" onerror="Kamishibai.themeLost()">');
   ["katex/katex.js", "figure.js"].forEach(function (f) {
     document.write('<script src="' + dir + f + '"><\/script>');
   });
@@ -275,6 +286,15 @@ function problem(type, page, text, el, L) {
   problems.push({ type: type, page: page, L: L, text: text, el: el, up: up });
   if (problemsChanged) problemsChanged();
 }
+try {
+  const lost = sessionStorage.getItem("kamishibai-theme-lost");
+  if (lost) {
+    /* a wrong <html theme> stays wrong until the draft is put right; a wrong ?theme= is said once */
+    if (lost !== root.getAttribute("theme") || Kamishibai.theme === lost) sessionStorage.removeItem("kamishibai-theme-lost");
+    if (Kamishibai.theme !== lost)
+      problem("theme", null, "テーマ「" + lost + "」が themes/ にありません（" + Kamishibai.theme + " で表示しています）");
+  }
+} catch (e) {}
 const pageOf = function (e) { const s = e.closest(".page"); return s ? +s.dataset.k : null; };
 const BOXES = "block, alertblock, exampleblock, later";
 const byLen = (a, b) => b.length - a.length, alt = l => l.slice().sort(byLen).join("|");
@@ -1089,7 +1109,7 @@ function fullscreen() {
   if (d.fullscreenElement || d.webkitFullscreenElement) { if (exit) exit.call(d); }
   else if (enter) enter.call(el);
 }
-const mac = /Mac|iPhone|iPad/.test(navigator.platform), mod = mac ? "⌘" : "Ctrl+";
+const mac = /mac|iPhone|iPad/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent), mod = mac ? "⌘" : "Ctrl+";
 const st = { mode: "show", side: false, ptr: false, sel: false, op: false, out: "steps" };
 let editor = window.KamishibaiEditor || null;
 tools = $new("div", "tools");
@@ -1208,14 +1228,14 @@ function openTools(open) {
 }
 handle.addEventListener("click", function () { openTools(!body.classList.contains("tools-open")); handle.blur(); });
 /* Stroke added to Japanese text (--ja-stroke), changed by 0.1pt; remembered by the browser */
-const KEY = "kamishibai-ja-stroke";
+const KEY = "kamishibai-ja-stroke", STROKE_MAX = 1;   // more than 1pt fills the counters of the letters
 const base = (function () {
   const v = cssVar("--ja-stroke"), n = parseFloat(v);
   return isNaN(n) ? 0.2 : (/px$/.test(v) ? n * 0.75 : n);
 })();
 let stroke = base;
 function setStroke(pt, keep) {
-  pt = Math.max(0, Math.round(pt * 10) / 10);
+  pt = Math.min(STROKE_MAX, Math.max(0, Math.round(pt * 10) / 10));
   root.style.setProperty("--ja-stroke", pt + "pt");
   vals.forEach(v => { v.textContent = pt.toFixed(1); });
   try { if (keep) localStorage.setItem(KEY, pt); else localStorage.removeItem(KEY); } catch (e) {}
@@ -1277,7 +1297,7 @@ Kamishibai.setEditor = function (ed) {
    Kamishibai.setProblems(source, [{ type, page, text, el, lang }]), which replaces what that source gave before.
    Kamishibai.problems() gives the whole list. A choice turns to the page (in its language) and marks the place.
    Whether the list is open is kept for the tab, over a save and a reload. A packed file has no list */
-const PROBLEM_NAMES = { math: "数式", ref: "参照", number: "番号", block: "囲み", fit: "収まり", image: "画像", edit: "編集" };
+const PROBLEM_NAMES = { math: "数式", ref: "参照", number: "番号", block: "囲み", fit: "収まり", image: "画像", theme: "テーマ", edit: "編集" };
 const PKEY = "kamishibai-problems", others = {};
 const list = $new("div", "wrongs"), listHead = list.appendChild($new("div", "wh")), listBody = list.appendChild($new("div", "wl"));
 const listTitle = listHead.appendChild($new("span"));
@@ -1367,7 +1387,7 @@ Kamishibai.lang = function (L) { if (L !== undefined) setLang(L); return lang; }
 function langNote() {
   if (!hasEn || lang !== "en") return "";
   const n = c => stage.querySelectorAll(c).length;
-  const a = [["古い訳", n(".en-stale")], ["訳なし", n(".untr") + n(".L-ja.solo")], ["収まらない頁", n(".page.over-en")]].filter(x => x[1]);
+  const a = [["古い訳", n(".en-stale")], ["訳なし", n(".untr") + n(".L-ja.solo")], ["収まらないページ", n(".page.over-en")]].filter(x => x[1]);
   return a.length ? "　英語：" + a.map(x => x[0] + " " + x[1]).join("・") : "";
 }
 function toast(t, ms) {
@@ -1466,7 +1486,9 @@ addEventListener("click", function (e) {
 document.addEventListener("keydown", function (e) {
   const k = e.key, edit = body.classList.contains("edit");
   const keys = { KeyE: "edit", KeyP: "out", KeyB: "side", KeyF: "full", KeyK: "ptr", KeyI: "sel", KeyU: "op" };
-  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code]) { e.preventDefault(); tool(keys[e.code]); return; }
+  /* in a field of a slide (input, textarea, select) these keys stay the browser's and the field's */
+  const field = e.target && e.target.closest && e.target.closest("input, textarea, select");
+  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code] && !field) { e.preventDefault(); tool(keys[e.code]); return; }
   if (e.metaKey || e.ctrlKey || e.altKey || body.classList.contains("op") || st.mode === "out") return;
   const t = e.target;
   if (t && t.closest && (t.closest("input, textarea, select") || t.isContentEditable)) return;

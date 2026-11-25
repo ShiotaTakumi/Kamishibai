@@ -19,7 +19,7 @@
 
 /* ---- 下の帯：発表者と所属・題目・日付とページ番号を、3 つの色の帯に入れる。どのページにも付く ----
    ここは毎ページ同じ情報をくり返すだけなので、字は 20pt より小さい（Beamer と同じ大きさ） */
-.foot { position: absolute; left: 0; bottom: 0; width: 960px; height: 23px; display: flex;
+.foot { position: absolute; left: 0; bottom: 0; width: var(--W); height: 23px; display: flex;
   font-size: var(--tiny); line-height: 23px; color: #fff; white-space: nowrap }
 .foot > div { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 15px; text-align: center }
 .foot .f1 { background: var(--foot1) }
@@ -29,10 +29,10 @@
 .foot .ja { -webkit-text-stroke: 0 }
 
 /* ---- ふつうのページの見出し（上の帯） ---- */
-.ttl { position: absolute; left: 0; top: 0; width: 960px; height: 81px; padding: 0 22px; display: flex; align-items: center;
+.ttl { position: absolute; left: 0; top: 0; width: var(--W); height: 81px; padding: 0 22px; display: flex; align-items: center;
   background: var(--navy); font-size: var(--Large); color: #fff; line-height: 1.2; white-space: nowrap }
 /* 中身は、見出しの帯と下の帯の間の上下の真ん中に置く。入りきらないときは上から並べる */
-.page > slide { position: absolute; left: 33px; top: 81px; width: 894px; height: 616px;
+.page > slide { position: absolute; left: 33px; top: 81px; width: calc(var(--W) - 66px); height: calc(var(--H) - 104px);
   display: flex; flex-direction: column; justify-content: safe center }
 
 /* ---- 箇条書き（立体の玉。2 段目は小さい玉） ---- */
@@ -65,7 +65,7 @@ exampleblock { --t: #006000; --b: #E5EFE5 }
 .bb > :last-child { margin-bottom: 0 }
 
 /* ---- 表紙：題目の箱（角丸・影）、その下に著者（1 行）・所属・会の名前と日付。全体を上下の真ん中に置く ---- */
-cover { position: absolute; left: 33px; top: 0; width: 894px; height: 697px; display: flex; flex-direction: column;
+cover { position: absolute; left: 33px; top: 0; width: calc(var(--W) - 66px); height: calc(var(--H) - 23px); display: flex; flex-direction: column;
   justify-content: center; align-items: center; text-align: center }
 .ctitle { position: relative; align-self: stretch; margin: 0 -12px; padding: 25px 24px; border-radius: 9px; background: var(--navy); color: #fff }
 headline { display: block; font-size: var(--Large); line-height: 1.27 }
@@ -80,7 +80,7 @@ qr img { display: block; width: 235.7px; height: 235.7px }
 qr .qcap { position: absolute; left: 0; top: 229.3px; width: 100%; text-align: center; font-size: var(--pt20) }
 
 /* ---- 区切りのページ：角丸の箱に入れて置く ---- */
-divider { position: absolute; left: 33px; top: 0; width: 894px; height: 697px; display: flex; align-items: center }
+divider { position: absolute; left: 33px; top: 0; width: calc(var(--W) - 66px); height: calc(var(--H) - 23px); display: flex; align-items: center }
 .sbox { position: relative; flex: 1; margin: 0 -12px; padding: 36px 24px; border-radius: 9px; background: var(--navy); color: #fff;
   text-align: center; font-size: var(--Large); line-height: 1.27 }
 /* 出典の行（このテーマでは slide が位置の基準になる） */
