@@ -116,7 +116,7 @@ Firefox は行の詰め方が異なり、一致しないことが多いので既
 | `tools/check_layout.mjs` | ブラウザ間の組版の照合（`tools/layout/` の計測の script を各ブラウザで動かす） |
 | `tools/check_order.py` | 番号付きの主張の読む順の検査 |
 | `tools/numbering.py` | エンジンが付ける番号と参照を原稿から求める（`make numbers`。`make order` と `make pack` も使う） |
-| `tools/test/` | 自動テスト（`make test`）。番号と参照（`numbering-test.mjs`）、page-edit の取り消しとやり直し（`undo-test.mjs`）、文の編集（`edit-test.mjs`）、誤りの一覧（`problems-test.mjs`） |
+| `tools/test/` | 自動テスト（`make test`）。番号と参照（`numbering-test.mjs`）、page-edit の取り消しとやり直し（`undo-test.mjs`）、文の編集（`edit-test.mjs`）、拡張として読み込んだ page-edit（`extension-test.mjs`）、誤りの一覧（`problems-test.mjs`） |
 | `tools/shot.mjs` | ページを撮る（`make shot`） |
 | `tools/engine_fonts.py` | 原稿が読む書体の CSS を作る（`make engine-fonts`） |
 | `tools/engine_katex.py` | 原稿が読む KaTeX（`engine/katex/`）を `tools/node_modules` の KaTeX から作り直す（`make engine-katex`）。KaTeX の版を上げるときは、`npm install --prefix tools katex@版` の後に `make engine-katex` を実行する |
