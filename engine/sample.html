@@ -145,6 +145,40 @@
   </columns>
 </slide>
 
+<slide title="流れ図と囲み" title-en="Flow charts and frames" sec="部品" sec-en="Parts" title-en-ja="82f54532" sec-en-ja="3bacb05a">
+  <flow>
+    <box title="入力" title-en="Input" title-en-ja="b8084dee"><ja>連結なグラフ $G$</ja><en ja="1110efeb">A connected graph $G$</en></box>
+    <to><ja>次数を数える</ja><en ja="16b858e3">Degrees</en></to>
+    <box title="判定" title-en="Test" title-en-ja="4d37f357"><ja>奇数次の頂点が<br>0 個か 2 個</ja><en ja="0d61eebc">0 or 2 vertices<br>of odd degree</en></box>
+    <to><ja>定理（Euler）</ja><en ja="df7b35c9">Theorem (Euler)</en></to>
+    <box title="出力" title-en="Output" title-en-ja="2e1fa217"><ja>オイラー路</ja><en ja="15bf1c42">An Euler path</en></box>
+  </flow>
+  <boxed title="握手の補題" title-en="Handshaking lemma" title-en-ja="42422856">$\displaystyle\sum_{v \in V} \deg(v) = 2|E|$</boxed>
+  <p><ja><orange>橙</orange>・<blue>青</blue>・<green>緑</green>は、図の線と同じ色。</ja><en ja="b75513d1"><orange>Orange</orange>, <blue>blue</blue> and <green>green</green> are the colors of the lines in a figure.</en></p>
+  <figure>
+    <svg width="520" height="60" viewBox="0 0 520 60">
+<line x1="20" y1="30" x2="160" y2="30" stroke="var(--c-orange)" stroke-width="6"/>
+<line x1="190" y1="30" x2="330" y2="30" stroke="var(--c-blue)" stroke-width="6"/>
+<line x1="360" y1="30" x2="500" y2="30" stroke="var(--c-green)" stroke-width="6"/>
+</svg>
+  </figure>
+  <credit>[Eul36] L.&nbsp;Euler, Solutio problematis ad geometriam situs pertinentis, 1736.</credit>
+</slide>
+
+<slide title="アルゴリズム" title-en="An algorithm" sec="部品" sec-en="Parts" title-en-ja="623d4875" sec-en-ja="3bacb05a">
+  <algo title="$\mathsf{EulerPath}(G)$">
+    <io><ja>入力：連結で、奇数次の頂点が 0 個か 2 個のグラフ $G = (V, E)$</ja><en ja="cad768a4">Input: a connected graph $G = (V, E)$ with 0 or 2 vertices of odd degree</en></io>
+    <io><ja>出力：$G$ のオイラー路 $P$</ja><en ja="b70253f4">Output: an Euler path $P$ of $G$</en></io>
+    <ln><ja>$v \gets$ 奇数次の頂点（なければ任意の頂点）、$S \gets (v)$、$P \gets ()$</ja><en ja="4eaf4b58">$v \gets$ a vertex of odd degree (any vertex if there is none), $S \gets (v)$, $P \gets ()$</en></ln>
+    <ln><b>while</b> $S \ne ()$ <b>do</b></ln>
+    <ln in="1">$u \gets$ <ja>$S$ の末尾</ja><en ja="534f5cb2">the last vertex of $S$</en></ln>
+    <ln in="1"><b>if</b> <ja>$u$ に、使っていない辺 $uw$ がある</ja><en ja="d9d0994e">$u$ has an unused edge $uw$</en></ln>
+    <ln in="2"><b>then</b> <ja>$uw$ を使い、$w$ を $S$ の末尾に加える <rem>先へ進む</rem></ja><en ja="01e184ed">use $uw$ and append $w$ to $S$ <rem>go on</rem></en></ln>
+    <ln in="2"><b>else</b> <ja>$u$ を $S$ から除き、$P$ の末尾に加える <rem>引き返す</rem></ja><en ja="7f029bab">move $u$ from $S$ to the end of $P$ <rem>go back</rem></en></ln>
+    <ln><b>return</b> $P$</ln>
+  </algo>
+</slide>
+
 <divider><ja>参考資料</ja><en ja="6f2a41a7">Appendix</en></divider>
 
 <slide title="まとめ" title-en="Summary" title-en-ja="0b839365">

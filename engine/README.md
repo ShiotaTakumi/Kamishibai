@@ -31,6 +31,8 @@ Madrid の下の帯に出す短い形は、`author`・`headline`・`date` の `s
 - 本文：段落 `p`、箇条書き `list`/`item`、短い注意を緑の枠で囲む `note`、話の帰結を赤い下向きの矢印の下に出す `down`、段組み `columns`/`column`、図 `figure`、表 `table.tbl`
 - block（Beamer の block）：`block`・`alertblock`・`exampleblock`
 - 証明など：強調 `alert`、証明 `proof`、証明の方針 `plan`、後で証明する主張 `later`、番号つきの手順 `nums`
+- 囲みと流れ図：強調する数式や条件の枠 `boxed`、箱と矢印の流れ図 `flow`/`box`/`to`、アルゴリズム `algo`/`io`/`ln`（下の「流れ図・囲み・アルゴリズム」）
+- 色と出典：文の色 `orange`・`blue`・`green`（図の線は `var(--c-orange)` などで同じ色になる）、ページの下端の出典の行 `credit`
 - 図の切り替え：重ねた図 `flip` と、それを切り替えるボタン `switch`。組み上がる図は `flip anim`（下の「図の切り替え」「組み上がる図」）
 - ラベル：行の中の小さな枠 `span.label`（下の「ラベル」）
 - 数式：文の中は `$…$`・`\(…\)`、別の行に取るときは `$$…$$`・`\[…\]`
@@ -53,6 +55,28 @@ Madrid の下の帯に出す短い形は、`author`・`headline`・`date` の `s
 一つの flip に SVG が複数あるときは、`cards="a|b"` で 1 枚目の SVG に a 枚、2 枚目に b 枚と図ごとに決めます。
 数でも `*` でもない値は数えず、`make pack` が警告します。
 文を出さずに図だけを進めるときは、文のない `<span step cards="n"></span>` を置きます。
+
+### 流れ図・囲み・アルゴリズム
+
+どれもページごとの CSS や数式の中の枠を書かずに使えます。見た目はテーマが決めます。
+
+```html
+<flow>
+  <box title="入力">連結なグラフ $G$</box> <to>次数を数える</to>
+  <box title="判定">奇数次の頂点が 0 個か 2 個</box> <to></to> <box title="出力">オイラー路</box>
+</flow>
+<boxed title="握手の補題">$\displaystyle\sum_{v \in V} \deg(v) = 2|E|$</boxed>
+<algo title="$\mathsf{EulerPath}(G)$">
+  <io>入力：グラフ $G$</io>
+  <ln><b>while</b> $S \ne ()$ <b>do</b></ln>
+  <ln in="1">$u \gets S$ の末尾 <rem>注釈</rem></ln>
+</algo>
+```
+
+- `flow`：箱 `box` と矢印 `to`（中の文は矢印の下に出る。空でもよい）を交互に書きます。箱は同じ幅で一列に並びます。
+  `<flow wrap>` は箱を中身の幅にし、入らなければ折り返します。
+- `boxed`・`box`・`algo` の見出し `title` は省けます。英語は `title-en` に書きます。
+- `algo`：`ln` に行の番号が付き、`in="1"`〜`in="4"` で字下げします。入力と出力は `io`（番号なし）、行の中の注釈は `rem` です。
 
 ### ラベル
 
@@ -194,7 +218,7 @@ make browsers && node tools/check_layout.mjs talk/talk.html       # 原稿をそ
 ページは欄の分だけ左に隙間を空けて置かれます。全画面表示では隙間を空けずに画面いっぱいに置き、欄はマウスを寄せたときに重ねて出します。
 出力では、並べた版面の左の隙間に欄が出ます。モードのキーをもう一度押すとプレゼンに戻ります（Windows では ⌘ の代わりに Ctrl）。
 
-- 編集 ⌘E：文をクリックして直し、Enter で原稿へ書き戻します。Chrome 拡張 page-edit（[page-edit/README.md](../page-edit/README.md)）が要り、無いときは見出しが灰色になります。
+- 編集 ⌘E：文をクリックして直し、Enter で原稿へ書き戻します。文は組んだ形のまま出て、クリックした文の数式だけが TeX になります。Chrome 拡張 page-edit（[page-edit/README.md](../page-edit/README.md)）が要り、無いときは見出しが灰色になります。
   道具はページ一覧 ⌘B と日本語の太さです。英語を持つ原稿では、その上に「あ」（日本語だけを編集）・「A」（英語だけを編集）・「あA」（日本語と英語を一度に編集）が並びます。
 - プレゼン：全画面 ⌘F、ポインター ⌘K、段階表示 S、ページ一覧 ⌘B、選択 ⌘I、キー無効 ⌘U、日本語の太さ（「A」を押すと「+」・値・「−」が出て、値を押すとテーマの値に戻る）。
   選択 ⌘I は文字を選べる状態で、クリックではページを送らず ← → だけで送ります。

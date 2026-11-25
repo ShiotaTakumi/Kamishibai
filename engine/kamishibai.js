@@ -35,6 +35,13 @@
     <plan title="証明の方針">…</plan>    証明の方針（淡い地）
     <later title="補題 2（後で証明）">…</later>   後で証明する主張（破線の枠）
     <nums start="3"><item>…</item></nums>   番号つきの手順（丸数字。start で始めの番号）。<nums labels> と <item label="(i)"> で文字のラベル
+    <flow><box title="見出し">文</box><to>補題 1</to><box>…</box></flow>   流れ図。箱と矢印（<to> の文は矢印の下。空でもよい）を交互に書く。
+                                        箱は同じ幅。<flow wrap> は箱を中身の幅にして、入らなければ折り返す
+    <boxed title="…">$…$</boxed>        強調する数式や条件の枠の囲み（title は省ける）
+    <algo title="名前"><io>入力：…</io><ln>…</ln><ln in="1">…</ln></algo>   アルゴリズム。<ln> に行の番号が付き、in="1"〜"4" で字下げする。
+                                        入出力は <io>、行の中の注釈は <rem>…</rem>、予約語は <b>…</b>
+    <credit>[著者 年] …</credit>         ページの下端に出す出典の行
+    <orange> <blue> <green>             図と文で揃える色。図では stroke="var(--c-orange)"・--c-blue・--c-green
     <side><div>…</div><figure>…</figure></side>   文を左、図を右に並べる（アルゴリズムなど段階を追う説明だけの例外）
     <flip id="fyn"><svg>…</svg><svg>…</svg></flip>  重ねた図を 1 枚ずつ見せる（大きさはいちばん大きな図。width・height でも決められる）
     <switch for="fyn"><button>できる</button><button>できない</button></switch>   図を切り替えるボタン
@@ -292,9 +299,10 @@ function titleSpan(title) {
 /* Kamishibai components written as tags */
 function components(pg) {
   pg.querySelectorAll("alert").forEach(e => e.classList.add("k"));
-  [["proof", "pf", "証明", "Proof"], ["plan", "pf pl", "証明の方針", "Proof sketch"], ["later", "ph", "", ""]].forEach(function (c) {
+  [["proof", "pf", "証明", "Proof"], ["plan", "pf pl", "証明の方針", "Proof sketch"], ["later", "ph", "", ""],
+   ["box", "", "", ""], ["boxed", "", "", ""], ["algo", "", "", ""]].forEach(function (c) {
     pg.querySelectorAll(c[0]).forEach(function (e) {
-      c[1].split(" ").forEach(k => e.classList.add(k));
+      c[1].split(" ").filter(Boolean).forEach(k => e.classList.add(k));
       const title = pair(e, "title", c[2], c[3]);
       e.removeAttribute("title");
       if (title.ja || title.en) { const pt = $new("div", "pt"); pt.appendChild(both(title, titleSpan)); e.prepend(pt); }
@@ -475,13 +483,14 @@ stage.querySelectorAll("[line]").forEach(function (e) {
 
 /* ===== Math (KaTeX): $…$, \(…\), $$…$$, \[…\]. No MathML (copying would repeat the text).
    Elements already holding rendered math (.katex, e.g. pre-rendered by a build) are skipped ===== */
-if (window.renderMathInElement && window.katex) {
+function math(root) {
+  if (!window.renderMathInElement || !window.katex) return;
   const pre = [];
-  stage.querySelectorAll(".katex").forEach(function (k) {
+  root.querySelectorAll(".katex").forEach(function (k) {
     const p = k.parentElement;
     if (p && !p.classList.contains("ks-pre")) { p.classList.add("ks-pre"); pre.push(p); }
   });
-  renderMathInElement(stage, {
+  renderMathInElement(root, {
     delimiters: [{ left: "$$", right: "$$", display: true }, { left: "\\[", right: "\\]", display: true },
                  { left: "\\(", right: "\\)", display: false }, { left: "$", right: "$", display: false }],
     ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "option", "svg"],
@@ -490,6 +499,7 @@ if (window.renderMathInElement && window.katex) {
   });
   pre.forEach(p => p.classList.remove("ks-pre"));
 }
+math(stage);
 
 /* ===== Japanese with no English (in a deck that has English): its element is marked .untr ===== */
 if (hasEn) (function () {
@@ -504,7 +514,7 @@ if (hasEn) (function () {
    IPA P-Gothic draws them about half width, so each gets a span with the missing width as padding.
    Applied only when the theme's font (--jp-pad-family, without a unicode-range) is declared, so a
    fallback system font (already full width) is not padded twice ===== */
-(function () {
+function jpPad(root) {
   if (cssVar("--jp-pad") !== "ipa") return;
   const fam = cssVar("--jp-pad-family").replace(/["']/g, "");
   if (fam && !Array.from(document.fonts).some(f => f.family.replace(/["']/g, "") === fam && /^U\+0+-10FFFF$/i.test(f.unicodeRange))) return;
@@ -513,7 +523,7 @@ if (hasEn) (function () {
                   "、": .5, "。": .5, "，": .5, "．": .5 };
   const MID = { "・": .5, "：": .5, "；": .5, "！": .48, "？": .7202 };
   const PUNCT = /[（「『【［〔｛〈《）」』】］〕｝〉》、。，．・：；！？]/;
-  const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), hits = [];
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
   while (w.nextNode()) {
     const t = w.currentNode, p = t.parentElement;
     if (p && PUNCT.test(t.nodeValue) && !p.closest(".katex, svg, .L-en")) hits.push(t);
@@ -534,14 +544,15 @@ if (hasEn) (function () {
     if (plain) frag.appendChild(document.createTextNode(plain));
     t.parentNode.replaceChild(frag, t);
   });
-})();
+}
+jpPad(stage);
 
 /* ===== Japanese runs in <span class="ja"> so a stroke can be added (--ja-stroke, normally 0).
    Not in bold text, math or figures ===== */
-(function () {
+function jaRuns(root) {
   const JA = "[　-〿぀-ヿㇰ-ㇿ㐀-䶿一-鿿豈-﫿＀-￯]";
   const has = new RegExp(JA), split = new RegExp("(" + JA + "+)");
-  const w = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT), hits = [];
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
   while (w.nextNode()) {
     const t = w.currentNode, p = t.parentElement;
     if (!p || !has.test(t.nodeValue) || p.closest(".katex, svg, .L-en")) continue;
@@ -556,7 +567,17 @@ if (hasEn) (function () {
     });
     t.parentNode.replaceChild(frag, t);
   });
-})();
+}
+jaRuns(stage);
+
+/* Kamishibai.typeset(el): the same for a piece of text put on a page later (page-edit, for a part of a text) */
+Kamishibai.typeset = function (el) {
+  el.querySelectorAll("alert").forEach(a => a.classList.add("k"));
+  arrows(el);
+  math(el);
+  jpPad(el);
+  jaRuns(el);
+};
 
 /* Load every font now (math on pages not shown yet must be ready for the overview and printing) */
 document.fonts.forEach(function (f) { f.load().catch(function () {}); });

@@ -139,7 +139,7 @@ window.__layout = (async function () {
     kx.querySelectorAll(".katex-html > *").forEach(function (e) {
       const b = e.getBoundingClientRect(); if (!b.width) return;
       u = u ? { left: Math.min(u.left, b.left), top: Math.min(u.top, b.top), right: Math.max(u.right, b.right),
-                bottom: Math.max(u.bottom, b.bottom), width: 1, height: 1 } : b;
+                bottom: Math.max(u.bottom, b.bottom), width: u.width, height: u.height } : b;   // the first part gives the height of the line
     });
     return u || kx.getBoundingClientRect();
   }
