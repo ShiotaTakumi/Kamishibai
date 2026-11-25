@@ -20,7 +20,8 @@ OUT (default: next to SRC as NAME.dist.html) opens from file:// with no network 
     system fonts, as in the draft;
   - images (<img src>, <qr src>, SVG <image href>), video and audio (<video src poster>, <audio src>,
     <source src>, <track src>), other <script src> and <link rel=stylesheet> (with the url(...) inside)
-    of the draft as inline data; not inside comments, nor in the code of scripts and styles. Files
+    of the draft as inline data, with srcset, the url(...) of style attributes and of <style>, and
+    the stylesheets a stylesheet takes in with @import; not inside comments, nor in the code of scripts. Files
     may come only from the draft's folder, the folder holding engine/, or a folder given with --allow;
     any other path stops the packing. Other references to files (<a href>, <iframe>, <object>) stay
     and are warned about: the packed file needs those files next to it. Large videos make a large file.
@@ -343,12 +344,28 @@ def outside_opaque(src, fn, style=None):
     return "".join(out)
 
 
-def css_inline(css, base, files):
-    """url(...) of a stylesheet (relative to the stylesheet's folder) as inline data."""
+def css_inline(css, base, files, quote='"', seen=()):
+    """url(...) and @import of a stylesheet (relative to the stylesheet's folder) as inline data.
+    quote="" writes url(data:…) with no quotes, for CSS inside an HTML attribute."""
+    def imp(m):
+        p = files.get(m.group(2) or m.group(3), base)
+        if p is None:
+            return m.group(0)
+        if p in seen:
+            sys.exit(f"@import loop at {p}")
+        inner = css_inline(p.read_text(encoding="utf-8"), p.parent, files, quote, seen + (p,))
+        cond = m.group(4).strip()
+        return f"@media {cond} {{\n{inner}\n}}" if cond else inner
+    css = re.sub(r"""@import\s+(?:url\(\s*(["']?)([^"')]+)\1\s*\)|["']([^"']+)["'])([^;]*);""", imp, css, flags=re.I)
+
     def url(m):
         p = files.get(m.group(2), base)
-        return m.group(0) if p is None else f'url("{data_uri(p)}")'
+        return m.group(0) if p is None else f"url({quote}{data_uri(p)}{quote})"
     return re.sub(r"""url\(\s*(["']?)([^"')]+)\1\s*\)""", url, css)
+
+
+# an attribute value: "…", '…' or bare
+VALUE = r"""(?:(["'])([^"']*)\2|([^\s"'>]+))"""
 
 
 def inline_resources(src, files):
@@ -357,27 +374,47 @@ def inline_resources(src, files):
     def part(t):
         def media(m):
             def ref(k):
-                p = files.get(k.group(3))
-                return k.group(0) if p is None else k.group(1) + k.group(2) + data_uri(p) + k.group(2)
-            return re.sub(r"""(\s(?:src|href|xlink:href|poster)\s*=\s*)(["'])([^"']*)\2""", ref, m.group(0), flags=re.I)
+                p = files.get(k.group(3) if k.group(2) else k.group(4))
+                return k.group(0) if p is None else f'{k.group(1)}"{data_uri(p)}"'
+
+            def srcset(k):
+                def one(c):
+                    c = c.strip()
+                    if not c:
+                        return c
+                    u, _, d = c.partition(" ")
+                    p = files.get(u)
+                    return (u if p is None else data_uri(p)) + (" " + d.strip() if d.strip() else "")
+                # candidates are split at commas followed by a space (a data: URL holds commas)
+                return f'{k.group(1)}"' + ", ".join(one(c) for c in re.split(r",\s+|,$", k.group(3))) + '"'
+            tag = re.sub(r"(\s(?:src|href|xlink:href|poster)\s*=\s*)" + VALUE, ref, m.group(0), flags=re.I)
+            return re.sub(r"""(\ssrcset\s*=\s*)(["'])([^"']*)\2""", srcset, tag, flags=re.I)
         t = re.sub(r"<(?:img|qr|image|source|video|audio|track)\b[^>]*>", media, t, flags=re.I)
 
+        def style_attr(m):
+            def css(k):  # url(data:…) without quotes, whichever quote the attribute uses
+                q = '"' if k.group(2) is not None else "'"
+                v = k.group(2) if k.group(2) is not None else k.group(3)
+                return k.group(1) + q + css_inline(v, files.base, files, quote="") + q
+            return re.sub(r"""(\sstyle\s*=\s*)(?:"([^"]*)"|'([^']*)')""", css, m.group(0), flags=re.I)
+        t = re.sub(r"<[a-zA-Z][^<>]*\sstyle\s*=[^<>]*>", style_attr, t)
+
         def script(m):
-            p = files.get(m.group(3))
+            p = files.get(m.group(3) if m.group(2) else m.group(4))
             if p is None:
                 return m.group(0)
-            attr = re.sub(r"""\ssrc\s*=\s*(["'])[^"']*\1""", "", m.group(1), flags=re.I)
+            attr = re.sub(r"\ssrc\s*=\s*" + VALUE.replace("\\2", "\\1"), "", m.group(1), flags=re.I)
             if re.search(r"\s(?:defer|async)\b|\stype\s*=\s*[\"']?module", attr, re.I):
                 # deferred, async and module scripts keep their timing: the code as a data URL
                 return f'<script{attr} src="data:text/javascript;base64,{base64.b64encode(p.read_bytes()).decode()}"></script>'
             return f"<script{attr}>" + re.sub(r"</(script)", r"<\\/\1", p.read_text(encoding="utf-8"), flags=re.I) + "</script>"
-        t = re.sub(r"""<script\b([^>]*?\ssrc\s*=\s*(["'])([^"']*)\2[^>]*)>\s*</script\s*>""", script, t, flags=re.I)
+        t = re.sub(r"<script\b([^>]*?\ssrc\s*=\s*" + VALUE + r"[^>]*)>\s*</script\s*>", script, t, flags=re.I)
 
         def link(m):
             if not re.search(r"""rel\s*=\s*["']?stylesheet""", m.group(0), re.I):
                 return m.group(0)
-            h = re.search(r"""href\s*=\s*(["'])([^"']*)\1""", m.group(0))
-            p = files.get(h.group(2)) if h else None
+            h = re.search(r"\shref\s*=\s*" + VALUE.replace("\\2", "\\1"), m.group(0), re.I)
+            p = files.get(h.group(2) if h.group(1) else h.group(3)) if h else None
             if p is None:
                 return m.group(0)
             media = re.search(r"""\smedia\s*=\s*(["'][^"']*["'])""", m.group(0))
@@ -386,8 +423,9 @@ def inline_resources(src, files):
                 re.sub(r"</(style)", r"<\\/\1", css, flags=re.I) + "</style>"
         t = re.sub(r"<link\b[^>]*>", link, t, flags=re.I)
 
-        for m in re.finditer(r"""<(\w+)\b[^>]*?\s(src|href|poster|data|xlink:href)\s*=\s*(["'])([^"']*)\3""", t):
-            tag, v = m.group(1).lower(), m.group(4)
+        for m in re.finditer(r"<(\w+)\b[^>]*?\s(src|href|poster|data|xlink:href|srcset)\s*=\s*" +
+                             VALUE.replace("\\2", "\\3"), t):
+            tag, v = m.group(1).lower(), m.group(4) if m.group(3) else m.group(5)
             if v.startswith(("data:", "#", "javascript:", "mailto:")) or not v.strip():
                 continue
             if re.match(r"https?:|//", v):

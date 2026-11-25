@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Report the reading order of numbered statements in html/slide.src.html or in a draft of the
-Kamishibai engine (engine/kamishibai.js; pages <cover>, <slide>, <divider>).
+"""Report the reading order of numbered statements in a draft of the Kamishibai engine
+(engine/kamishibai.js; pages <cover>, <slide>, <divider>) or in html/slide.src.html (the default input).
 
 For each numbered statement (定理 1, 補題 2・3, 定義 4–6, ...; the kinds are set by --kinds):
 the slide where it is stated, the first slide that uses it, and the slides where its proof starts
@@ -18,7 +18,8 @@ A statement is the title of a box (div.blk, div.pf, div.ph; see html/slide.src.h
 the title attribute of <block>, <alertblock>, <exampleblock>, <proof>, <plan>, <later>) that starts
 with a kind and a number. A box titled 証明 or 証明の方針 proves the last statement on its slide,
 or the statement named in the frame title ("補題 2 の証明"); "補題 2 の証明" as a box title works too.
-A div.ph box states a claim whose proof comes later. References are "kind number" in the text. A draft whose
+A div.ph box states a claim whose proof comes later. References are "kind number" in the text; a longer kind of the engine
+that ends with a listed one (主定理 3 when only 定理 is listed) is not a reference to the shorter one. A draft whose
 numbers the engine gives (<html numbering="…">) is read with those numbers and references (tools/numbering.py).
 
 Usage: python3 tools/check_order.py [src.html] [--sec PREFIX] [--kinds 定理,補題,主張,定義]
@@ -126,9 +127,11 @@ def main():
     ap.add_argument('--gap', type=int, default=3)
     ap.add_argument('--short', type=int, default=2)
     a = ap.parse_args()
-    kinds = a.kinds.split(',')
-    KIND = '(' + '|'.join(map(re.escape, kinds)) + ')'
-    REF = re.compile(KIND + r' ?' + NUM)
+    kinds = [k for k in a.kinds.split(',') if k]
+    # the longest first, among the kinds of the engine too: 主定理 3 is not 定理 3
+    every = sorted(set(kinds) | set(numbering.kinds_of('').ja), key=len, reverse=True)
+    KIND = '(' + '|'.join(map(re.escape, sorted(kinds, key=len, reverse=True))) + ')'
+    REF = re.compile('(' + '|'.join(map(re.escape, every)) + r') ?' + NUM)
 
     stated, uses, pstart, pend, deps = {}, {}, {}, {}, {}
     text = a.src.read_text(encoding="utf-8")
@@ -168,7 +171,7 @@ def main():
                     pstart.setdefault(key, n)
                     if 'の方針' not in m.group(3):
                         pend[key] = n
-            refs = [f'{k} {p}' for k, nums in REF.findall(body) for p in expand(nums)]
+            refs = [f'{k} {p}' for k, nums in REF.findall(body) if k in kinds for p in expand(nums)]
             for key in proved:
                 deps.setdefault(key, set()).update(r for r in refs if r != key)
             if kind == 'pf pl':
