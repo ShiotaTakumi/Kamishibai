@@ -10,6 +10,10 @@
   --theme: #3333B2; --bt-ink: #262686; --bb: #E9E9F3; --head-dim: #9A9ADB;
   /* Beamer の structure の色 */
   --navy: #3333B2; --blue: #3333B2;
+  /* 見出しの帯・表紙と区切りの箱の地、箇条書きの玉（光の当たったところから影へ）、block の見出しの地と中身の地 */
+  --bar: var(--navy);
+  --ball1: #9A9ADB; --ball2: #5555C2; --ball3: #3333B2; --ball4: #1D1D67;
+  --t1: #262686; --b1: #E9E9F3; --t2: #BF0000; --b2: #F9E5E5; --t3: #006000; --b3: #E5EFE5;
   /* 下の帯の 3 つの色（左から） */
   --foot1: #191959; --foot2: #262686; --foot3: #3333B2;
   /* 角丸の箱の影：0.5px ずつ広げた影を 21 枚重ねる。k 枚目の濃さは 1 / (21.5 + k)（最後の 1 枚は 1 / 84）。
@@ -30,7 +34,7 @@
 
 /* ---- ふつうのページの見出し（上の帯） ---- */
 .ttl { position: absolute; left: 0; top: 0; width: var(--W); height: 81px; padding: 0 22px; display: flex; align-items: center;
-  background: var(--navy); font-size: var(--Large); color: #fff; line-height: 1.2; white-space: nowrap }
+  background: var(--bar); font-size: var(--Large); color: #fff; line-height: 1.2; white-space: nowrap }
 /* 中身は、見出しの帯と下の帯の間の上下の真ん中に置く。入りきらないときは上から並べる */
 .page > slide { position: absolute; left: 33px; top: 81px; width: calc(var(--W) - 66px); height: calc(var(--H) - 104px);
   display: flex; flex-direction: column; justify-content: safe center }
@@ -40,7 +44,7 @@ list { display: block; margin: 0 }
 item { display: block; position: relative; padding-left: 61px; margin: 0 0 5.6px }
 /* 玉は、左上に光の当たった丸（放射状のグラデーション）。画像にしないのは、Safari が印刷のときにまだ出していない画像を描かないため */
 item::before { content: ""; position: absolute; left: 32px; top: calc(.6em - 7px); width: 14px; height: 14px; border-radius: 50%;
-  background: radial-gradient(circle at 36% 32%, #9A9ADB 0, #5555C2 28%, #3333B2 52%, #1D1D67 100%) }
+  background: radial-gradient(circle at 36% 32%, var(--ball1) 0, var(--ball2) 28%, var(--ball3) 52%, var(--ball4) 100%) }
 item list { margin: 5.6px 0 0 }
 item item { padding-left: 65px; margin-bottom: 0 }
 item item::before { left: 37px; top: calc(.6em - 5.5px); width: 11px; height: 11px }
@@ -54,9 +58,9 @@ item item::before { left: 37px; top: calc(.6em - 5.5px); width: 11px; height: 11
   z-index: -1; border-radius: 0 0 9px 0; background: rgba(0, 0, 0, .0233); box-shadow: var(--shade); pointer-events: none }
 block, alertblock, exampleblock { display: block; position: relative; margin: 0 -12px 19px; border-radius: 9px; background: var(--b) }
 :is(block, alertblock, exampleblock) + :is(block, alertblock, exampleblock) { margin-top: 14px }
-block { --t: #262686; --b: #E9E9F3 }
-alertblock { --t: #BF0000; --b: #F9E5E5 }
-exampleblock { --t: #006000; --b: #E5EFE5 }
+block { --t: var(--t1); --b: var(--b1) }
+alertblock { --t: var(--t2); --b: var(--b2) }
+exampleblock { --t: var(--t3); --b: var(--b3) }
 .bt { display: flex; align-items: center; gap: .3em; height: 47px; padding: 0 11px; background: var(--t); color: #fff;
   border-radius: 9px 9px 0 0; font-size: var(--large); line-height: 1.2; white-space: nowrap }
 /* 見出しの全角数字（定義１ の １ など）は、漢字より背が低く下端が浮いて、上に寄って見えるので少し下げる */
@@ -67,7 +71,7 @@ exampleblock { --t: #006000; --b: #E5EFE5 }
 /* ---- 表紙：題目の箱（角丸・影）、その下に著者（1 行）・所属・会の名前と日付。全体を上下の真ん中に置く ---- */
 cover { position: absolute; left: 33px; top: 0; width: calc(var(--W) - 66px); height: calc(var(--H) - 23px); display: flex; flex-direction: column;
   justify-content: center; align-items: center; text-align: center }
-.ctitle { position: relative; align-self: stretch; margin: 0 -12px; padding: 25px 24px; border-radius: 9px; background: var(--navy); color: #fff }
+.ctitle { position: relative; align-self: stretch; margin: 0 -12px; padding: 25px 24px; border-radius: 9px; background: var(--bar); color: #fff }
 headline { display: block; font-size: var(--Large); line-height: 1.27 }
 .authors { display: flex; justify-content: center; gap: 1.05em; margin-top: 60px; white-space: nowrap }
 /* 所属が 2 つ以上あるときは、名前と所属に番号を付けてつなぐ */
@@ -81,7 +85,20 @@ qr .qcap { position: absolute; left: 0; top: 229.3px; width: 100%; text-align: c
 
 /* ---- 区切りのページ：角丸の箱に入れて置く ---- */
 divider { position: absolute; left: 33px; top: 0; width: calc(var(--W) - 66px); height: calc(var(--H) - 23px); display: flex; align-items: center }
-.sbox { position: relative; flex: 1; margin: 0 -12px; padding: 36px 24px; border-radius: 9px; background: var(--navy); color: #fff;
+.sbox { position: relative; flex: 1; margin: 0 -12px; padding: 36px 24px; border-radius: 9px; background: var(--bar); color: #fff;
   text-align: center; font-size: var(--Large); line-height: 1.27 }
 /* 出典の行（このテーマでは slide が位置の基準になる） */
 credit { left: 0; right: 0; bottom: 6px }
+
+/* ---- ダークモード（値の決め方は base.css の「ダークモード」）：帯と箱は沈めた紺に白の字、文の色と玉は明るい藤色 ---- */
+@media screen {
+  html.dark body {
+    --ink: #ececec; --theme: #bbbbff; --navy: #bbbbff; --blue: #bbbbff; --alert: #ff7e3e; --bt-ink: #c9c9ff; --bb: #26263a; --head-dim: #6f6fc0;
+    --k-on-theme: #14143f; --k-box: #24242c; --k-plan: #22222a;
+    --bar: #2c2c84; --ball1: #dcdcff; --ball2: #a8a8f4; --ball3: #8686e6; --ball4: #4c4cae;
+    --t1: #32328c; --b1: #26263a; --t2: #8c1b1b; --b2: #3a2222; --t3: #1c5628; --b3: #1f2f22;
+    --foot1: #14143f; --foot2: #1e1e60; --foot3: #2c2c84;
+  }
+  html.dark .page [light] { --bar: var(--l-navy); --ball1: #9A9ADB; --ball2: #5555C2; --ball3: #3333B2; --ball4: #1D1D67;
+    --t1: #262686; --b1: #E9E9F3; --t2: #BF0000; --b2: #F9E5E5; --t3: #006000; --b3: #E5EFE5 }
+}
