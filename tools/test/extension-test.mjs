@@ -76,11 +76,14 @@ async function chrome(fn) {
       await win.evaluate(() => {
         window.showDirectoryPicker = () => got;
         window.got = new Promise(ok => {
-          addEventListener("dragover", e => e.preventDefault());
-          addEventListener("drop", e => { e.preventDefault(); ok(e.dataTransfer.items[0].getAsFileSystemHandle()); });
+          // before the window's own, which would take the folder itself
+          addEventListener("drop", e => { e.preventDefault(); e.stopImmediatePropagation(); ok(e.dataTransfer.items[0].getAsFileSystemHandle()); }, { capture: true, once: true });
         });
       });
-      const cdp = await ctx.newCDPSession(win), data = { items: [], files: [path], dragOperationsMask: 1 };
+      await h.drop(win, path);
+    };
+    h.drop = async function (win, ...files) {
+      const cdp = await ctx.newCDPSession(win), data = { items: [], files: files, dragOperationsMask: 1 };
       for (const type of ["dragEnter", "dragOver", "drop"]) await cdp.send("Input.dispatchDragEvent", { type, x: 50, y: 50, data });
     };
     h.on = page => page.waitForFunction(() => document.body && document.body.classList.contains("sed-on") && !__pageEdit.building && !__pageEdit.asking && document.querySelector(".sed-bar"));
@@ -146,7 +149,7 @@ test("the window closed: the next save asks again and loses nothing", () => chro
   eq(readFileSync(join(h.root, "a.html"), "utf8"), doc("first"), "nothing written yet");
   ok((await win.textContent("button.main")).includes("project"), "the kept folder is offered");
   await h.give(win, h.root);
-  await win.getByText("別のフォルダを選ぶ").click();
+  await win.getByRole("button", { name: "別のフォルダを選ぶ" }).click();
   await h.until("a.html", doc("second"));
 }));
 
@@ -162,6 +165,59 @@ test("a folder without the draft is not taken; the window closed without an answ
   await a.waitForFunction(() => !__pageEdit.asking);
   ok(!await a.evaluate(() => document.body.classList.contains("sed-on")), "not editing");
   await h.asked(() => a.keyboard.press(KEY + "+e"));   // and it can be asked again
+}));
+
+test("a folder dropped on the extension's window: taken as a chosen one, unless it is without the draft or not one folder", () => chrome(async h => {
+  const a = await h.show("a.html", doc("first"));
+  mkdirSync(join(h.dir, "other"));
+  const win = await h.asked(() => a.keyboard.press(KEY + "+e")), url = win.url();
+  ok((await win.textContent("#drop")).includes("「project」"), "the frame names the draft's folder");
+  // no question of Chrome for a folder that is not to be taken
+  await win.evaluate(() => {
+    const f = FileSystemHandle.prototype.requestPermission;
+    window.asked = 0;
+    FileSystemHandle.prototype.requestPermission = function (x) { asked++; return f.call(this, x); };
+  });
+  for (const [files, say] of [[[join(h.dir, "other")], /「other」の中に、開いている a\.html がありません/], [[join(h.root, "a.html")], /ファイルではなく/], [[h.root, join(h.dir, "other")], /一つだけ/]]) {
+    await h.drop(win, ...files);
+    await win.waitForFunction(re => new RegExp(re).test(document.getElementById("say").textContent), say.source);
+    ok(await win.isEnabled("button.main"), "it can be tried again");
+  }
+  eq(await win.evaluate(() => asked), 0, "questions");
+  eq(await h.sw.evaluate(async () => (await keptDirs()).length), 0, "the folders kept");
+  await h.drop(win, h.root);
+  await h.on(a);
+  await h.edit(a, "first", "second");
+  await h.until("a.html", doc("second"));
+  eq(await h.sw.evaluate(async () => (await chrome.windows.getAll({ windowTypes: ["popup"] })).map(w => w.state).join()), "minimized");
+  eq(await h.sw.evaluate(async () => (await keptDirs()).map(x => x.dir.name).join()), "project");
+  // the window that stays is not left for what is dropped on it
+  eq(await win.textContent("#drop") + await win.textContent("#hint"), "");
+  await h.drop(win, join(h.dir, "other"));
+  await win.waitForTimeout(500);
+  eq(win.url(), url);
+  ok((await win.textContent("#head")).includes("編集しています"), "still the same");
+  await h.edit(a, "second", "third");
+  await h.until("a.html", doc("third"));
+}));
+
+test("the button copies the path of the draft's folder before the picker opens", () => chrome(async h => {
+  mkdirSync(join(h.root, "下 書き"));
+  symlinkSync(join(ROOT, "engine"), join(h.root, "下 書き", "engine"));
+  const a = await h.show("下 書き/a.html", doc("first"));
+  const win = await h.asked(() => a.keyboard.press(KEY + "+e"));
+  await h.give(win, h.root);
+  await win.evaluate(() => {
+    const pick = showDirectoryPicker;
+    window.log = [];
+    Object.defineProperty(navigator.clipboard, "writeText", { value: async t => { log.push(t); throw new Error("no clipboard"); } });
+    window.showDirectoryPicker = function () { log.push("picker " + navigator.userActivation.isActive); return pick(); };
+    window.paths = ["file:///C:/a%20b/c.html", "file:///C:/c.html", "file://host/share/a/c.html", "file:///a/b%23/c.html"].map(folderPath);
+  });
+  eq(await win.evaluate(() => paths.join(" | ")), "C:\\a b | C:\\ | \\\\host\\share\\a | /a/b#");
+  await win.click("button.main");
+  await h.on(a);   // also when the path could not be copied
+  eq(await win.evaluate(() => log.join(" | ")), join(h.root, "下 書き") + " | picker true");
 }));
 
 test("a script of the page gets no handle, no other file, no list, and shows no window", () => chrome(async h => {

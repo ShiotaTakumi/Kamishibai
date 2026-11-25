@@ -12,6 +12,10 @@ p { margin: 0 0 12px; }
 #say { color: #b3261e; }
 #say:empty { display: none; }
 @media (prefers-color-scheme: dark) { #say { color: #f2b8b5; } }
+#drop { margin: 0 0 12px; padding: 18px 12px; border: 2px dashed GrayText; border-radius: 10px; text-align: center; }
+#drop.over { border-color: #6f9fdc; background: color-mix(in srgb, #6f9fdc 22%, Canvas); }
+#drop:empty, #hint:empty { display: none; }
+#hint { font-size: 12px; opacity: .75; }
 button { font: inherit; display: block; width: 100%; margin: 0 0 8px; padding: 7px 12px; border-radius: 8px; border: 1px solid GrayText; background: ButtonFace; color: ButtonText; cursor: pointer; }
 button.main { background: #1f4e8c; border-color: #1f4e8c; color: #fff; }
 </style>
@@ -21,7 +25,9 @@ button.main { background: #1f4e8c; border-color: #1f4e8c; color: #fff; }
 <p id="path"></p>
 <p id="why"></p>
 <p id="say" role="alert"></p>
+<div id="drop"></div>
 <div id="buttons"></div>
+<p id="hint"></p>
 <script src="store.js"></script>
 <script src="folder.js"></script>
 </body>
