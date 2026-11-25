@@ -713,8 +713,40 @@ stage.querySelectorAll("[line]").forEach(function (e) {
 
 /* ===== Math (KaTeX): $…$, \(…\), $$…$$, \[…\]. No MathML (copying would repeat the text).
    Elements already holding rendered math (.katex, e.g. pre-rendered by a build) are skipped ===== */
+const DOLLAR = "\uE000", MATH_SKIP = ".katex, script, noscript, style, textarea, pre, code, option, svg";
+/* \$ in the text (outside a formula) is the character $: KaTeX's auto-render has no escape there, so it is kept as
+   a private-use character while the math is set, and dollars() puts the $ back */
+function escapedDollars(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
+  while (w.nextNode()) if (w.currentNode.nodeValue.indexOf("\\$") >= 0) hits.push(w.currentNode);
+  hits.forEach(function (t) {
+    if (!t.parentElement || t.parentElement.closest(MATH_SKIP)) return;
+    const s = t.nodeValue, CLOSE = { "$$": "$$", "$": "$", "\\(": "\\)", "\\[": "\\]" };
+    let out = "", i = 0;
+    while (i < s.length) {
+      const two = s.substr(i, 2);
+      if (two === "\\$") { out += DOLLAR; i += 2; continue; }
+      const open = CLOSE[two] ? two : s[i] === "$" ? "$" : "";
+      if (!open) { out += s[i++]; continue; }
+      let j = i + open.length, depth = 0;                   // the end of the formula as KaTeX finds it: outside braces, a \x is two characters
+      while (j < s.length && !(depth <= 0 && s.substr(j, CLOSE[open].length) === CLOSE[open])) {
+        if (s[j] === "\\") j++; else if (s[j] === "{") depth++; else if (s[j] === "}") depth--;
+        j++;
+      }
+      if (j >= s.length) { out += s.slice(i); break; }      // not closed: left as it is (reported as a symbol left over)
+      out += s.slice(i, j + CLOSE[open].length);
+      i = j + CLOSE[open].length;
+    }
+    if (out !== s) t.nodeValue = out;
+  });
+}
+function dollars(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) if (w.currentNode.nodeValue.indexOf(DOLLAR) >= 0) w.currentNode.nodeValue = w.currentNode.nodeValue.split(DOLLAR).join("$");
+}
 function math(root) {
   if (!window.renderMathInElement || !window.katex) return;
+  escapedDollars(root);
   const pre = [];
   root.querySelectorAll(".katex").forEach(function (k) {
     const p = k.parentElement;
@@ -811,6 +843,7 @@ Kamishibai.typeset = function (el) {
   references(el);
   jpPad(el);
   jaRuns(el);
+  dollars(el);
 };
 
 /* ===== What went wrong with the math and the images, for the list in edit mode (not in a packed file) =====
@@ -829,7 +862,8 @@ if (!packed) (function () {
   while (w.nextNode()) {
     const p = w.currentNode.parentElement, m = /\\[()\[\]]|\$/.exec(w.currentNode.nodeValue);
     if (m && p && !p.closest(".katex, .katex-error, script, style, noscript, textarea, pre, code, option, svg"))
-      bad(p, "数式の記号 " + m[0] + " が残っています（閉じていないか、数式の途中にタグがあります）「" + cut(norm(w.currentNode.nodeValue)) + "」");
+      bad(p, "数式の記号 " + m[0] + " が残っています（閉じていないか、数式の途中にタグがあります。金額などの文字の $ は \\$ と書きます）「"
+        + cut(norm(w.currentNode.nodeValue.split(DOLLAR).join("$"))) + "」");
   }
   stage.querySelectorAll("img[src]").forEach(function (g) {
     const lost = () => problem("image", pageOf(g), "読めない画像「" + cut(g.getAttribute("src")) + "」", g);
@@ -837,6 +871,7 @@ if (!packed) (function () {
     else if (!g.naturalWidth) { const t = new Image(); t.onerror = lost; t.src = g.src; }   // an SVG may have no width of its own
   });
 })();
+dollars(stage);   // after the check above, which must not take a \$ for a symbol left over
 
 /* Load every font now (math on pages not shown yet must be ready for the overview and printing) */
 document.fonts.forEach(function (f) { f.load().catch(function () {}); });

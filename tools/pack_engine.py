@@ -64,7 +64,7 @@ THEME_FONT_CSS = {"Madrid": ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"]}
 
 # ===== Math: the engine's auto-render call (kamishibai.js), ported =====
 DELIMS = [("$$", "$$", True), ("\\[", "\\]", True), ("\\(", "\\)", False), ("$", "$", False)]
-LEFT = re.compile("(" + "|".join(re.escape(d[0]) for d in DELIMS) + ")")
+LEFT = re.compile(r"(\\\$|" + "|".join(re.escape(d[0]) for d in DELIMS) + ")")  # \$ in the text is the character $
 IGNORED_TAGS = {"script", "noscript", "style", "textarea", "pre", "code", "option", "svg"}
 IGNORED_CLASSES = {"ks-pre", "katex"}
 PAGES = {"cover", "slide", "divider"}
@@ -96,6 +96,9 @@ def split_math(text):
         if not m:
             break
         text = text[m.start():]
+        if text.startswith("\\$"):
+            text = text[2:]
+            continue
         left, right, display = next(d for d in DELIMS if text.startswith(d[0]))
         n = find_end(right, text, len(left))
         if n == -1:

@@ -37,6 +37,16 @@ test("a draft with nothing wrong has no list and no sign", async draft => {
   ok(!await shown(d, BTN), "sign"); ok(!await shown(d, LIST), "list");
 });
 
+test("\\$ in the text is the character $, not the start of a formula", async draft => {
+  const d = await draft({ text: head() + `<cover><headline>題目</headline></cover>
+<slide title="一"><p id="a">\\$5 と \\$6 の間に $x\\$y$ と $\\text{a $b$}$ がある</p><p id="b"><code>\\$7</code></p></slide>
+` + TAIL, edit: false });
+  eq((await all(d)).length, 0, JSON.stringify(await all(d)));
+  const got = await d.page.evaluate(() => { const a = document.getElementById("a"), c = a.cloneNode(true); c.querySelectorAll(".katex").forEach(k => k.replaceWith("#"));
+    return [c.textContent, a.querySelectorAll(".katex").length, document.getElementById("b").textContent]; });
+  eq(got[0], "$5 と $6 の間に # と # がある"); eq(got[1], 2); eq(got[2], "\\$7");
+});
+
 test("each kind of mistake is found once, with its page", async draft => {
   const d = await draft({ text: BAD, edit: false });
   await settle(d, 6);
