@@ -224,7 +224,7 @@ test("C5: the edit mode kept under the old name moves over; the folders kept in 
     await d.ready();
     await d.page.evaluate(() => sessionStorage.setItem("slide-edit-on:" + location.pathname, "1"));
   });
-  await d.page.waitForFunction(() => document.body.classList.contains("sed-on"));
+  await d.page.waitForFunction(() => document.body?.classList.contains("sed-on"));
   eq(d.picked, 0, "folder pickers");
   await d.page.waitForFunction(async () => !(await indexedDB.databases()).length);
   eq(JSON.stringify(await d.page.evaluate(() => [sessionStorage.getItem("slide-edit-on:" + location.pathname), sessionStorage.getItem("page-edit-on:" + location.pathname)])), '[null,"1"]');
@@ -308,7 +308,7 @@ test("M5: a draft whose Content-Security-Policy stops the rebuilt page-edit says
   const text = TEXT.replace("<head>", `<head><meta http-equiv="Content-Security-Policy" content="script-src file:">`);
   const d = await draft({ text });
   await d.page.keyboard.press(KEY + "+e");
-  await d.page.waitForFunction(() => /Content-Security-Policy/.test((document.querySelector(".sed-bar") || document.body).textContent), null, { timeout: 8000 });
+  await d.page.waitForFunction(() => /Content-Security-Policy/.test((document.querySelector(".sed-bar") || document.body)?.textContent), null, { timeout: 8000 });
   eq(await d.page.evaluate(() => __pageEdit.building), false);
 });
 
