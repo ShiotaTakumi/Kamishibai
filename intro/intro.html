@@ -233,12 +233,13 @@
         <span class="ml" style="top:76px"><ja>出力 ⌘P</ja><en ja="6c437ccb">Output ⌘P</en></span>
         <span class="ml" style="top:112px"><ja>開く・しまう</ja><en ja="0b0f0140">Open, fold</en></span>
         <span class="mc"><ja>下のカード（共通）</ja><en ja="759163aa">Lower card (all modes)</en></span></div>
-      <div class="mu" style="width:196px;height:175px"><img src="menu-edit.png" width="40" height="175" alt="">
-        <span class="ml" style="top:10px"><ja>日本語だけを編集</ja><en ja="7483d491">Edit the Japanese only</en></span>
-        <span class="ml" style="top:42px"><ja>英語だけを編集</ja><en ja="f91f5eb3">Edit the English only</en></span>
-        <span class="ml" style="top:74px"><ja>日本語と英語を一度に編集</ja><en ja="80866b4a">Edit both at once</en></span>
+      <div class="mu" style="width:196px;height:207px"><img src="menu-edit.png" width="40" height="207" alt="">
+        <span class="ml" style="top:10px"><ja>取り消し ⌘Z</ja><en ja="31f4a705">Undo ⌘Z</en></span>
+        <span class="ml" style="top:42px"><ja>やり直し ⇧⌘Z</ja><en ja="f3439d6e">Redo ⇧⌘Z</en></span>
+        <span class="ml" style="top:74px"><ja>覚えているフォルダ</ja><en ja="8ff928bf">Folders allowed</en></span>
         <span class="ml" style="top:113px"><ja>ページ一覧 ⌘B</ja><en ja="ff8c2ae7">Page list ⌘B</en></span>
-        <span class="ml" style="top:145px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
+        <span class="ml" style="top:145px"><ja>日本語 ⇄ English L</ja><en ja="e2d4426e">Japanese ⇄ English L</en></span>
+        <span class="ml" style="top:177px"><ja>日本語の文字の太さ</ja><en ja="730930bf">Weight of Japanese text</en></span>
         <span class="mc"><ja>上のカード：編集</ja><en ja="8691d2b5">Upper card: edit</en></span></div>
       <div class="mu" style="width:196px;height:278px"><img src="menu-show.png" width="40" height="278" alt="">
         <span class="ml" style="top:10px"><ja>全画面 ⌘F</ja><en ja="db569ca7">Full screen ⌘F</en></span>
@@ -362,7 +363,7 @@
 <slide title="日本語と英語" title-en="Japanese and English" sec="機能" sec-en="Features" title-en-ja="cf144cc1" sec-en-ja="9812f9fb">
   <list>
     <item><ja>一つの原稿に <code>&lt;ja&gt;日本語&lt;/ja&gt;&lt;en&gt;English&lt;/en&gt;</code> の対で両方を書く</ja><en ja="30b4fa00">One draft holds both, in pairs <code>&lt;ja&gt;日本語&lt;/ja&gt;&lt;en&gt;English&lt;/en&gt;</code></en></item>
-    <item><ja>キー L か URL の <code>?lang=en</code> で切り替える</ja><en ja="c9359048">Switch with the key L or <code>?lang=en</code> in the URL</en></item>
+    <item><ja>道具「日本語 ⇄ English」かキー L、または URL の <code>?lang=en</code> で切り替える</ja><en ja="e351e6c8">Switch with the tool “日本語 ⇄ English”, the key L, or <code>?lang=en</code> in the URL</en></item>
     <item><ja>英訳は別に用意する（手で書くか翻訳にかける）。エンジンは切り替えと、その言語での組版だけ</ja><en ja="2435b353">The English is prepared separately (by hand or by translation); the engine only switches and typesets in that language</en></item>
     <item><ja>英語が収まらないページは、その言語のときだけ文字を少しずつ縮める（85% まで）</ja><en ja="d81c52a5">A page whose English does not fit gets slightly smaller type in that language only (down to 85%)</en></item>
     <item><ja>日本語を直した後に古くなった英語を見つけるため</ja><en ja="9c2f3fa3">To find English left outdated after the Japanese is changed</en>
@@ -433,7 +434,7 @@
     <item><ja>編集のモード ⌘E：文・題・節の名前などをクリックして書き換え、Enter で原稿に書き戻す。Shift+Enter で改行、Esc で取り消し。数式は TeX の形で出る</ja><en ja="b0de8f16">Edit mode ⌘E: click a sentence, title, section name and so on, rewrite it, and Enter writes it back into the draft. Shift+Enter breaks a line, Esc cancels; mathematics shows as TeX</en></item>
   </nums>
   <list style="font-size:.88em">
-    <item><ja>日英の原稿では、出している言語だけを編集。上のカードの あ・A・あA で、日本語だけ・英語だけ・両方を選ぶ</ja><en ja="2b0fbb84">With both languages in a draft, only the one shown is edited; あ, A, あA in the upper card choose Japanese, English or both</en></item>
+    <item><ja>日英の原稿では、出している言語だけを編集。上のカードの「日本語 ⇄ English」かキー L で、編集のまま替える</ja><en ja="a88522ac">With both languages in a draft, only the one shown is edited; “日本語 ⇄ English” in the upper card or L turns to the other without leaving edit mode</en></item>
     <item><ja>page-edit が 1 秒ごとに原稿のファイルを見て、エディタや AI が書き換えたら自動で組み直す</ja><en ja="e6b17ff5">page-edit looks at the draft file every second and lays it out again when an editor or an AI has changed it</en></item>
     <item><ja>Chromium 系のブラウザ（Chrome・Edge・Brave など）だけ</ja><en ja="0af23345">Chromium browsers only (Chrome, Edge, Brave, …)</en></item>
     <item><ja>block の追加・削除・並べ替え、図、<code>&lt;script&gt;</code> はエディタで直す</ja><en ja="8211de9d">Adding, removing or reordering blocks, figures and <code>&lt;script&gt;</code> are edited in an editor</en></item>

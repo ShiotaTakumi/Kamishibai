@@ -24,6 +24,7 @@ const BI = HEAD + `<cover><headline>題目</headline><author>著者</author></co
 <slide title="次" title-en="Next" sec="序" sec-en="Intro"><p>共通 $x$</p></slide>
 </body></html>
 `;
+const LANG = '.tools .g-edit button[title^="日本語 ⇄"]';
 const opened = async (draft, text, page) => { const d = await draft({ text }); await d.enter(); if (page) await d.go(page); return d; };
 const same = (d, t, what) => ok(d.bytes().equals(Buffer.from(t)), (what || "file") + " differs:\n" + d.text());
 
@@ -265,12 +266,12 @@ test("in a field of the page the keys are the field's", async draft => {
 
 test("one language: undo brings the language back and leaves the other", async draft => {
   const d = await opened(draft, BI, 2);
-  await d.page.click(".tools .sed-lang >> nth=1");
+  await d.page.click(LANG);
   await d.edit("English text", "Better text");
   await d.edit("Introduction", "Opening");
   const t = d.text();
   ok(t.includes("<ja>日本語の文</ja><en>Better text</en>") && t.includes('title="導入" title-en="Opening"'), t);
-  await d.page.click(".tools .sed-lang >> nth=0");
+  await d.page.click(LANG);
   await d.go(3);
   await d.undo();
   eq(await d.page.evaluate(() => Kamishibai.lang()), "en");
@@ -281,15 +282,57 @@ test("one language: undo brings the language back and leaves the other", async d
   same(d, t);
 });
 
-test("both languages at once, with a section in both", async draft => {
-  const d = await opened(draft, BI, 2);
-  await d.page.click(".tools .sed-lang >> nth=2");
-  await d.edit("日本語の文", "直した文");
-  await d.edit("Intro", "Start", ".page.on .hn .sed-part");
-  eq((d.text().match(/sec-en="Start"/g) || []).length, 2);
-  await d.undo(); await d.undo();
-  same(d, BI);
-  await d.page.click(".tools .sed-lang >> nth=0");
+test("edit mode turns to the other language by the button and by L, and saves the text being edited", async draft => {
+  const d = await opened(draft, BI, 2), lang = () => d.page.evaluate(() => Kamishibai.lang());
+  eq(await d.page.locator(LANG).count(), 1);
+  eq(await lang(), "ja");
+  await d.start("日本語の文");
+  await d.type("直した文l");   // L is a letter while a text is edited
+  eq(await lang(), "ja");
+  await d.rebuilt(() => d.page.click(LANG));
+  const t = BI.replace("日本語の文", "直した文l");
+  same(d, t);
+  eq(await lang(), "en");
+  ok(await d.page.evaluate(() => document.body.classList.contains("sed-on")), "left edit mode");
+  ok(await d.page.evaluate(q => document.querySelector(q).classList.contains("on"), LANG), "the button is not lit");
+  await d.edit("English text", "Better text");
+  const t2 = t.replace("English text", "Better text");
+  same(d, t2);
+  await d.key("l");
+  eq(await lang(), "ja");
+  ok(await d.page.evaluate(() => document.body.classList.contains("sed-on")), "left edit mode");
+  ok(!await d.page.evaluate(() => document.querySelector(".page.on").innerText.includes("Better text")), "English beside the Japanese");
+  await d.undo();
+  same(d, t); eq(await lang(), "en");
+  await d.undo();
+  same(d, BI); eq(await lang(), "ja", "the language the text was edited in");
+});
+
+test("a text that has not the language shown is not edited; English is added in Japanese", async draft => {
+  const d = await opened(draft, BI.replace("<p>共通 $x$</p>", "<p>日本語だけ</p><p><en>Only English</en></p>"), 3);
+  const off = async t => {
+    const at = await d.page.evaluate(t => { const e = [].find.call(document.querySelectorAll(".page.on .sed-off"), e => e.textContent.includes(t)); const r = e.getBoundingClientRect(); return [r.left + 5, r.top + r.height / 2]; }, t);
+    await d.page.mouse.click(at[0], at[1]);
+    await d.page.waitForTimeout(200);
+    eq(await d.page.locator(".sed-editing").count(), 0);
+    return d.msg();
+  };
+  await d.page.click(LANG);
+  ok((await off("日本語だけ")).includes("英語がありません"), await d.msg());
+  await d.edit("Only English", "Just English");
+  await d.page.click(LANG);
+  await d.edit("日本語だけ", "<ja>日本語だけ</ja><en>Now English</en>");
+  ok(d.text().includes("<p><ja>日本語だけ</ja><en>Now English</en></p><p><en>Just English</en></p>"), d.text());
+  await d.page.click(LANG);
+  await d.edit("Now English", "English now");
+  ok(d.text().includes("<ja>日本語だけ</ja><en>English now</en>"), d.text());
+});
+
+test("a draft without English: the button is grey and L does nothing", async draft => {
+  const d = await opened(draft, PLAIN, 2);
+  ok(await d.page.evaluate(q => document.querySelector(q).classList.contains("off"), LANG), "not grey");
+  await d.key("l");
+  eq(await d.page.evaluate(() => Kamishibai.lang()), "ja");
 });
 
 run(process.argv[2]);

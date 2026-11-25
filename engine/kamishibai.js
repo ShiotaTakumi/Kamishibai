@@ -106,7 +106,7 @@
     一つの原稿に日本語と英語を並べて書き、どちらか一方を出す。英語は外で作り（手か翻訳）、エンジンは切り替えと組みだけを行う。
     書き方：文の中は <ja>…</ja><en>…</en>。要素ごとなら lang="ja" の要素のすぐ後に lang="en" の要素（SVG の <g>・<tspan> でもよい）。
       属性 title・cite・label・sec・aff・short は X-en="…" に英語を書く。英語の無い日本語は両方の言語で出る。
-    切り替え：プレゼンの道具「日本語 ⇄ English」かキー L。URL に ?lang=en。選んだほうはブラウザが覚える。既定は <html lang>。
+    切り替え：プレゼンと編集の道具「日本語 ⇄ English」かキー L。URL に ?lang=en。選んだほうはブラウザが覚える。既定は <html lang>。
     収まらないページは、その言語だけ文字を少しずつ縮めて収める（85% まで）。それでもはみ出すページは make check-pack が報告する。
     訳の記録：tools/lang_pairs.py stamp（make lang-stamp）が、英語ごとに元の日本語のハッシュを <en ja="…">（属性は X-en-ja）に書く。
       日本語を直すと、編集モードでその英語に「古い訳」の印が付き、英語の無い日本語にも印が付く。
@@ -1305,7 +1305,7 @@ function group(cls, items) {
 const sep = c => $new("div", "sep" + (c ? " " + c : ""));
 const outBtn = button(null, "出力", "go", "it go");
 outBtn.addEventListener("click", output);
-group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), strokeTool()]);
+group("grp g-edit", [button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), strokeTool()]);
 group("grp g-show", [button("full", "全画面 " + mod + "F", "full", "it" + (canFull ? "" : " no")), button("ptr", "ポインター " + mod + "K", "ptr", "it nt"), button("steps", "段階表示 S"),
   button("side", "ページ一覧 " + mod + "B"), button("lang", "日本語 ⇄ English L"), sep("nt"), button("sel", "選択 " + mod + "I", "sel", "it nt"), button("op", "キー無効 " + mod + "U", "op", "it nt"), sep(), strokeTool()]);
 group("grp g-out", [button("o-steps", "PDF：段階ごとに 1 枚"), button("o-all", "PDF：全段階を 1 枚に"), button("o-html", "HTML：1 ファイル"), outBtn]);
@@ -1520,7 +1520,7 @@ addEventListener("click", function (e) {
   pend = setTimeout(function () { pend = 0; if (selecting()) return; if (back) prev(); else next(); }, 260);
 });
 /* Keys: ⌘ (Ctrl on Windows) + E P switch the mode, + B F K I U toggle; other ⌘ keys go to the browser.
-   Select and edit mode turn pages with ← → only; keys-off and output mode never turn pages */
+   Select and edit mode turn pages with ← → only (and edit mode takes L); keys-off and output mode never turn pages */
 document.addEventListener("keydown", function (e) {
   const k = e.key, edit = body.classList.contains("edit");
   const keys = { KeyE: "edit", KeyP: "out", KeyB: "side", KeyF: "full", KeyK: "ptr", KeyI: "sel", KeyU: "op" };
@@ -1542,7 +1542,7 @@ document.addEventListener("keydown", function (e) {
   else if (!edit && k === "Home") { e.preventDefault(); go(0); }
   else if (!edit && k === "End") { e.preventDefault(); go(secs.length - 1); }
   else if (!edit && !e.shiftKey && (k === "s" || k === "S")) { e.preventDefault(); toggleSteps(); }
-  else if (!edit && !e.shiftKey && (k === "l" || k === "L")) { e.preventDefault(); tool("lang"); }
+  else if ((!edit || st.mode === "edit") && !e.shiftKey && (k === "l" || k === "L")) { e.preventDefault(); tool("lang"); }
 });
 /* sliders and buttons in a slide give the focus back once used, so keys turn pages again */
 ["change", "pointerup"].forEach(function (t) {

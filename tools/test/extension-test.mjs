@@ -100,6 +100,13 @@ test("a folder chosen in the extension's window: the draft is edited, the window
   await h.edit(a, "first", "second");
   await h.until("a.html", doc("second"));
   eq(await h.sw.evaluate(async () => (await chrome.windows.getAll({ windowTypes: ["popup"] })).map(w => w.state).join()), "minimized");
+  // the empty page of the extension that keeps it awake, once and unseen, also after the rebuilds
+  const awake = async p => { await p.waitForTimeout(2500); return p.frames().map(f => f.url()).filter(u => /^chrome-ext/.test(u)).join(); };
+  eq(await awake(a), `chrome-extension://${ID}/awake.html`, "while editing");
+  await h.edit(a, "second", "third");
+  await h.until("a.html", doc("third"));
+  eq(await awake(a), `chrome-extension://${ID}/awake.html`, "after a save");
+  eq(await a.evaluate(() => { const f = document.querySelector("html > iframe"), c = getComputedStyle(f); return [f.tabIndex, f.ariaHidden, c.position, c.opacity, c.pointerEvents, f.offsetWidth].join(); }), "-1,true,fixed,0,none,1");
 
   const b = await h.show("b.html", doc("other"));
   await b.keyboard.press(KEY + "+e");

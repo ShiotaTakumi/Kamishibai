@@ -32,8 +32,9 @@
    In edit mode every text stays typeset and pages do not turn on click. The text being edited shows its math as TeX;
    emphasis, color, bold and line breaks keep their look and are put on and taken off with a small bar or keys.
    A deck with Japanese and English: only the language shown is edited (its part of each pair, and text without a
-   pair); the engine's panel gets three buttons, 日本語, English and both at once. Saving one language leaves the
-   other as it is. In English, Japanese text that has no English is shown grey and is not edited.
+   pair). The engine's panel and the key L turn to the other language without leaving edit mode; the text being edited
+   is saved first. Saving one language leaves the other as it is. In English, Japanese text that has no English is
+   shown grey and is not edited.
    click        edit that text (in edit mode)
     Enter        save            Shift+Enter  line break      Esc  cancel
     Cmd+K        emphasis        Cmd+Shift+K  navy            Cmd+B  bold    (on the selection)
@@ -42,7 +43,7 @@
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function pageEdit() {
   "use strict";
-  const VERSION = "4.0";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
+  const VERSION = "4.1";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
   const S = window.__pageEdit || (window.__pageEdit = { gen: 0, edit: false });
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)
@@ -74,7 +75,6 @@
   const EDIT_KEY = "page-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
   const OLD_EDIT_KEY = "slide-edit-on:" + location.pathname;   // the same up to 3.10, moved over once
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform);    // as WebSlide decides between Cmd and Ctrl
-  const BOTH_KEY = "page-edit-both";   // "1": Japanese and English are edited at once
   const UNDO_KEY = "page-edit-undo:" + location.pathname;   // the undo steps of this draft, kept for the tab
   const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const mod = e => (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey;
@@ -343,7 +343,6 @@
       "body.sed-on .deck .sed-part + .sed-part { margin-left: .5em; }",
       ".deck .sed-flash { animation: sed-flash 1.6s ease-out; }",
       "@keyframes sed-flash { from { background: #ffd98a; } }",
-      ".tools button.sed-lang { font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0; }",
       // The message line, just above the engine's tool panel (.tools, bottom left) while a message is up. A page
       // without that panel: the buttons are in this bar too, always there, faint until pointed at.
       ".sed-bar { position: fixed; left: 12px; bottom: 64px; z-index: 99999; display: flex; gap: 6px; align-items: center;",
@@ -702,7 +701,7 @@
       bar([]);
       undoButtons();
       dirsButton();
-      langButtons(K);
+      langButton(K);
       const handle = document.querySelector(".tools .handle");
       if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
       if (K.setProblems) K.setProblems("page-edit", unedited.map(function (u) {
@@ -743,42 +742,31 @@
   }
 
   /* ===== One language at a time =====
-     A deck with English (Kamishibai.hasEn): what is shown and edited is the language on screen, unless the author
-     chose both at once (kept in the browser). The language itself is the engine's, so the page shows it too. */
-  let langs = null;   // the engine, when the deck has English and the panel to choose with
-  let both = false;
-  const shown = () => langs && !both ? langs.lang() : null;   // "ja" or "en"; null: everything at once
-  function langButtons(K) {
-    const g = document.querySelector(".tools .g-edit");
-    if (!g || !K.hasEn || !K.lang) return;
+     A deck with English (Kamishibai.hasEn): what is shown and edited is the language on screen. The language itself is
+     the engine's, so the page shows it too, and so is the button that turns to the other one. */
+  let langs = null;   // the engine, when the deck has English
+  const shown = () => langs ? langs.lang() : null;   // "ja" or "en"; null: a deck without English
+  const GLOBE = "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18";
+  function langButton(K) {
+    if (!K.hasEn || !K.lang) return;
     langs = K;
-    try { both = localStorage.getItem(BOTH_KEY) === "1"; } catch (e) { /* storage unavailable */ }
     if (S.lang) K.lang(S.lang);   // the rebuilt page: ?lang= in the address must not turn it back
-    const sep = document.createElement("div");
-    sep.className = "sep";
-    g.prepend(sep);
-    const defs = [["ja", "あ", "日本語だけを編集"], ["en", "A", "英語だけを編集"], ["both", "あA", "日本語と英語を一度に編集"]];
-    const btns = defs.map(function (d) {
-      const b = document.createElement("button");
+    const g = document.querySelector(".tools .g-edit");
+    let b = g && g.querySelector('button[title^="日本語 ⇄"]');
+    if (g && !b) {   // an engine from before it had one here
+      b = document.createElement("button");
       b.type = "button";
-      b.className = "it sed-lang";
-      b.textContent = d[1];
-      b.title = d[2];
-      b.setAttribute("aria-label", d[2]);
-      b.addEventListener("click", function (e) {
-        e.stopPropagation();
-        b.blur();
-        if (editing) finish(true, true);
-        both = d[0] === "both";
-        try { localStorage.setItem(BOTH_KEY, both ? "1" : "0"); } catch (x) { /* storage unavailable */ }
-        if (!both) K.lang(d[0]);   // on a change, the event below shows the sources again
-        light();
-        refresh();
-      });
-      g.insertBefore(b, sep);
-      return b;
-    });
-    const light = () => btns.forEach((b, k) => b.classList.toggle("on", defs[k][0] === (both ? "both" : K.lang())));
+      b.className = "it";
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + GLOBE + '"/></svg>';
+      b.title = "日本語 ⇄ English";
+      b.setAttribute("aria-label", b.title);
+      b.addEventListener("click", function (e) { e.stopPropagation(); b.blur(); K.lang(K.lang() === "en" ? "ja" : "en"); });
+      g.append(b);
+    }
+    // the text being edited keeps the focus until the click: a save between press and release would rebuild the page
+    // and the click would be lost
+    if (b) b.addEventListener("mousedown", e => e.preventDefault());
+    const light = () => { if (b) b.classList.toggle("on", K.lang() === "en"); };
     light();
     document.addEventListener("kamishibai:lang", function () {
       if (!live()) return;
@@ -846,8 +834,7 @@
     }
     const of = i => ({ kind: "attr", i: +i, src: S.text.slice(D.attrs[+i].start, D.attrs[+i].end) });
     const ja = of(el.getAttribute("data-sedt")), en = el.hasAttribute("data-sedt-en") ? of(el.getAttribute("data-sedt-en")) : null;
-    if (!langs || L === "ja") return null;
-    if (!L) return en ? [{ it: ja, edit: true }, { it: en, edit: true }] : null;
+    if (!L || L === "ja") return null;
     return en ? [{ it: en, edit: true }] : JAPANESE.test(ja.src) ? [{ it: ja, edit: false }] : null;
   }
 
@@ -870,6 +857,7 @@
     const box = src && src.querySelector(":scope > [data-sed]");
     const el = box && (box.classList.contains("sed-parts") ? box.querySelector(".sed-part") : box);
     if (!el) { msg("表紙のこの文は編集できません", 4000); return; }
+    if (el.closest(".sed-off")) { msg(notHere(), 4000); return; }
     const pages = [].slice.call(document.querySelectorAll(".deck section.page"));
     const k = pages.indexOf(el.closest("section.page"));
     if (k >= 0 && location.hash !== "#s" + (k + 1)) location.hash = "#s" + (k + 1);   // the engine turns to it (hashchange)
@@ -878,17 +866,11 @@
 
   /* ===== Edit mode: every text stays as the engine has typeset it; the text being edited shows its TeX =====
      A text with several parts to edit apart (Japanese or English beside text common to both) shows them one by one,
-     typeset by the engine (Kamishibai.typeset). Both languages at once: the source, with its <ja> and <en>. */
+     typeset by the engine (Kamishibai.typeset). */
   const rendered = new WeakMap();   // el -> its nodes as the engine built them, while el shows something else
-  const NO_EN = "この文には英語がありません（日本語か、日英を一度に編集する表示で直せます）";
+  const notHere = () => shown() === "ja" ? "この文には日本語がありません（英語の表示で直せます）" : "この文には英語がありません（日本語の表示で直せます）";
   const keep = el => { if (!rendered.has(el)) rendered.set(el, [].slice.call(el.childNodes)); };
   function back(el) { if (rendered.has(el)) { el.replaceChildren(...rendered.get(el)); rendered.delete(el); } }
-  function plainSource(el, src) {
-    const s = document.createElement("span");
-    s.className = "sed-src";
-    s.textContent = src.trim();
-    el.replaceChildren(s);
-  }
   // The title of a numbered statement is shown with its number, which is not in the source: {at, text} or null.
   function numberIn(el, it) {
     const K = window.Kamishibai, a = it.kind === "attr" && D.attrs[it.i].attr;
@@ -911,25 +893,20 @@
     el._one = null;
     const list = units(el);
     el.classList.toggle("sed-parts", !!list && list.length > 1);
-    el.classList.toggle("sed-off", !!list && list.length === 1 && !list[0].edit);
-    if (!list) {
-      // both languages at once: the pairs themselves
-      if (langs && both && el.hasAttribute("data-sed") && pieces(info(el).src).some(p => p.L)) { keep(el); plainSource(el, info(el).src); }
-      return;
-    }
+    el.classList.toggle("sed-off", !!list && list.length < 2 && !list.some(u => u.edit));
+    if (!list || !list.length) return;
     if (list.length === 1) { if (list[0].edit) el._one = list[0].it; return; }
-    if (!list.length) return;
     keep(el);
     el.replaceChildren(...list.map(function (u) {
       const s = document.createElement("span");
       s.className = u.edit ? "sed-part" : "sed-off";
       if (u.edit) { s._unit = u.it; s._L = u.L; }
-      else s.title = NO_EN;
+      else s.title = notHere();
       partShown(s, u, el);
       return s;
     }));
   }
-  // The language or the choice of one or both changed: show the sources again.
+  // The language changed: show the sources again.
   function refresh() {
     if (!document.body.classList.contains("sed-on")) return;
     document.querySelectorAll(".deck [data-sed], .deck [data-sedt]").forEach(showSource);
@@ -1454,7 +1431,7 @@
     }
     if (!list) el.textContent = core = raw;
     if (plain) msg(plain + "、この文はタグも原稿の書き方のまま直します（飾りの欄とキーは使えません）", 6000);
-    el._sed = { it: it, lead: lead, trail: trail, core: core, style: list && sm.style };
+    el._sed = { it: it, lead: lead, trail: trail, core: core, style: list && sm.style, lang: shown() };
     el.classList.add("sed-editing");
     try { el.contentEditable = "plaintext-only"; } catch (e) { el.contentEditable = "true"; }
     if (el.contentEditable !== "plaintext-only") el.contentEditable = "true";
@@ -1531,7 +1508,7 @@
     if (bad) { restore(el); msg(""); note(bad + "。入力した文（保存していません）：" + text); return true; }
     if (!save || text === st.core) { restore(el); msg(""); return true; }
     msg("保存中…");
-    write(st.it, neu).catch(function (e) {
+    write(st.it, neu, st.lang).catch(function (e) {
       S.saving = false;
       // what was typed stays in a note until it is closed, so that it can be copied back
       if (e.conflict) {
@@ -1578,7 +1555,8 @@
     return "";
   }
 
-  async function write(it, neu) {
+  // lang: the language it was opened in (the page may have turned to the other one since)
+  async function write(it, neu, lang) {
     S.saving = true;
     const file = await source(true, true), cur = file.text;
     const list = it.kind === "attr" ? "attrs" : "spans", t = parse(cur), s = t[list][it.i];
@@ -1616,7 +1594,7 @@
     parts.sort((x, y) => x.at - y.at);
     const next = replaced(cur, parts);
     const mtime = await put(file, next);
-    remember(cur, next, parts);
+    remember(cur, next, parts, lang);
     S.saving = false;
     S.notice = "保存しました";
     rebuild(next, mtime);
@@ -1686,10 +1664,10 @@
     let d = 0;
     return parts.map(function (p) { const at = p.at + d; d += p.b.length - p.a.length; return at; });
   }
-  function remember(cur, next, parts) {
+  function remember(cur, next, parts, lang) {
     const at2 = atAfter(parts);
     S.hist.undo.push({
-      before: hash(cur), after: hash(next), lang: shown(),
+      before: hash(cur), after: hash(next), lang: lang,
       parts: parts.map((p, k) => ({
         at: p.at, a: p.a, b: p.b,
         la: cur.slice(Math.max(0, p.at - AROUND), p.at), ra: cur.slice(p.at + p.a.length, p.at + p.a.length + AROUND),
@@ -1763,7 +1741,7 @@
       else msg(t, 12000);
     }
   }
-  // The two buttons, in the panel of the edit mode (before them the languages, after them the engine's own).
+  // The two buttons, in the panel of the edit mode (after them the engine's own).
   const ARROW = { undo: "M5 16a7.5 7.5 0 0 1 15 0M1.8 12.3l3.2 3.7 3.7-3.2", redo: "M19 16a7.5 7.5 0 0 0-15 0M22.2 12.3l-3.2 3.7-3.7-3.2" };
   function undoButtons() {
     const g = document.querySelector(".tools .g-edit");
@@ -1823,7 +1801,7 @@
     const j = e.target.closest && e.target.closest(".deck [data-sed-jump]");
     if (j && !target(e)) { e.preventDefault(); e.stopPropagation(); jump(j.getAttribute("data-sed-jump")); return; }
     const el = target(e);
-    if (!el && e.target.closest && e.target.closest(".deck .sed-off")) msg(NO_EN, 4000);
+    if (!el && e.target.closest && e.target.closest(".deck .sed-off")) msg(notHere(), 4000);
     if (!el) return;
     e.preventDefault();
     e.stopPropagation();
