@@ -22,6 +22,10 @@
    - Rebuild: document.open/write the source with this script inserted before the engine, so that mark()
      runs before the engine's build() and every editable text segment is wrapped in <span data-sed=i>.
    - Save: re-read the file, check that the span still holds the old source, write, and rebuild.
+   - Undo and redo: one save is one step, whatever it rewrote. A step is kept as replacements in the source (position,
+     text before, text after, what stands around it), so it does not depend on how the page shows the text. Undoing
+     re-reads the file as a save does and puts the old text back only where the source still reads as recorded;
+     otherwise nothing is written. See the section "Undo and redo".
    - The file is polled every second; a change made elsewhere (editor, AI) rebuilds the page.
 
    In edit mode every editable text shows its source (TeX, inline tags) and pages do not turn on click.
@@ -30,6 +34,8 @@
    other as it is. In English, Japanese text that has no English is shown grey and is not edited.
    click        edit that text (in edit mode)
    Enter        save            Shift+Enter  newline         Esc  cancel
+   Cmd+Z        undo the last save; while a text is being edited, the browser's undo of what was typed
+   Shift+Cmd+Z  redo (elsewhere Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y); both are also buttons in the panel
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function slideEdit() {
   "use strict";
@@ -63,6 +69,7 @@
   const EDIT_KEY = "slide-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform);    // as WebSlide decides between Cmd and Ctrl
   const BOTH_KEY = "page-edit-both";   // "1": Japanese and English are edited at once
+  const UNDO_KEY = "page-edit-undo:" + location.pathname;   // the undo steps of this draft, kept for the tab
   const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const mod = e => (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey;
   // Edit mode has its own key, Cmd+E (Ctrl+E elsewhere). The engine's select mode is Cmd+I; an older engine
@@ -183,6 +190,12 @@
         tx.onabort = () => { db.close(); reject(tx.error); };
       };
     });
+  }
+  // The source of the draft. A BOM stays in the text (file.text() drops it), so that a save writes it back.
+  // strict: a file that is not UTF-8 is refused, because writing it back would change its other bytes.
+  async function readText(file, strict) {
+    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(await file.arrayBuffer()); }
+    catch (e) { throw new Error("原稿の文字コードが UTF-8 ではないので、書き込めません"); }
   }
   const DIRS = "list";
   async function keptDirs() {
@@ -372,7 +385,7 @@
     // This same function, inline (file:// pages have no CSP).
     const inject = "<script>(" + slideEdit.toString().replace(/<\/script/gi, "<\\/script") + ")();<\/script>\n";
     document.open();
-    document.write(text.slice(0, m.index) + inject + text.slice(m.index));
+    document.write(text.slice(0, m.index).replace(/^\ufeff/, "") + inject + text.slice(m.index));
     document.close();
   }
 
@@ -392,6 +405,8 @@
       // one language at a time: what the language shown does not have
       "body.sed-on .deck .sed-off { color: #999; cursor: default; }",
       "body.sed-on .deck .sed-part + .sed-part { margin-left: .5em; }",
+      ".deck .sed-flash { animation: sed-flash 1.6s ease-out; }",
+      "@keyframes sed-flash { from { background: #ffd98a; } }",
       ".tools button.sed-lang { font: 700 13px/1 system-ui, sans-serif; letter-spacing: 0; }",
       // The message line, just above the engine's tool panel (.tools, bottom left) while a message is up. A page
       // without that panel: the buttons are in this bar too, always there, faint until pointed at.
@@ -483,7 +498,7 @@
     const open = async function (h) {
       S.handle = h;
       const f = await h.getFile();
-      rebuild(await f.text(), f.lastModified);
+      rebuild(await readText(f), f.lastModified);
     };
     // Started by hand (button or key): the rebuilt page comes up in edit mode.
     // left: the author went back to another mode while Chrome was asking; the page is then rebuilt outside edit mode.
@@ -649,6 +664,7 @@
     if (K && K.setEditor) {
       // The engine's 編集 mode is edit mode: its heading and Cmd+E enter and leave it.
       bar([]);
+      undoButtons();
       langButtons(K);
       const handle = document.querySelector(".tools .handle");
       if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
@@ -656,6 +672,7 @@
       if (S.edit) { S.edit = false; K.mode("edit"); }
       if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
       else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
+      flash();
       poll();
       return;
     }
@@ -675,6 +692,7 @@
     }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     // Back in edit mode after a rebuild (save, outside change, reload).
     if (S.edit) { S.edit = false; toggleEdit(); }
+    flash();
     if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
     else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
     poll();
@@ -929,40 +947,215 @@
   async function write(it, neu) {
     S.saving = true;
     const h = await getHandle();
-    const file = await h.getFile(), cur = await file.text();
+    const file = await h.getFile(), cur = await readText(file, true);
     const t = parse(cur), s = (it.kind === "attr" ? t.attrs : t.spans)[it.i];
     if (!s || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
       err.conflict = { text: cur, mtime: file.lastModified };
       throw err;
     }
-    let next = cur;
+    // what the save replaces: [{at, a, b}], a the source there now, b the new one, in the order of the source
+    let parts;
     if (it.kind === "attr") {
       // A name used in several places (sec, aff) is rewritten everywhere it has the same value.
       const all = s.all ? t.attrs.filter(a => a.attr === s.attr && cur.slice(a.start, a.end) === it.src) : [s];
-      all.sort((x, y) => y.start - x.start).forEach(function (a) {
+      parts = all.map(function (a) {
         const q = cur[a.start - 1], v = neu.replace(/\n/g, " ");
         const rep = a.none ? '="' + v.replace(/"/g, "&quot;") + '"'
                   : a.bare ? '"' + v.replace(/"/g, "&quot;") + '"'
                   : q === "'" ? v.replace(/'/g, "&#39;") : v.replace(/"/g, "&quot;");
-        next = next.slice(0, a.start) + rep + next.slice(a.end);
+        return { at: a.start, a: cur.slice(a.start, a.end), b: rep };
       });
-    } else if (it.whole !== undefined) next = cur.slice(0, s.start + it.a) + neu + cur.slice(s.start + it.b);   // one piece of the text
-    else next = cur.slice(0, s.start) + neu + cur.slice(s.end);
-    // A change between the re-read above and the write is a conflict too: checked here just before writing.
-    const base = file.lastModified;
-    const changed = async function () {
-      const f = await h.getFile(), err = new Error("原稿が先に変わっていました");
-      err.conflict = { text: await f.text(), mtime: f.lastModified };
-      return err;
-    };
-    if ((await h.getFile()).lastModified !== base) throw await changed();
-    const w = await h.createWritable();
-    await w.write(next);
-    await w.close();
+    } else {
+      const from = s.start + (it.whole !== undefined ? it.a : 0), to = it.whole !== undefined ? s.start + it.b : s.end;   // a: one piece of the text
+      parts = [{ at: from, a: cur.slice(from, to), b: neu }];
+    }
+    parts.sort((x, y) => x.at - y.at);
+    const next = replaced(cur, parts);
+    const mtime = await put(h, file, next);
+    remember(cur, next, parts);
     S.saving = false;
     S.notice = "保存しました";
-    rebuild(next, (await h.getFile()).lastModified);
+    rebuild(next, mtime);
+  }
+
+  // cur with every part {at, a, b} (in the order of the source) replaced
+  function replaced(cur, parts) {
+    let out = "", from = 0;
+    parts.forEach(function (p) { out += cur.slice(from, p.at) + p.b; from = p.at + p.a.length; });
+    return out + cur.slice(from);
+  }
+  // Write text to the draft that was read as file; a change made in between is a conflict. Returns the new time.
+  async function put(h, file, text) {
+    const now = await h.getFile();
+    if (now.lastModified !== file.lastModified || now.size !== file.size) {
+      const err = new Error("原稿が先に変わっていました");
+      err.conflict = { text: await readText(now), mtime: now.lastModified };
+      throw err;
+    }
+    const w = await h.createWritable();
+    await w.write(text);
+    await w.close();
+    return (await h.getFile()).lastModified;
+  }
+
+  /* ===== Undo and redo =====
+     A step is one save: {parts, before, after, lang}. parts: [{at, a, b, la, ra, lb, rb}] in the order of the source:
+     at is the position in the source before the save, a the old text, b the new one; la and ra (lb and rb) are what
+     stood just before and after that place in the source before (after) the save. before and after are hashes of the
+     whole source; lang is the language that was being edited.
+     Undoing looks for the new texts in the file as it is now. The same source as right after the save: they are at
+     the recorded positions. Changed since then (an editor, an AI, another tab): each has to be found, together with
+     its surroundings, exactly once, and in the recorded order; else nothing is written and the reason is shown. Redo
+     is the same with old and new exchanged. So a change made elsewhere is never overwritten.
+     The steps are kept per draft and tab (sessionStorage: they survive a reload, not closing the tab), at most
+     STEPS_MAX of them and BYTES_MAX characters, the oldest dropped first. A new save drops the steps to redo. */
+  const STEPS_MAX = 100, BYTES_MAX = 1000000, AROUND = 60;
+  if (!S.hist) {
+    S.hist = { undo: [], redo: [] };
+    try {
+      const v = JSON.parse(sessionStorage.getItem(UNDO_KEY));
+      if (v && Array.isArray(v.undo) && Array.isArray(v.redo)) S.hist = v;
+    } catch (e) { /* storage unavailable */ }
+  }
+  // 53-bit hash (cyrb53) and the length
+  function hash(str) {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 2654435761);
+      h2 = Math.imul(h2 ^ c, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return str.length + ":" + (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  function keepHist() {
+    let t = JSON.stringify(S.hist);
+    while (S.hist.undo.length > STEPS_MAX || (t.length > BYTES_MAX && S.hist.undo.length > 1)) {
+      S.hist.undo.shift();
+      t = JSON.stringify(S.hist);
+    }
+    try { sessionStorage.setItem(UNDO_KEY, t); } catch (e) { /* kept in memory only */ }
+  }
+  // position of each part in the source after the save
+  function atAfter(parts) {
+    let d = 0;
+    return parts.map(function (p) { const at = p.at + d; d += p.b.length - p.a.length; return at; });
+  }
+  function remember(cur, next, parts) {
+    const at2 = atAfter(parts);
+    S.hist.undo.push({
+      before: hash(cur), after: hash(next), lang: shown(),
+      parts: parts.map((p, k) => ({
+        at: p.at, a: p.a, b: p.b,
+        la: cur.slice(Math.max(0, p.at - AROUND), p.at), ra: cur.slice(p.at + p.a.length, p.at + p.a.length + AROUND),
+        lb: next.slice(Math.max(0, at2[k] - AROUND), at2[k]), rb: next.slice(at2[k] + p.b.length, at2[k] + p.b.length + AROUND)
+      }))
+    });
+    S.hist.redo = [];
+    keepHist();
+  }
+  // Where step g is to be replaced in cur: [{at, a, b}] with a the text there now; null when it is not as recorded.
+  function places(cur, g, back) {
+    const old = p => back ? p.b : p.a, neu = p => back ? p.a : p.b;
+    const pos = back ? atAfter(g.parts) : g.parts.map(p => p.at);
+    if (hash(cur) === (back ? g.after : g.before)) {
+      if (g.parts.every((p, k) => cur.substr(pos[k], old(p).length) === old(p))) return g.parts.map((p, k) => ({ at: pos[k], a: old(p), b: neu(p) }));
+      return null;
+    }
+    const out = [];
+    for (const p of g.parts) {
+      const l = back ? p.lb : p.la, r = back ? p.rb : p.ra, needle = l + old(p) + r;
+      const i = cur.indexOf(needle);
+      if (i < 0 || cur.indexOf(needle, i + 1) >= 0) return null;
+      out.push({ at: i + l.length, a: old(p), b: neu(p) });
+    }
+    return out.every((p, k) => !k || p.at >= out[k - 1].at + out[k - 1].a.length) ? out : null;
+  }
+  // the page (from 0) that position at of the source is on
+  function pageAt(text, at) {
+    const RE = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>|<(?:cover|slide|divider)\b/gi;
+    let n = -1, m;
+    while ((m = RE.exec(text)) && m.index < at) if (/^<[csd]/i.test(m[0]) && !m[1]) n++;
+    return Math.max(0, n);
+  }
+  const brief = function (t) { t = t.replace(/\s+/g, " ").trim(); return "「" + (t.length > 24 ? t.slice(0, 23) + "…" : t) + "」"; };
+  const says = (g, back) => brief(back ? g.parts[0].b : g.parts[0].a) + "→" + brief(back ? g.parts[0].a : g.parts[0].b)
+    + (g.parts.length > 1 ? "（" + g.parts.length + " か所）" : "");
+  async function step(back) {
+    if (S.saving || S.building || editing) return;
+    const from = back ? S.hist.undo : S.hist.redo, to = back ? S.hist.redo : S.hist.undo, name = back ? "取り消し" : "やり直し";
+    const g = from[from.length - 1];
+    if (!g) { msg(back ? "取り消す操作はありません" : "やり直す操作はありません", 2500); return; }
+    S.saving = true;
+    let cur, file;
+    try {
+      const h = await getHandle();
+      file = await h.getFile();
+      cur = await readText(file, true);
+      const list = places(cur, g, back);
+      if (!list) {
+        const err = new Error("この箇所か、そのすぐ前後が、原稿の外での変更で変わっています");
+        err.conflict = { text: cur, mtime: file.lastModified };
+        throw err;
+      }
+      const next = replaced(cur, list), mtime = await put(h, file, next);
+      from.pop();
+      to.push(g);
+      keepHist();
+      const at = atAfter(list), here = location.hash.match(/^#s(\d+)$/), on = at.map(x => pageAt(next, x));
+      if (!here || on.indexOf(here[1] - 1) < 0) try { history.replaceState(null, "", "#s" + (on[0] + 1)); } catch (e) { /* stays on the page */ }
+      if (g.lang && langs) S.lang = g.lang;
+      S.flash = at;
+      S.saving = false;
+      S.notice = (back ? "取り消しました：" : "やり直しました：") + says(g, back);
+      rebuild(next, mtime);
+    } catch (e) {
+      S.saving = false;
+      const t = name + "できませんでした：" + e.message + "。原稿には何も書いていません（" + says(g, back) + "）";
+      if (e.conflict && e.conflict.text !== S.text) { S.notice = t; S.noticeMs = 12000; rebuild(e.conflict.text, e.conflict.mtime); }
+      else msg(t, 12000);
+    }
+  }
+  // The two buttons, in the panel of the edit mode (before them the languages, after them the engine's own).
+  const ARROW = { undo: "M9 14L4 9l5-5M4 9h10a5.5 5.5 0 0 1 0 11h-4", redo: "M15 14l5-5-5-5M20 9H10a5.5 5.5 0 0 0 0 11h4" };
+  function undoButtons() {
+    const g = document.querySelector(".tools .g-edit");
+    if (!g) return;
+    const sep = document.createElement("div");
+    sep.className = "sep";
+    g.prepend(sep);
+    [["undo", "取り消し", MAC ? "⌘Z" : "Ctrl+Z"], ["redo", "やり直し", MAC ? "⇧⌘Z" : "Ctrl+Shift+Z"]].forEach(function (d) {
+      const b = document.createElement("button"), list = S.hist[d[0]], top = list[list.length - 1];
+      b.type = "button";
+      b.className = "it sed-" + d[0] + (top ? "" : " off");
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + ARROW[d[0]] + '"/></svg>';
+      b.title = d[1] + " " + d[2] + (top ? "：" + says(top, d[0] === "undo") : "");
+      b.setAttribute("aria-label", d[1]);
+      // the text being edited keeps the focus: there the button is the browser's undo of what was typed
+      b.addEventListener("mousedown", e => e.preventDefault());
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        b.blur();
+        if (editing) document.execCommand(d[0]); else step(d[0] === "undo");
+      });
+      g.insertBefore(b, sep);
+    });
+  }
+  // Show where the text came back, for a moment.
+  function flash() {
+    const at = S.flash;
+    S.flash = null;
+    if (!at) return;
+    const within = x => at.some(p => p >= x.start && p <= x.end);
+    const hit = [];
+    D.spans.forEach((x, i) => { if (within(x)) hit.push(document.querySelector('.deck [data-sed="' + i + '"]')); });
+    D.attrs.forEach((x, i) => { if (within(x)) hit.push(document.querySelector('.deck .page.on [data-sedt="' + i + '"], .deck .page.on [data-sedt-en="' + i + '"]')); });
+    hit.filter(Boolean).forEach(function (e) {
+      e.classList.add("sed-flash");
+      setTimeout(() => e.classList.remove("sed-flash"), 1600);
+    });
   }
 
   function target(e) {
@@ -1010,6 +1203,15 @@
       }
       return;
     }
+    // Undo and redo, in edit mode only, and not in a field of the page: there the keys are the browser's.
+    if (!S.edit || !document.body.classList.contains("sed-on") || e.isComposing || e.altKey || !(MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) return;
+    const on = e.target;
+    if (on && on.closest && (on.closest("input, textarea, select") || on.isContentEditable)) return;
+    const k = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : e.code.replace(/^Key/, "").toLowerCase();   // by the letter, whatever the layout
+    if (k !== "z" && (k !== "y" || MAC || e.shiftKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.repeat) step(k === "z" && !e.shiftKey);
   }, true);
   document.addEventListener("focusout", function (e) { if (live() && editing && e.target === editing) finish(true); });
 
@@ -1021,7 +1223,7 @@
       try {
         const f = await S.handle.getFile();
         if (f.lastModified === S.mtime) return;
-        const text = await f.text();
+        const text = await readText(f);
         S.mtime = f.lastModified;
         if (text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(text); }
       } catch (e) { /* file moved or permission lost */ }

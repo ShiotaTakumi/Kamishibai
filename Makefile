@@ -8,7 +8,7 @@ ENGINES ?= chromium,webkit
 # the browser of make open / make preview (a make variable or an environment variable; default Google Chrome)
 export SLIDE_BROWSER
 
-.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order lang lang-stamp clean
+.PHONY: all deps fonts engine-fonts engine-katex pack preview shot browsers figs html open check check-pack order lang lang-stamp test clean
 all: html
 
 deps: $(VENV)/.ok tools/node_modules/.ok
@@ -94,6 +94,12 @@ lang-stamp:
 # GAP=n and SHORT=n set the thresholds (tools/check_order.py --gap, --short; defaults 3 and 2)
 order:
 	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),$(SRC),html/slide.src.html)$(if $(GAP), --gap $(GAP))$(if $(SHORT), --short $(SHORT))
+
+# the tests of page-edit and the engine, in Chromium (tools/test/*-test.mjs); e.g. make test TESTS=tools/test/undo-test.mjs
+TESTS ?= $(wildcard tools/test/*-test.mjs)
+test: tools/node_modules/.ok
+	tools/node_modules/.bin/playwright install chromium
+	$(foreach t,$(TESTS),node $(t) &&) true
 
 # slide.html and the packed file of SRC (default engine/sample.dist.html)
 clean:
