@@ -25,7 +25,15 @@ from pathlib import Path
 
 ENGINE_TAG = re.compile(r"""<script\b[^>]*\bsrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*</script>""", re.I)
 PAGE = re.compile(r"<(cover|slide|divider)\b(.*?)</\1>", re.S | re.I)
-BOX = re.compile(r"<(block|alertblock|exampleblock)\b([^>]*)>(.*?)</\1>", re.S | re.I)
+ATTRS = r"""((?:"[^"]*"|'[^']*'|[^>"'])*)"""  # the attributes of a start tag; a ">" inside quotes does not end it
+BOX = re.compile(r"<(block|alertblock|exampleblock)\b" + ATTRS + r">(.*?)</\1>", re.S | re.I)
+TAG = re.compile(r"<[a-zA-Z]" + ATTRS + ">")
+QUOTED = re.compile(r""""[^"]*"|'[^']*'""")
+
+
+def names_only(text):
+    """text with the values of the attributes of its start tags emptied (to look for an attribute by name)."""
+    return TAG.sub(lambda m: QUOTED.sub('""', m.group(0)), text)
 RULES = [
     ("step", re.compile(r"<[a-z]+\b[^>]*\sstep\b|<later\b", re.I)),
     ("figure", re.compile(r"<(figure|img|svg|flip|switch)\b", re.I)),
@@ -39,24 +47,29 @@ def kinds_of(engine_js):
     m = re.search(r"BLOCK_KINDS\s*=\s*\[([^\]]*)\]", engine_js)
     if not m:
         sys.exit("engine/kamishibai.js has no BLOCK_KINDS")
-    return re.findall(r'"([^"]+)"', m.group(1))
+    en = re.search(r"KIND_EN\s*=\s*\{([^}]*)\}", engine_js)  # the same kinds in English: "定理": "Theorem"
+    return re.findall(r'"([^"]+)"', m.group(1)), re.findall(r':\s*"([^"]+)"', en.group(1)) if en else []
 
 
 def problems(src, kinds):
     """[(page, box tag, title, rule)] for the draft text src; pages are numbered as on screen."""
     text = re.sub(r"<!--.*?-->", "", src, flags=re.S)
+    kinds, kinds_en = kinds if isinstance(kinds, tuple) else (kinds, [])
     head = re.compile(r"(%s)(\s|\d|（|$)" % "|".join(map(re.escape, sorted(kinds, key=len, reverse=True))))
+    # as HEAD_EN of the engine: Theorem, Theorem 3, Main Theorem (Euler)
+    head_en = re.compile(r"(%s)(\s+[0-9]|[\s(\[]|$)" % "|".join(
+        re.escape(k).replace(r"\ ", r"\s+") for k in sorted(kinds_en, key=len, reverse=True)), re.I) if kinds_en else None
     out = []
     for n, pg in enumerate(PAGE.finditer(text), 1):
         for b in BOX.finditer(pg.group(2)):
-            t = re.search(r"""\btitle=(["'])(.*?)\1""", b.group(2), re.S)
+            t = re.search(r"""(?:^|\s)title\s*=\s*(["'])(.*?)\1""", b.group(2), re.S | re.I)
             title = html.unescape(t.group(2)).strip() if t else ""
-            if not head.match(title):
+            if not head.match(title) and not (head_en and head_en.match(title)):
                 out.append((n, b.group(1), title, "title"))
-            if re.search(r"\sstep\b", b.group(2)):
+            if re.search(r"\sstep\b", QUOTED.sub('""', b.group(2))):
                 out.append((n, b.group(1), title, "step"))
             for name, rx in RULES:
-                if rx.search(b.group(3)):
+                if rx.search(names_only(b.group(3)) if name == "step" else b.group(3)):
                     out.append((n, b.group(1), title, name))
     return out
 

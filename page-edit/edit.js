@@ -12,7 +12,7 @@
      engine {enter, leave, exportHTML}; the engine's heading "編集 ⌘E" enters edit mode, its "出力" mode calls
      exportHTML for "HTML：1 ファイル" (NAME.dist.html next to the draft, in the order of pack_engine.py's pack(),
      read through the allowed folder; fonts are not subset and KaTeX is whole, and pack's checks are not run).
-   - Older engines without the three modes (and WebSlide): page-edit puts its own "Edit ⌘E" button in the tool
+   - Older engines without the three modes (and WebSlide): page-edit puts its own "編集 ⌘E" button in the tool
      panel and takes ⌘E itself; where the engine still uses ⌘E for its select mode, ⌘E switches both together.
    - Also editable: text written straight in a slide (e.g. display math after a list), the attributes title,
      cite, label, short, and aff and sec (a name in several places: editing one rewrites every place with that
@@ -35,13 +35,14 @@
    other as it is. In English, Japanese text that has no English is shown grey and is not edited.
    click        edit that text (in edit mode)
     Enter        save            Shift+Enter  line break      Esc  cancel
-    Cmd+K        emphasis        Cmd+Shift+K  blue            Cmd+B  bold    (on the selection)
+    Cmd+K        emphasis        Cmd+Shift+K  navy            Cmd+B  bold    (on the selection)
     Cmd+Z        undo the last save; while a text is being edited, undo the last change made in that text
     Shift+Cmd+Z  redo (elsewhere Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y); both are also buttons in the panel
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
-(function slideEdit() {
+(function pageEdit() {
   "use strict";
-  const S = window.__slideEdit || (window.__slideEdit = { gen: 0, edit: false });
+  const VERSION = "3.11";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
+  const S = window.__pageEdit || (window.__pageEdit = { gen: 0, edit: false });
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)
   const EDITABLE = ["p", "item", "note", "down", "headline", "subtitle", "author", "meeting", "date", "figcaption",
@@ -69,17 +70,20 @@
   const VOID = new Set(["br", "img", "input", "wbr", "hr", "meta", "link", "source", "col", "area", "base", "embed", "track"]);
   const RAW = new Set(["script", "style"]);
   const WEBSLIDE_RE = /<script[^>]*(?:webslide|kamishibai)\.js[^>]*>/i;   // WebSlide, or its derived Kamishibai engine
-  const EDIT_KEY = "slide-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
+  const EDIT_KEY = "page-edit-on:" + location.pathname;   // edit mode survives a reload of the tab
+  const OLD_EDIT_KEY = "slide-edit-on:" + location.pathname;   // the same up to 3.10, moved over once
   const MAC = /Mac|iPhone|iPad/.test(navigator.platform);    // as WebSlide decides between Cmd and Ctrl
   const BOTH_KEY = "page-edit-both";   // "1": Japanese and English are edited at once
   const UNDO_KEY = "page-edit-undo:" + location.pathname;   // the undo steps of this draft, kept for the tab
   const JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
   const mod = e => (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey;
   // Edit mode has its own key, Cmd+E (Ctrl+E elsewhere). The engine's select mode is Cmd+I; an older engine
-  // (and WebSlide) has it on Cmd+E too, read from its "Select ⌘X" button. Synthetic presses (pressSelect) are skipped.
+  // (and WebSlide) has it on Cmd+E too, read from its "Select ⌘X" button: its title or aria-label (the engine's buttons
+  // are icons), else its text. Synthetic presses (pressSelect) are skipped.
   const selectCode = function () {
-    const b = [].find.call(document.querySelectorAll(".tools button"), x => /^(?:Select|選択)\s/.test(x.textContent));
-    const m = b && /([A-Z])\s*$/.exec(b.textContent);
+    const label = x => x.title || x.getAttribute("aria-label") || x.textContent;
+    const b = [].find.call(document.querySelectorAll(".tools button"), x => /^(?:Select|選択)\s/.test(label(x)));
+    const m = b && /([A-Z])\s*$/.exec(label(b));
     return "Key" + (m ? m[1] : "E");
   };
   const isSelectKey = e => mod(e) && e.code === selectCode();
@@ -91,6 +95,23 @@
      the run before the first block, between two blocks, and after the last one (display math written straight
      in a slide, after a list, is such a run). Each segment is {tag, el, k, start, end}: el counts the elements in
      document order, k the runs of that element. Attribute values in ATTRS are {tag, attr, all, start, end}. */
+  // End tags that HTML implies (no-quirks documents): a start tag closes the nearest open element of these names,
+  // looking no further down the stack than a boundary. So the source's spans end where the browser ends the element.
+  const P_CLOSERS = ["address", "article", "aside", "blockquote", "center", "details", "dialog", "dir", "div", "dl",
+                     "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header",
+                     "hgroup", "hr", "main", "menu", "nav", "ol", "p", "pre", "listing", "xmp", "search", "section",
+                     "summary", "table", "ul", "li", "dd", "dt", "plaintext"];
+  const SCOPE = ["html", "table", "td", "th", "caption", "marquee", "object", "template", "applet"];
+  const P_RULE = { close: ["p"], stop: SCOPE.concat(["button"]) };
+  const IMPLIED = { td: { close: ["td", "th"], stop: ["tr", "tbody", "thead", "tfoot", "table", "template", "html"] },
+                    tr: { close: ["tr"], stop: ["tbody", "thead", "tfoot", "table", "template", "html"] },
+                    li: { close: ["li"], stop: SCOPE.concat(["ul", "ol", "menu"]) },
+                    dt: { close: ["dt", "dd"], stop: SCOPE.concat(["dl"]) },
+                    option: { close: ["option"], stop: ["select", "datalist", "optgroup", "html"] },
+                    optgroup: { close: ["option", "optgroup"], stop: ["select", "datalist", "html"] } };
+  IMPLIED.th = IMPLIED.td;
+  IMPLIED.dd = IMPLIED.dt;
+  ["tbody", "thead", "tfoot"].forEach(t => { IMPLIED[t] = { close: ["tbody", "thead", "tfoot"], stop: ["table", "template", "html"] }; });
   function parse(text) {
     const spans = [], els = [], at = [], attrs = [], stack = [];   // at: where each of els starts
     const START = /<([a-zA-Z][^\s\/>]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/y;
@@ -99,6 +120,26 @@
     const open = (e, at) => { e.idx = spans.length; spans.push({ tag: e.tag, el: e.el, k: e.k++, start: at, end: null }); };
     const shut = (e, at) => { if (e.idx !== null) { spans[e.idx].end = at; e.idx = null; } };
     const top = () => stack[stack.length - 1];
+    // close the elements down to and including the nearest one named in rule.close, if no boundary comes first
+    const implied = function (rule, at) {
+      let k = stack.length - 1;
+      while (k >= 0 && rule.close.indexOf(stack[k].tag) < 0) { if (rule.stop.indexOf(stack[k].tag) >= 0) return; k--; }
+      if (k < 0) return;
+      while (stack.length > k) shut(stack.pop(), at);
+      const p = top();
+      if (p && p.el !== null && p.idx === null) open(p, at);   // back in an element: its next run starts here
+    };
+    // an element with nothing in it at from..to, of a block tag (as </p> without an open <p> makes one)
+    const empty = function (tag, from, to) {
+      const p = top();
+      if (p && p.el !== null) shut(p, from);
+      if (CONTAINER.has(tag)) { els.push(tag); at.push(from); const e = { tag: tag, el: els.length - 1, idx: null, k: 0 }; open(e, to); shut(e, to); }
+      if (p && p.el !== null && p.idx === null) open(p, to);
+    };
+    const inScope = function (tag, stop) {
+      for (let k = stack.length - 1; k >= 0; k--) { if (stack[k].tag === tag) return true; if (stop.indexOf(stack[k].tag) >= 0) return false; }
+      return false;
+    };
     let i = 0;
     while (true) {
       i = text.indexOf("<", i);
@@ -118,6 +159,7 @@
       if (m) {
         const tag = m[1].toLowerCase();
         i += m[0].length;
+        if (tag === "p" && !inScope("p", P_RULE.stop)) { empty("p", i - m[0].length, i); continue; }   // the browser makes <p></p>
         if (stack.some(e => e.tag === tag)) {
           while (stack.length) {
             const e = stack.pop();
@@ -134,6 +176,8 @@
       m = START.exec(text);
       if (!m) { i++; continue; }
       const raw = m[0], tag = m[1].toLowerCase(), selfClose = /\/\s*>$/.test(raw), i0 = i, after = i + raw.length;
+      if (IMPLIED[tag]) implied(IMPLIED[tag], i);
+      if (P_CLOSERS.indexOf(tag) >= 0) implied(P_RULE, i);
       const p = top(), block = BLOCKS.has(tag);
       if (p && p.el !== null && block) shut(p, i);
       ATTR.lastIndex = 0;
@@ -145,7 +189,7 @@
         const g = a[2] !== undefined ? 2 : a[3] !== undefined ? 3 : a[4] !== undefined ? 4 : 0;
         const off = i + 1 + m[1].length;   // where m[2] starts in text
         const at = g ? a.indices[g] : [a.indices[1][1], a.indices[1][1]];
-        attrs.push({ tag: tag, attr: name, all: spec.all, start: off + at[0], end: off + at[1], bare: g === 4, none: !g });
+        attrs.push({ tag: tag, attr: name, all: spec.all, start: off + at[0], end: off + at[1], bare: g === 4, none: !g, el: i0 });   // el: where its tag starts
       }
       if (RAW.has(tag) && !selfClose) {
         const close = text.toLowerCase().indexOf("</" + tag, after);
@@ -171,16 +215,14 @@
   /* ===== File access (File System Access API) ===== */
   // The author allows a folder once (one that holds the open draft, e.g. the project folder); the folders
   // are kept in IndexedDB, so every draft below an allowed folder opens without choosing anything again.
+  const DB = "page-edit", OLD_DB = "slide-edit";   // OLD_DB: the name up to 3.10 (version 3, the same store)
   function idb(mode, fn) {
     return new Promise(function (resolve, reject) {
-      const r = indexedDB.open("slide-edit", 3);
+      const r = indexedDB.open(DB, 1);
       // A tab that still runs an older copy of this script can hold the store: work without the kept folders then.
       const late = setTimeout(() => reject(new Error("the store of kept folders does not answer")), 1500);
       r.onblocked = () => { clearTimeout(late); reject(new Error("the store of kept folders is in use by an older tab")); };
-      r.onupgradeneeded = function () {
-        if (r.result.objectStoreNames.contains("handles")) r.result.deleteObjectStore("handles");   // files picked one by one (before 2026-11-23)
-        if (!r.result.objectStoreNames.contains("dirs")) r.result.createObjectStore("dirs");
-      };
+      r.onupgradeneeded = function () { if (!r.result.objectStoreNames.contains("dirs")) r.result.createObjectStore("dirs"); };
       r.onerror = () => { clearTimeout(late); reject(r.error); };
       r.onsuccess = function () {
         clearTimeout(late);
@@ -197,28 +239,89 @@
   // The source of the draft. A BOM stays in the text (file.text() drops it), so that a save writes it back.
   // strict: a file that is not UTF-8 is refused, because writing it back would change its other bytes.
   async function readText(file, strict) {
-    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(await file.arrayBuffer()); }
+    const bytes = await file.arrayBuffer();   // a file that cannot be read fails with its own message
+    try { return new TextDecoder("utf-8", { ignoreBOM: true, fatal: !!strict }).decode(bytes); }
     catch (e) { throw new Error("原稿の文字コードが UTF-8 ではないので、書き込めません"); }
   }
+  // What went wrong, for the author: the File System Access API's errors in Japanese, with their own name after it.
+  const ERRORS = {
+    NotAllowedError: "読み書きが許可されていません。「編集」を押して、フォルダの編集を許可してください",
+    NotFoundError: "原稿かフォルダが見つかりません。動かしたか消したときは、原稿を開き直してください",
+    NoModificationAllowedError: "原稿に書き込めません。ほかのプログラムが使っているか、書き込みが禁じられています",
+    AbortError: "途中で止まりました"
+  };
+  const why = e => e && ERRORS[e.name] ? ERRORS[e.name] + "（" + e.name + "）" : String(e && e.message || e);
   const DIRS = "list";
   async function keptDirs() {
-    try { return (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || []; }
+    try { await moveOld(); return (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || []; }
     catch (e) { return []; }
+  }
+  // The folders kept under the old name: null when there is no such store (or it cannot be read now). Opening a
+  // store that is not there would make it: that upgrade is aborted, so nothing is left behind.
+  function oldDirs() {
+    return new Promise(function (resolve) {
+      const late = setTimeout(() => done(null), 1500);
+      const done = v => { clearTimeout(late); resolve(v); };
+      let r;
+      try { r = indexedDB.open(OLD_DB); } catch (e) { done(null); return; }
+      r.onupgradeneeded = () => r.transaction.abort();
+      r.onerror = () => done(null);
+      r.onblocked = () => done(null);
+      r.onsuccess = function () {
+        const db = r.result;
+        db.onversionchange = () => db.close();
+        try {
+          const q = db.transaction("dirs", "readonly").objectStore("dirs").get(DIRS);
+          q.onsuccess = () => { db.close(); done(Array.isArray(q.result) ? q.result : []); };
+          q.onerror = () => { db.close(); done(null); };
+        } catch (e) { db.close(); done(null); }
+      };
+    });
+  }
+  // Once per page: the folders of the old store go to the end of the list, then the old store is deleted (a tab
+  // that still has it open closes it, see idb). When this fails the old store stays and the folders are asked for again.
+  function moveOld() {
+    if (!S.moved) S.moved = (async function () {
+      const old = await oldDirs();
+      if (!old) return;
+      if (old.length) {
+        const now = (await idb("readonly", tx => tx.objectStore("dirs").get(DIRS))) || [];
+        await idb("readwrite", tx => tx.objectStore("dirs").put(now.concat(old), DIRS));
+      }
+      indexedDB.deleteDatabase(OLD_DB);
+    })().catch(function () { /* left for the next page */ });
+    return S.moved;
   }
   // A folder kept by an earlier Chrome can come back dead after an update: none of its methods ever settles (seen in
   // Chrome 158, 2026-11-24). So the first call on a kept folder is given up after a while. Not for calls that show a
   // prompt, and short enough that the click still allows the folder picker afterwards (5 s in Chrome).
   const DEAD = {};
   const answer = p => Promise.race([p, new Promise((ok, no) => setTimeout(() => no(DEAD), 1500))]);
+  // Whether kept folder x is folder d: true, false, or null when that cannot be told now (it does not answer in
+  // time, or fails for a reason other than being gone). Only a folder that is gone (NotFoundError) counts as d, so
+  // that it is dropped; one that is slow for a moment stays in the list.
+  const sameAs = (x, d) => answer(x.isSameEntry(d)).catch(e => e && e.name === "NotFoundError" ? true : null);
   async function keepDir(d) {
     const list = await keptDirs(), out = [d];
-    // the others stay, except this same folder and those that no longer answer
-    const same = await Promise.all(list.map(x => answer(x.isSameEntry(d)).catch(() => true)));
-    list.forEach((x, i) => { if (!same[i]) out.push(x); });
+    // the others stay, except this same folder and those that are gone
+    const same = await Promise.all(list.map(x => sameAs(x, d)));
+    list.forEach((x, i) => { if (same[i] !== true) out.push(x); });
     try { await idb("readwrite", tx => tx.objectStore("dirs").put(out, DIRS)); } catch (e) { /* storage unavailable */ }
   }
-  // the open file inside folder d: d's name is one of the folders on the page's path, and the rest of the path
-  // leads from there to the file (when d's name occurs more than once, the file nearest the page's own date wins)
+  // Forget the kept folder at k of the list, named name (k null: all of them). By its place in the list, not by
+  // isSameEntry, so that a folder that no longer answers can be forgotten too. The open tab keeps its file until
+  // it is loaded again.
+  async function forgetDir(k, name) {
+    const list = k === null ? [] : await keptDirs();
+    if (k !== null) {
+      if (!list[k] || list[k].name !== name) throw new Error("覚えているフォルダの一覧が、ほかのタブで変わっていました。一覧を開き直してください");
+      list.splice(k, 1);
+    }
+    await idb("readwrite", tx => tx.objectStore("dirs").put(list, DIRS));
+  }
+  // The open file inside folder d: d's name is one of the folders on the page's path, and the rest of the path
+  // leads from there to the file. {fh, gap}, gap how far the file's date is from the page's own (when d's name
+  // occurs more than once, the nearest one), or null.
   async function findIn(d) {
     const ps = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
     const want = Date.parse(document.lastModified);
@@ -234,7 +337,7 @@
         if (g < gap) { best = fh; gap = g; fh.__loc = { root: d, dirs: ps.slice(i + 1, ps.length - 1) }; }
       } catch (e) { /* not this one */ }
     }
-    return best;
+    return best && { fh: best, gap: gap };
   }
   // ask: called from a click or key (may show Chrome's prompt or the folder picker); else only a granted folder
   async function allowed(h, ask) {
@@ -250,19 +353,22 @@
     const kept = (await keptDirs()).filter(d => above.indexOf(d.name) >= 0);
     // A folder is read only once it is allowed: after Chrome is started again (or every tab of the folder is closed)
     // a kept folder has to be allowed again, and reading it before that fails. Allowed ones first, then ask.
+    // Of all the allowed folders that hold a file at the page's path, the file whose date is nearest the page's
+    // (a copy of the draft in another kept folder is not taken for it).
     const asked = [];
-    let dead = "";
+    let dead = "", best = null;
     const state = await Promise.all(kept.map(d => answer(allowed(d, false)).catch(e => e)));
     for (let i = 0; i < kept.length; i++) {
       const d = kept[i];
       try {
-        if (state[i] === DEAD) { dead = d.name; continue; }
+        if (state[i] === DEAD) { dead = d.name; continue; }   // skipped for this load only; it stays in the list
         if (state[i] === false) asked.push(d);
         if (state[i] !== true) continue;
-        const fh = await findIn(d);
-        if (fh) return fh;
+        const f = await findIn(d);
+        if (f && (!best || f.gap < best.gap)) best = f;
       } catch (e) { /* folder moved: try the next */ }
     }
+    if (best) return best.fh;
     if (!ask) return null;
     for (const d of asked) {
       msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
@@ -271,8 +377,8 @@
         if (e.name === "NotFoundError" || e.name === "SecurityError") continue;   // folder moved, or the click is too long ago
         throw e;
       }
-      const fh = await findIn(d).catch(() => null);
-      if (fh) return fh;
+      const f = await findIn(d).catch(() => null);
+      if (f) return f.fh;
     }
     if (!window.showDirectoryPicker) {
       throw new Error("このブラウザは原稿への書き込みに対応していません。Chrome・Edge・Brave など Chromium 系のブラウザで開いてください");
@@ -281,7 +387,7 @@
              : "原稿を含むフォルダを選ぶ画面を開いています。フォルダを選ぶと編集が始まります");
     const d = await showDirectoryPicker({ id: "page-edit", mode: "readwrite" });
     msg("フォルダ「" + d.name + "」の編集を許可するか、Chrome が確認しています。許可すると編集が始まります");
-    const fh = await findIn(d);
+    const f = await findIn(d), fh = f && f.fh;
     const here = decodeURIComponent(location.pathname.split("/").pop());
     if (!fh) throw new Error("選んだフォルダ「" + d.name + "」の中に、開いている " + here + " がありません。この下書きを含むフォルダを選んでください");
     if (!await allowed(d, true)) throw new Error("書き込みが許可されませんでした");
@@ -312,11 +418,14 @@
       const fh = await getHandle(true), loc = fh.__loc;
       if (!loc) throw new Error("許可したフォルダの中での原稿の場所がわかりません。一度ページを開き直してください");
       const text = await (await fh.getFile()).text();
+      // what the comments hide is not read (a reference in a comment stays as it is); same offsets as text
+      const COMMENT = /<!--[\s\S]*?-->/g, seen = text.replace(COMMENT, c => " ".repeat(c.length));
+      const decode = q => { try { return decodeURIComponent(q); } catch (e) { return q; } };   // a "%" of the name itself
       const join = function (dirs, ref) {
         const out = dirs.slice();
         ref.split("/").forEach(function (q) {
           if (!q || q === ".") return;
-          if (q !== "..") { out.push(decodeURIComponent(q)); return; }
+          if (q !== "..") { out.push(decode(q)); return; }
           if (!out.length) throw new Error("許可したフォルダ「" + loc.root.name + "」の外のファイルです：" + ref);
           out.pop();
         });
@@ -329,29 +438,37 @@
       };
       const read = async parts => (await get(parts)).text();
       const has = async parts => { try { await get(parts); return true; } catch (e) { return false; } };
-      const m = /<script\b[^>]*\ssrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*<\/script\s*>/i.exec(text);
+      const m = /<script\b[^>]*\ssrc=(["'])([^"']*?)kamishibai\.js\1[^>]*>\s*<\/script\s*>/i.exec(seen);
       if (!m) throw new Error("この原稿には kamishibai.js の読み込みがありません");
       const eng = join(loc.dirs, unescape(m[2] || "./"));
-      const t = /<html\b[^>]*\stheme=(["']?)([A-Za-z]+)\1/i.exec(text), theme = t ? t[2] : "Boadilla";
+      const t = /<html\b[^>]*\stheme=(["']?)([A-Za-z]+)\1/i.exec(seen), theme = t ? t[2] : "Boadilla";
       if (!await has(eng.concat("themes", theme + ".css"))) throw new Error("テーマがありません：" + theme);
-      const local = ref => /^(?:[a-z][\w+.-]*:|#|\/\/)/i.test(ref) ? null : join(loc.dirs, unescape(ref));
+      // a file beside the draft: not a URL with a scheme, not "#…", not a path from the top ("/…" stays as it is);
+      // "?…" and "#…" after the name are not part of the file's name
+      const local = function (ref) {
+        ref = unescape(ref).trim();
+        if (/^(?:[a-z][\w+.-]*:|[#\/?\\])/i.test(ref)) return null;
+        ref = ref.replace(/[?#][\s\S]*$/, "");
+        return ref ? join(loc.dirs, ref) : null;
+      };
       const dataURI = f => new Promise(function (ok, no) {
         const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => no(r.error); r.readAsDataURL(f);
       });
+      // each pattern starts with a comment, which is given back unchanged
       const inline = async function (src) {
-        src = await replaceAsync(src, /(<(?:img|qr|image|source)\b[^>]*?\s(?:src|href|xlink:href)=)(["'])([^"']*)\2/gi,
-          async function (all, a, qt, ref) { const q = local(ref); return q ? a + qt + await dataURI(await get(q)) + qt : all; });
-        src = await replaceAsync(src, /<script\b[^>]*?\ssrc=(["'])([^"']*)\1[^>]*>\s*<\/script\s*>/gi,
-          async function (all, qt, ref) { const q = local(ref); return q ? "<script>" + (await read(q)).replace(/<\/script/gi, "<\\/script") + "<\/script>" : all; });
-        return replaceAsync(src, /<link\b[^>]*>/gi, async function (all) {
-          if (!/rel=["']?stylesheet/i.test(all)) return all;
+        src = await replaceAsync(src, /<!--[\s\S]*?-->|(<(?:img|qr|image|source)\b[^>]*?\s(?:src|href|xlink:href)=)(["'])([^"']*)\2/gi,
+          async function (all, a, qt, ref) { const q = a && local(ref); return q ? a + qt + await dataURI(await get(q)) + qt : all; });
+        src = await replaceAsync(src, /<!--[\s\S]*?-->|<script\b[^>]*?\ssrc=(["'])([^"']*)\1[^>]*>\s*<\/script\s*>/gi,
+          async function (all, qt, ref) { const q = qt && local(ref); return q ? "<script>" + (await read(q)).replace(/<\/script/gi, "<\\/script") + "<\/script>" : all; });
+        return replaceAsync(src, /<!--[\s\S]*?-->|<link\b[^>]*>/gi, async function (all) {
+          if (/^<!--/.test(all) || !/rel=["']?stylesheet/i.test(all)) return all;
           const h = /href=(["'])([^"']*)\1/i.exec(all), q = h && local(h[2]);
-          return q ? "<style>" + await read(q) + "</style>" : all;
+          return q ? "<style>" + (await read(q)).replace(/<\/style/gi, "<\\/style") + "</style>" : all;
         });
       };
       let head = text.slice(0, m.index), tail = text.slice(m.index + m[0].length);
       head = head.replace(/(<html\b[^>]*\stheme=)(["']?)[A-Za-z]+\2/i, (all, a) => a + '"' + theme + '"');
-      const own = /<script\b/i.test(head + tail);
+      const own = /<script\b/i.test(seen.slice(0, m.index) + seen.slice(m.index + m[0].length));
       head = await inline(head); tail = await inline(tail);
       const fontFiles = { Madrid: ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"] }[theme] || ["fonts/kamishibai-fonts.css"];
       let fonts = "", noFont = [];
@@ -374,22 +491,44 @@
       await w.close();
       msg(name + ".dist.html を書きました（" + Math.round(new Blob([out]).size / 1024 / 1024 * 10) / 10 + " MB）"
         + (noFont.length ? "。書体 " + noFont.join("・") + " が無いので手元の書体で出ます" : ""), 8000);
-    } catch (e) { msg(e.name === "AbortError" ? "" : "HTML を書けませんでした：" + e.message, 10000); }
+    } catch (e) { msg(e.name === "AbortError" ? "" : "HTML を書けませんでした：" + why(e), 10000); }
   }
 
   /* ===== Rebuild the page from source text, with this script inserted before webslide.js ===== */
   function rebuild(text, mtime) {
-    const m = WEBSLIDE_RE.exec(text);
-    if (!m) { msg("この原稿には webslide.js（または kamishibai.js）の読み込みがありません", 8000); return; }
+    // a tag inside a comment is not the engine: look in a copy with the comments blanked (same offsets)
+    const m = WEBSLIDE_RE.exec(text.replace(/<!--[\s\S]*?-->/g, c => " ".repeat(c.length)));
+    if (!m) { msg("この原稿には webslide.js（または kamishibai.js）の読み込みがありません", 8000); return false; }
+    const was = S.text;
     S.text = text;
-    if (mtime !== undefined) S.mtime = mtime;
-    S.building = true;
+    if (mtime !== undefined) S.mtime = mtime;   // kept even when the build fails, so that the poll does not retry it
     S.panel = document.body.classList.contains("tools-open");   // the engine's panel stays open over the rebuild
-    // This same function, inline (file:// pages have no CSP).
-    const inject = "<script>(" + slideEdit.toString().replace(/<\/script/gi, "<\\/script") + ")();<\/script>\n";
-    document.open();
-    document.write(text.slice(0, m.index).replace(/^\ufeff/, "") + inject + text.slice(m.index));
-    document.close();
+    // This same function, inline. A "<" that would start "<!--", "<script" or "</script" in HTML is written
+    // "\x3C" (the same character in a JS string, regex or comment), so that the script ends where it should.
+    const inject = "<script>(" + pageEdit.toString().replace(/<(?=!--|\/?script)/gi, "\\x3C") + ")();<\/script>\n";
+    // The copy of this script in the new page sets building back to false. If it never runs (an error, or a
+    // Content-Security-Policy of the draft that forbids inline scripts), the page is the engine's alone: say so.
+    const failed = function (e) {
+      if (!S.building) return;
+      S.building = false;
+      S.saving = false;
+      S.text = was;
+      const said = S.notice ? S.notice + "。ただし、" : "";
+      S.notice = ""; S.noticeMs = 0;
+      if (!document.querySelector(".sed-bar")) { style(); bar([]); }
+      msg(said + "編集用にページを組み直せませんでした（" + why(e) + "）。ページを再読み込みしてください", 30000);
+      if (S.note) note(S.note);
+    };
+    S.building = true;
+    try {
+      document.open();
+      document.addEventListener("DOMContentLoaded", function () {
+        if (S.building) setTimeout(() => failed(new Error("組み直したページで page-edit が動きませんでした。原稿の Content-Security-Policy などがインラインの script を止めていないか見てください")), 0);
+      });
+      document.write(text.slice(0, m.index).replace(/^\ufeff/, "") + inject + text.slice(m.index));
+      document.close();
+    } catch (e) { failed(e); return false; }
+    return true;
   }
 
   /* ===== UI helpers ===== */
@@ -437,6 +576,15 @@
       "body.sed-on .tools .sed-btn { display: block; }",
       ".sed-msg { color: #fff; font-weight: 400; padding: 0 4px; white-space: nowrap; display: none; }",
       ".sed-bar:not(.free) .sed-msg { padding: 4px; }",
+      // a long message wraps; a note (what was typed and not saved, the kept folders) stays until it is closed
+      ".sed-bar { flex-wrap: wrap; max-width: min(760px, calc(100vw - 40px)); }",
+      ".sed-msg.long { white-space: normal; line-height: 1.45; }",
+      ".sed-note { flex: 1 1 100%; display: none; color: #fff; font-weight: 400; line-height: 1.45; padding: 4px; white-space: pre-wrap;",
+      "  overflow-wrap: anywhere; max-height: 40vh; overflow: auto; user-select: text; cursor: text; }",
+      ".sed-note .sed-note-text { display: block; margin-bottom: 6px; }",
+      ".sed-note button { margin: 2px 6px 2px 0; padding: 4px 9px; cursor: pointer; }",
+      ".sed-note ul { margin: 0 0 6px; padding-left: 1.2em; }",
+      ".sed-note li { margin: 2px 0; }",
       "@media print { .sed-bar, .sed-fmt { display: none; } }"
     ].join("\n");
     document.head.appendChild(css);
@@ -444,14 +592,84 @@
 
   function msg(text, ms) {
     const m = document.querySelector(".sed-msg");
-    if (!m) { if (text) console.log("slide-edit:", text); return; }
+    if (!m) { if (text) console.log("page-edit:", text); return; }
     m.textContent = text;
+    m.classList.toggle("long", text.length > 50);
     m.style.display = text ? "inline-block" : "none";
     S.msgOn = !!text;
     clearTimeout(S.msgTimer);
     if (ms) S.msgTimer = setTimeout(function () { m.style.display = "none"; S.msgOn = false; sync(); }, ms);
     sync();
   }
+  // A note that stays until its 閉じる is pressed, over rebuilds of the page too (S.note): text, and nodes after it.
+  // note("") takes it away.
+  function note(text, nodes) {
+    const b = document.querySelector(".sed-bar");
+    S.note = nodes ? "" : text;   // a note with buttons of its own is not shown again after a rebuild
+    let n = b && b.querySelector(".sed-note");
+    if (!b) { if (text) console.log("page-edit:", text); return; }
+    if (!n) { n = document.createElement("div"); n.className = "sed-note"; b.prepend(n); }
+    n.replaceChildren();
+    S.noteOn = !!text;
+    n.style.display = text ? "block" : "none";
+    if (text) {
+      const t = document.createElement("span");
+      t.className = "sed-note-text";
+      t.textContent = text;
+      n.appendChild(t);
+      (nodes || []).forEach(x => n.appendChild(x));
+      n.appendChild(button("閉じる", "この知らせを閉じる", () => note("")));
+    }
+    sync();
+  }
+  function button(text, title, run) {
+    const x = document.createElement("button");
+    x.type = "button";
+    x.textContent = text;
+    x.title = title;
+    x.addEventListener("mousedown", e => e.preventDefault());   // the text being edited keeps the focus
+    x.addEventListener("click", function (e) { e.stopPropagation(); run(); });
+    return x;
+  }
+
+  // The kept folders, each with a button that forgets it (U4). Forgetting takes it out of the list in IndexedDB;
+  // what Chrome allowed is taken back in Chrome's settings.
+  async function showDirs() {
+    const list = await keptDirs(), nodes = [];
+    if (list.length) {
+      const ul = document.createElement("ul");
+      list.forEach(function (d, k) {
+        const li = document.createElement("li");
+        li.append(d.name + "　", button("忘れる", "このフォルダを忘れる", () => forget(k, d.name)));
+        ul.appendChild(li);
+      });
+      nodes.push(ul, button("全て忘れる", "覚えているフォルダを全て忘れる", () => forget(null, "")));
+    }
+    note((list.length ? "page-edit が覚えているフォルダです。" : "page-edit が覚えているフォルダはありません。")
+      + "この一覧は、この Chrome のプロファイルで file:// から開いたページの全てが使えます。"
+      + "忘れたフォルダは、次に「編集」を押したときに選び直します（開いているこのタブは、再読み込みするまで今の原稿に書けます）。"
+      + "書き込みの許可そのものは Chrome の設定（chrome://settings/content/filesystem）で取り消せます。", nodes);
+  }
+  async function forget(k, name) {
+    try { await forgetDir(k, name); } catch (e) { msg(why(e), 8000); }
+    showDirs();
+  }
+  const FOLDER = "M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z";
+  // In the panel of the edit mode, after undo and redo.
+  function dirsButton() {
+    const g = document.querySelector(".tools .g-edit");
+    if (!g || g.querySelector(".sed-dirs")) return;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "it sed-dirs";
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + FOLDER + '"/></svg>';
+    b.title = "覚えているフォルダ";
+    b.setAttribute("aria-label", "覚えているフォルダ");
+    b.addEventListener("mousedown", e => e.preventDefault());
+    b.addEventListener("click", function (e) { e.stopPropagation(); b.blur(); showDirs(); });
+    g.insertBefore(b, g.querySelector(":scope > .sep") || g.firstChild);
+  }
+  const DIRS_BTN = { cls: "sed-dirs-btn", text: "フォルダ", title: "覚えているフォルダ（見る・忘れる）", run: () => showDirs() };
 
   // The message line sits just above the engine's tool panel; the buttons are inside that panel (bar()).
   // A page without the panel gets a panel of its own, faint until pointed at.
@@ -463,8 +681,8 @@
     if (tools) {
       const top = tools.getBoundingClientRect().top;
       if (top > 0) b.style.bottom = (innerHeight - top + 8) + "px";
-      b.classList.toggle("show", !!S.msgOn);
-    } else b.classList.toggle("show", document.body.classList.contains("sed-on") || !!S.msgOn || b.matches(":hover"));
+      b.classList.toggle("show", !!S.msgOn || !!S.noteOn);
+    } else b.classList.toggle("show", document.body.classList.contains("sed-on") || !!S.msgOn || !!S.noteOn || b.matches(":hover"));
   }
 
   // Turn the engine's select mode on or off, as its key (Cmd+I, Cmd+E on an older engine) does.
@@ -477,6 +695,7 @@
     document.querySelectorAll(".sed-bar, .tools .sed-btn").forEach(e => e.remove());
     const b = document.createElement("div");
     b.className = "sed-bar";
+    S.noteOn = false;
     const m = document.createElement("span");
     m.className = "sed-msg";
     b.appendChild(m);
@@ -506,7 +725,14 @@
   if (!S.building) {
     if (document.querySelector(".sed-bar")) { msg("page-edit はもう動いています", 3000); return; }
     if (!document.querySelector(".deck")) return;  // not a slide: do nothing
-    try { S.edit = sessionStorage.getItem(EDIT_KEY) === "1"; } catch (e) { /* storage unavailable */ }
+    try {
+      const old = sessionStorage.getItem(OLD_EDIT_KEY);
+      if (old !== null) {
+        if (sessionStorage.getItem(EDIT_KEY) === null) sessionStorage.setItem(EDIT_KEY, old);
+        sessionStorage.removeItem(OLD_EDIT_KEY);
+      }
+      S.edit = sessionStorage.getItem(EDIT_KEY) === "1";
+    } catch (e) { /* storage unavailable */ }
     const open = async function (h) {
       S.handle = h;
       const f = await h.getFile();
@@ -524,17 +750,18 @@
       try { msg("原稿を開いています…"); const h = await getHandle(); S.edit = !left; await open(h); return true; }
       catch (e) {
         S.edit = false;
-        msg(e.name === "AbortError" ? "フォルダを選ばなかったので、編集を始めていません" : "開けませんでした：" + e.message, 8000);
+        msg(e.name === "AbortError" ? "フォルダを選ばなかったので、編集を始めていません" : "開けませんでした：" + why(e), 8000);
         return false;
       }
     };
     style();
     // A Kamishibai engine with the three modes: its 編集 heading (and Cmd+E) starts editing, its 出力 writes the HTML.
     const K = window.Kamishibai;
+    if (K && K.packed) return;   // a packed file is not edited (also with an engine without the three modes)
     if (K && K.setEditor) {
-      if (K.packed) return;   // a packed file is not edited
       let waiting = true;
       bar([]);
+      dirsButton();
       K.setEditor({ enter: function () { waiting = false; begin().then(function (ok) { if (!ok) K.mode("show"); }); },
                     leave: function () { left = true; }, exportHTML: exportHTML });
       (async function () {
@@ -543,8 +770,8 @@
       })();
       return;
     }
-    bar([{ cls: "sed-start-btn", text: "Edit " + EDIT_KEY_LABEL, title: "Edit the text on the page and write it back to the draft. The first time, allow the folder that holds this draft (e.g. the project folder); every draft below it then opens without asking",
-           run: begin }]);
+    bar([{ cls: "sed-start-btn", text: "編集 " + EDIT_KEY_LABEL, title: "ページの文を直して、原稿に書き戻します。初めは、この原稿を含むフォルダ（原稿のフォルダかプロジェクトのフォルダ）を選んで許可します。その下の原稿は、次から選ばずに開けます",
+           run: begin }, DIRS_BTN]);
     // Cmd+E (Ctrl+E elsewhere) does the same as the button; a key press counts as the user
     // gesture the folder picker needs.
     addEventListener("keydown", function (e) {
@@ -593,7 +820,7 @@
       unedited.push({ el: els[n] || els[n - 1] || null, text: "どの文も直せません：原稿と画面で要素の並びが合いません。始めに食い違うのは、" +
         (n < D.els.length ? "原稿の " + line(D.at[n]) + " 行目の <" + D.els[n] + ">" : "原稿の終わり") + "（画面では " + name(els[n]) +
         "）。その前に、閉じていないタグか、入れ子にできないタグがあります" });
-      console.warn("slide-edit: element order differs from the source parse", els, D.els);
+      console.warn("page-edit: element order differs from the source parse", els, D.els);
       return;
     }
     const byEl = els.map(() => []);
@@ -620,7 +847,7 @@
       const idx = [];
       D.attrs.forEach((a, i) => { if (a.attr === spec.attr) idx.push(i); });
       if (dom.map(e => e.tagName.toLowerCase()).join() !== idx.map(i => D.attrs[i].tag).join()) {
-        console.warn("slide-edit: order of " + spec.attr + "= differs; it is not editable");
+        console.warn("page-edit: order of " + spec.attr + "= differs; it is not editable");
         unedited.push({ el: null, text: "属性 " + spec.attr + " の文を直せません：原稿と画面で並びが合いません" });
         return;
       }
@@ -690,6 +917,7 @@
       // The engine's 編集 mode is edit mode: its heading and Cmd+E enter and leave it.
       bar([]);
       undoButtons();
+      dirsButton();
       langButtons(K);
       const handle = document.querySelector(".tools .handle");
       if (S.panel && handle && !document.body.classList.contains("tools-open")) handle.click();
@@ -702,15 +930,16 @@
       if (S.edit) { S.edit = false; K.mode("edit"); }
       if (!enabled) cannot();
       else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
+      if (S.note) note(S.note);
       flash();
       poll();
       return;
     }
-    bar([{ cls: "sed-toggle-btn", text: "Edit " + EDIT_KEY_LABEL, title: "Edit mode on or off. Click a text to edit it; Enter saves, Shift+Enter adds a line break, Esc cancels", run: toggleEdit }]);
+    bar([{ cls: "sed-toggle-btn", text: "編集 " + EDIT_KEY_LABEL, title: "編集モードに入る・出る。文をクリックすると直せます。Enter で保存、Shift+Enter で改行、Esc で取り消し。ほかをクリックしても保存します", run: toggleEdit }, DIRS_BTN]);
     addEventListener("keydown", function (e) {
       if (!live() || !isEditKey(e)) return;
       e.preventDefault(); e.stopPropagation();
-      if (editing) finish(true);
+      if (editing) finish(true, true);
       toggleEdit();
     }, true);
     // Edit mode rides on the engine's select mode (body.edit: no page turn on click). Leaving select mode
@@ -725,6 +954,7 @@
     flash();
     if (!enabled) msg("編集できません（要素の並びが読めない）。console を見てください");
     else if (S.notice) { msg(S.notice, S.noticeMs || 4000); S.notice = ""; S.noticeMs = 0; }
+    if (S.note) note(S.note);
     poll();
   }
 
@@ -754,7 +984,7 @@
       b.addEventListener("click", function (e) {
         e.stopPropagation();
         b.blur();
-        if (editing) finish(true);
+        if (editing) finish(true, true);
         both = d[0] === "both";
         try { localStorage.setItem(BOTH_KEY, both ? "1" : "0"); } catch (x) { /* storage unavailable */ }
         if (!both) K.lang(d[0]);   // on a change, the event below shows the sources again
@@ -768,7 +998,7 @@
     light();
     document.addEventListener("kamishibai:lang", function () {
       if (!live()) return;
-      if (editing) finish(true);
+      if (editing) finish(true, true);
       S.lang = K.lang();
       light();
       refresh();
@@ -795,12 +1025,15 @@
       const own = tag === "ja" || tag === "en", at = /\slang\s*=\s*["']?(ja|en)\b/i.exec(m[3]);
       if (own || at) open = { tag: tag, own: own, L: own ? tag : at[1].toLowerCase(), depth: 1, from: m.index, a: m.index + m[0].length };
     }
-    const next = (x, y, L) => x && y && y.L === L && blank(src.slice(x.to, y.from));
+    // y is the element just after x (the engine pairs by previousElementSibling: text between does not count)
+    const siblings = (x, y) => !/<\/?[a-zA-Z]/.test(src.slice(x.to, y.from).replace(/<!--[\s\S]*?-->/g, ""));
+    const next = (x, y, L) => !!x && !!y && y.L === L && siblings(x, y);
+    found.forEach((f, k) => { f.en = f.L === "ja" && next(f, found[k + 1], "en"); });   // a Japanese that has its English
     const list = found.filter((f, k) => f.own || (f.L === "ja" ? next(f, found[k + 1], "en") : found[k - 1] && found[k - 1].L === "ja" && next(found[k - 1], f, "en")));
     const out = [];
     let at = 0;
     list.forEach(function (f) {
-      out.push({ a: at, b: f.from, L: "" }, { a: f.a, b: f.b, L: f.L });
+      out.push({ a: at, b: f.from, L: "" }, { a: f.a, b: f.b, L: f.L, en: f.en });
       at = f.to;
     });
     out.push({ a: at, b: src.length, L: "" });
@@ -819,7 +1052,7 @@
       list.forEach(function (p, k) {
         if (p.L && p.L !== L) {
           // Japanese without English shows in English too (the engine does so); it is not edited there
-          if (p.L !== "ja" || (list[k + 1] && list[k + 1].L === "en")) return;
+          if (p.L !== "ja" || p.en) return;
         }
         const text = t.src.slice(p.a, p.b);
         out.push({ L: p.L, it: { kind: "span", i: t.i, src: text, whole: t.src, a: p.a, b: p.b },
@@ -927,7 +1160,7 @@
   }
   function setEdit(on) {
     if (on === document.body.classList.contains("sed-on")) return;
-    if (!on && editing) finish(true);
+    if (!on && editing) finish(true, true);
     S.edit = on;
     try { sessionStorage.setItem(EDIT_KEY, on ? "1" : "0"); } catch (e) { /* storage unavailable */ }
     document.body.classList.toggle("sed-on", on);
@@ -944,13 +1177,14 @@
 
   /* ===== The source of one text as tokens =====
      {t, s, a, b}: "text", "math" (with its delimiters; ref: a \ref or \num), "br", "ws" (a line end of the source with its indent), "raw"
-     (an entity, a comment, any other tag: shown as it is written), "open" and "close" (an inline tag shown by its look,
+     (an entity, a \$, a comment, any other tag: shown as it is written), "open" and "close" (an inline tag shown by its look,
      m: its mark). null when the tags are not well nested (a part of a longer text, or broken source). */
   const INLINE = new Set(["alert", "red", "navy", "orange", "blue", "green", "rem", "b", "strong", "i", "em", "u", "s", "small", "sub", "sup", "span", "nobr", "cite", "code"]);
   const NUMBERED = document.documentElement.hasAttribute("numbering");
   function tokens(src) {
     const TAG = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][\w-]*)((?:"[^"]*"|'[^']*'|[^>"'$<])*)>/g;   // no "$" or "<": a "<" of a math is not a tag
-    const TEXT = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?:\\[\s\S]|[^$\\])+?\$)|(\s*\n\s*)|(&(?:#\d+|#x[\da-fA-F]+|\w+);)|(\\(?:ref|num)\{[^{}]*\})/g;
+    // the last group: \$ outside a math is the character $ (the engine shows it so), not the start of a math
+    const TEXT = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?:\\[\s\S]|[^$\\])+?\$)|(\s*\n\s*)|(&(?:#\d+|#x[\da-fA-F]+|\w+);)|(\\(?:ref|num)\{[^{}]*\})|(\\\$)/g;
     const out = [], stack = [];
     const add = (t, a, b, m) => { if (b > a) out.push({ t: t, s: src.slice(a, b), a: a, b: b, m: m }); };
     const text = function (from, to) {
@@ -1067,11 +1301,13 @@
         return;
       }
       if (n.classList.contains("sed-ws")) {
-        // what Chrome typed into it stays behind the line end
-        const t = n.textContent.split(ZW).join("");
-        src += /^[ \n]/.test(t) ? n.getAttribute("data-src") + t.slice(1) : t;
+        // The line end shows as one character. What Chrome typed into it goes after the line end (typed after that
+        // character) or before it (typed in front of it). lay: 1 the character first, 2 the character last, 0 gone.
+        const t = n.textContent.split(ZW).join(""), d = n.getAttribute("data-src");
+        const lay = /^[ \n]/.test(t) ? 1 : /[ \n]$/.test(t) ? 2 : 0;
+        src += lay === 1 ? d + t.slice(1) : lay === 2 ? t.slice(0, -1) + d : t;
         at.set(n, [from, src.length]);
-        n.childNodes.forEach(c => at.set(c, [from, src.length, n]));
+        n.childNodes.forEach(c => at.set(c, [from, src.length, n, lay]));
         return;
       }
       const open = n === el ? "" : n.getAttribute("data-open") || "";
@@ -1093,8 +1329,10 @@
     if (node.nodeType === 3) {
       const ws = p[2];
       if (ws) {
-        if (!off) return p[0];
-        return Math.min(p[1], p[0] + ws.getAttribute("data-src").length + off - 1);
+        const len = ws.getAttribute("data-src").length;
+        if (p[3] === 1) return off ? Math.min(p[1], p[0] + len + off - 1) : p[0];
+        if (p[3] === 2) return off >= node.data.length ? p[1] : p[0] + off;
+        return Math.min(p[1], p[0] + off);
       }
       return p[0] + node.data.slice(0, off).split(ZW).join("").length;
     }
@@ -1390,13 +1628,14 @@
           after = t.a + i + 1;
         }
         if (c === chars) return t.b;
-      } else if (m === maths && t.t === "raw" && t.s[0] === "&") { if (c === chars) return t.a; c++; after = t.b; }
+      } else if (m === maths && t.t === "raw" && (t.s[0] === "&" || t.s === "\\$")) { if (c === chars) return t.a; c++; after = t.b; }   // one character on the page
     }
     return core.length;
   }
 
   function start(el, x, y) {
-    if (editing) finish(true);
+    // a save rebuilds the page: a text opened meanwhile would lose what is typed into it
+    if (editing && (!finish(true) || S.saving)) return;
     const it = info(el), src = it.src;
     const lead = src.match(/^\s*/)[0], trail = src.slice(lead.length).match(/\s*$/)[0];
     const raw = src.slice(lead.length, src.length - trail.length);
@@ -1417,14 +1656,20 @@
     editing = el;
     S.editing = true;
     el.classList.remove("sed-src");
-    // By its look, when the source comes back byte for byte; else (and for attributes) as plain text.
-    let list = it.kind === "span" && !core.includes(ZW) && !/\r/.test(core) ? tokens(core) : null;
-    if (list) {
-      draw(el, list);
-      if (flat(el).src !== core) list = null;
-      else rich = { el: el, hist: [{ src: core, a: 0, b: 0 }], at: 0 };
+    // By its look, when the source comes back byte for byte; else (and for attributes) as plain text, saying why.
+    let list = null, plain = "";
+    if (it.kind === "span") {
+      if (core.includes(ZW)) plain = "ゼロ幅の空白（U+200B）があるので";
+      else if (/\r/.test(core)) plain = "改行が CRLF（\\r\\n）なので";
+      else if (!(list = tokens(core))) plain = "この文の中でタグの開け閉めが閉じていないので";
+      else {
+        draw(el, list);
+        if (flat(el).src !== core) { list = null; plain = "見た目の形からは原稿へ同じに戻せないので"; }
+        else rich = { el: el, hist: [{ src: core, a: 0, b: 0 }], at: 0 };
+      }
     }
     if (!list) el.textContent = core = raw;
+    if (plain) msg(plain + "、この文はタグも原稿の書き方のまま直します（飾りの欄とキーは使えません）", 6000);
     el._sed = { it: it, lead: lead, trail: trail, core: core, style: list && sm.style };
     el.classList.add("sed-editing");
     try { el.contentEditable = "plaintext-only"; } catch (e) { el.contentEditable = "true"; }
@@ -1465,7 +1710,12 @@
     if (!now) return;
     e.preventDefault();
     e.stopPropagation();
-    if (k === "paste") { insert(e.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").split(ZW).join("")); return; }
+    if (k === "paste") {
+      const t = e.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n").split(ZW).join("");
+      if (!tokens(t) || strays(t)) { msg("貼り付けませんでした：< がタグの始まりとして読まれます" + LT, 10000); return; }
+      insert(t);
+      return;
+    }
     if (now.a === now.b) return;
     e.clipboardData.setData("text/plain", slice(now));
     if (k === "cut") insert("");
@@ -1479,38 +1729,80 @@
     if (S.edit) showSource(el); else back(el);
   }
 
-  function finish(save) {
+  // force: the text has to close (edit mode is left, the language changes). A source that is refused is then not
+  // saved, and what was typed stays in a note; without force the text stays open with the reason.
+  function finish(save, force) {
     const el = editing;
-    if (!el) return;
+    if (!el) return true;
     const st = el._sed;
-    const text = rich ? flat(el).src : el.innerText.replace(/ /g, " ").replace(/\n$/, "");
+    const text = rich ? flat(el).src : typedText(el, st.core);
+    const neu = st.lead + (st.style ? writeMath(text, st.style) : text) + st.trail;
+    const bad = save && text !== st.core ? refused(st.it, neu) : "";
+    if (bad && !force) { msg(bad, 15000); return false; }
     editing = null;
     S.editing = false;
     rich = null;
     paint();
     bubble();
-    if (!save || text === st.core) { restore(el); msg(""); return; }
+    if (bad) { restore(el); msg(""); note(bad + "。入力した文（保存していません）：" + text); return true; }
+    if (!save || text === st.core) { restore(el); msg(""); return true; }
     msg("保存中…");
-    write(st.it, st.lead + (st.style ? writeMath(text, st.style) : text) + st.trail).catch(async function (e) {
+    write(st.it, neu).catch(function (e) {
       S.saving = false;
+      // what was typed stays in a note until it is closed, so that it can be copied back
       if (e.conflict) {
-        // Show the current source, keep what was typed in the message so that it can be copied back.
-        S.notice = "保存しませんでした（原稿のこの箇所が先に変わっていました）。入力した文：" + text;
-        S.noticeMs = 30000;
+        S.note = "保存しませんでした（原稿のこの箇所が先に変わっていました）。今の原稿で組み直しています。入力した文：" + text;
         rebuild(e.conflict.text, e.conflict.mtime);
         return;
       }
       restore(el);
-      msg("保存できませんでした：" + e.message, 8000);
+      msg("");
+      note("保存できませんでした：" + why(e) + "。入力した文：" + text);
     });
+    return true;
+  }
+  // The common start and end of now and was stay as they are; fn is applied to the rest (what was typed).
+  function changed(now, was, fn) {
+    let a = 0, b = 0;
+    while (a < now.length && a < was.length && now[a] === was[a]) a++;
+    while (b < now.length - a && b < was.length - a && now[now.length - 1 - b] === was[was.length - 1 - b]) b++;
+    return now.slice(0, a) + fn(now.slice(a, now.length - b)) + now.slice(now.length - b);
+  }
+  // A text edited as plain text, as it reads now. A no-break space that Chrome put for a typed space is a space;
+  // one that was in the source stays.
+  function typedText(el, core) {
+    const t = el.contentEditable === "plaintext-only" ? el.textContent : el.innerText.replace(/\n$/, "");
+    return changed(t, core, x => x.replace(/\u00a0/g, " "));
+  }
+  // Why the new source neu of a text is not written, or "" (M3). A "<" that HTML would read as the start of a tag,
+  // where the old source had none, tags that no longer close within the text, or a new source that changes the
+  // elements of the page (the parse of the whole draft with it): all of these would change the page outside the text.
+  const LT = "。文字の < は &lt; と書くか、数式 $…$ の中に入れてください（数式の中の < はそのままで構いません）";
+  const strays = function (src) {
+    const l = tokens(src), t = l ? l.filter(x => x.t === "text").map(x => x.s).join(" ") : src;
+    return (t.match(/<[a-zA-Z!?\/]/g) || []).length;
+  };
+  function refused(it, neu) {
+    if (it.kind !== "span") return "";
+    const old = it.src;
+    if (tokens(old) && !tokens(neu)) return "保存しませんでした：タグの開け閉めが合わなくなります（< で始まる文字がタグとして読まれています）" + LT;
+    if (strays(neu) > strays(old)) return "保存しませんでした：< がタグの始まりとして読まれ、ページの組み立てが変わります" + LT;
+    const s = D.spans[it.i], from = s.start + (it.whole !== undefined ? it.a : 0), to = it.whole !== undefined ? s.start + it.b : s.end;
+    const t = parse(S.text.slice(0, from) + neu + S.text.slice(to));
+    if (t.els.join() !== D.els.join() || t.spans.length !== D.spans.length || t.attrs.length !== D.attrs.length)
+      return "保存しませんでした：入力したタグで、ページの要素の並びが変わります" + LT;
+    return "";
   }
 
   async function write(it, neu) {
     S.saving = true;
     const h = await getHandle();
     const file = await h.getFile(), cur = await readText(file, true);
-    const t = parse(cur), s = (it.kind === "attr" ? t.attrs : t.spans)[it.i];
-    if (!s || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
+    const list = it.kind === "attr" ? "attrs" : "spans", t = parse(cur), s = t[list][it.i];
+    // The place is found by its position in the list. After a change elsewhere the same position may be another
+    // text with the same source: the texts before it must be the same as when the page was built.
+    const moved = cur !== S.text && D[list].slice(0, it.i).some((o, j) => !t[list][j] || S.text.slice(o.start, o.end) !== cur.slice(t[list][j].start, t[list][j].end));
+    if (!s || moved || cur.slice(s.start, s.end) !== (it.whole === undefined ? it.src : it.whole) || (it.kind === "attr" && D.attrs[it.i] && s.attr !== D.attrs[it.i].attr)) {
       const err = new Error("原稿のこの箇所が先に変わっていました");
       err.conflict = { text: cur, mtime: file.lastModified };
       throw err;
@@ -1518,10 +1810,17 @@
     // what the save replaces: [{at, a, b}], a the source there now, b the new one, in the order of the source
     let parts;
     if (it.kind === "attr") {
-      // A name used in several places (sec, aff) is rewritten everywhere it has the same value.
-      const all = s.all ? t.attrs.filter(a => a.attr === s.attr && cur.slice(a.start, a.end) === it.src) : [s];
+      // A name used in several places (sec, aff) is rewritten everywhere it has the same value. Its English
+      // (sec-en, aff-en) only where the Japanese of the same element is the same too: one English may be the
+      // English of several names.
+      const ja = function (a) {
+        if (!/-en$/.test(a.attr)) return "";
+        const j = t.attrs.find(b => b.el === a.el && b.attr === a.attr.slice(0, -3));
+        return j ? cur.slice(j.start, j.end) : null;
+      };
+      const all = s.all ? t.attrs.filter(a => a.attr === s.attr && cur.slice(a.start, a.end) === it.src && ja(a) === ja(s)) : [s];
       parts = all.map(function (a) {
-        const q = cur[a.start - 1], v = neu.replace(/\n/g, " ");
+        const q = cur[a.start - 1], v = changed(neu, it.src, x => x.replace(/\n/g, " "));   // a line end of the source stays
         const rep = a.none ? '="' + v.replace(/"/g, "&quot;") + '"'
                   : a.bare ? '"' + v.replace(/"/g, "&quot;") + '"'
                   : q === "'" ? v.replace(/'/g, "&#39;") : v.replace(/"/g, "&quot;");
@@ -1572,12 +1871,19 @@
      The steps are kept per draft and tab (sessionStorage: they survive a reload, not closing the tab), at most
      STEPS_MAX of them and BYTES_MAX characters, the oldest dropped first. A new save drops the steps to redo. */
   const STEPS_MAX = 100, BYTES_MAX = 1000000, AROUND = 60;
+  // A step read back from the tab's storage (another copy of page-edit, or a hand, may have written it): its shape.
+  const isText = x => typeof x === "string";
+  const goodStep = g => !!g && isText(g.before) && isText(g.after) && (g.lang === null || g.lang === "ja" || g.lang === "en")
+    && Array.isArray(g.parts) && g.parts.length > 0
+    && g.parts.every(p => !!p && Number.isSafeInteger(p.at) && p.at >= 0 && ["a", "b", "la", "ra", "lb", "rb"].every(k => isText(p[k])));
   if (!S.hist) {
     S.hist = { undo: [], redo: [] };
     try {
       const v = JSON.parse(sessionStorage.getItem(UNDO_KEY));
-      if (v && Array.isArray(v.undo) && Array.isArray(v.redo)) S.hist = v;
-    } catch (e) { /* storage unavailable */ }
+      // anything else in it, and the whole history is dropped
+      if (v && Array.isArray(v.undo) && Array.isArray(v.redo) && v.undo.every(goodStep) && v.redo.every(goodStep))
+        S.hist = { undo: v.undo.slice(-STEPS_MAX), redo: v.redo.slice(-STEPS_MAX) };
+    } catch (e) { /* storage unavailable, or not JSON */ }
   }
   // 53-bit hash (cyrb53) and the length
   function hash(str) {
@@ -1591,10 +1897,14 @@
     h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
     return str.length + ":" + (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
   }
+  // the oldest steps to undo go first, then those to redo farthest from now (redo[0]); one step to undo stays
   function keepHist() {
+    const u = S.hist.undo, r = S.hist.redo;
+    if (u.length > STEPS_MAX) u.splice(0, u.length - STEPS_MAX);
+    if (r.length > STEPS_MAX) r.splice(0, r.length - STEPS_MAX);
     let t = JSON.stringify(S.hist);
-    while (S.hist.undo.length > STEPS_MAX || (t.length > BYTES_MAX && S.hist.undo.length > 1)) {
-      S.hist.undo.shift();
+    while (t.length > BYTES_MAX && (u.length > 1 || r.length)) {
+      if (u.length > 1) u.shift(); else r.shift();
       t = JSON.stringify(S.hist);
     }
     try { sessionStorage.setItem(UNDO_KEY, t); } catch (e) { /* kept in memory only */ }
@@ -1645,7 +1955,10 @@
   const says = (g, back) => brief(back ? g.parts[0].b : g.parts[0].a) + "→" + brief(back ? g.parts[0].a : g.parts[0].b)
     + (g.parts.length > 1 ? "（" + g.parts.length + " か所）" : "");
   async function step(back) {
-    if (S.saving || S.building || editing) return;
+    const name0 = back ? "取り消せません" : "やり直せません";
+    if (S.saving) { msg("保存か読み込みの途中なので、" + name0 + "。終わってからもう一度押してください", 4000); return; }
+    if (S.building) { msg("ページを組み直している途中なので、" + name0 + "。終わってからもう一度押してください", 4000); return; }
+    if (editing) { msg("文を編集している途中なので、保存の" + name0 + "。Enter で保存するか Esc で閉じてから押してください", 5000); return; }
     const from = back ? S.hist.undo : S.hist.redo, to = back ? S.hist.redo : S.hist.undo, name = back ? "取り消し" : "やり直し";
     const g = from[from.length - 1];
     if (!g) { msg(back ? "取り消す操作はありません" : "やり直す操作はありません", 2500); return; }
@@ -1674,8 +1987,8 @@
       rebuild(next, mtime);
     } catch (e) {
       S.saving = false;
-      const t = name + "できませんでした：" + e.message + "。原稿には何も書いていません（" + says(g, back) + "）";
-      if (e.conflict && e.conflict.text !== S.text) { S.notice = t; S.noticeMs = 12000; rebuild(e.conflict.text, e.conflict.mtime); }
+      const t = name + "できませんでした：" + why(e) + "。原稿には何も書いていません（" + says(g, back) + "）";
+      if (e.conflict && e.conflict.text !== S.text) { S.note = t; rebuild(e.conflict.text, e.conflict.mtime); }   // stays until it is closed
       else msg(t, 12000);
     }
   }
@@ -1753,9 +2066,14 @@
     if (!live()) return;
     if (editing && (e.target === editing || editing.contains(e.target))) {
       if (isEditKey(e)) return;                   // handled by the edit key's own listener
-      if (isSelectKey(e)) { finish(true); return; }   // passes on to the engine, which leaves select (and edit) mode
+      if (isSelectKey(e)) { finish(true, true); return; }   // passes on to the engine, which leaves select (and edit) mode
       e.stopPropagation();   // keep WebSlide from turning pages while typing
       if (rich && richKey(e)) return;
+      if (!rich && (MAC ? e.metaKey : e.ctrlKey) && !e.altKey && (e.code === "KeyK" || (e.code === "KeyB" && !e.shiftKey))) {
+        e.preventDefault();
+        msg("この文は原稿の書き方のまま直しているので、飾りのキー（" + (MAC ? "⌘K・⌘⇧K・⌘B" : "Ctrl+K・Ctrl+Shift+K・Ctrl+B") + "）は使えません", 4000);
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); finish(true); }
       else if (e.key === "Escape") { e.preventDefault(); finish(false); }
       else if ((e.metaKey || e.ctrlKey) && e.code === "KeyA") {
@@ -1769,7 +2087,7 @@
       return;
     }
     // Undo and redo, in edit mode only, and not in a field of the page: there the keys are the browser's.
-    if (!S.edit || !document.body.classList.contains("sed-on") || e.isComposing || e.altKey || !(MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) return;
+    if (!e.isTrusted || !S.edit || !document.body.classList.contains("sed-on") || e.isComposing || e.altKey || !(MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)) return;
     const on = e.target;
     if (on && on.closest && (on.closest("input, textarea, select") || on.isContentEditable)) return;
     const k = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : e.code.replace(/^Key/, "").toLowerCase();   // by the letter, whatever the layout
@@ -1787,11 +2105,18 @@
       if (!live() || !S.handle || S.building || S.editing || S.saving) return;
       try {
         const f = await S.handle.getFile();
+        S.lost = false;
         if (f.lastModified === S.mtime) return;
         const text = await readText(f);
+        if (!live()) return;   // rebuilt while reading
         S.mtime = f.lastModified;
         if (text !== S.text && !S.editing && !S.saving) { S.notice = "原稿が外で変わったので組み直しました"; rebuild(text); }
-      } catch (e) { /* file moved or permission lost */ }
+      } catch (e) {
+        // moved, deleted or no longer allowed: said once, until it can be read again
+        if (!live() || S.lost) return;
+        S.lost = true;
+        msg("原稿を読めなくなりました：" + why(e) + "。外での変更は、読めるようになるまで画面に出ません", 15000);
+      }
     }, 1000);
   }
 

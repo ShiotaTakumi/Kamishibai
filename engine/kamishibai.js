@@ -6,6 +6,7 @@
       <html lang="ja" theme="Boadilla">            テーマ（themes/ の中のファイルの名前。書かなければ Boadilla）
       <script src="engine/kamishibai.js"></script> 原稿からこのファイルへの相対パス
     と書き、その後ろにページをタグで並べる。URL に ?theme=Madrid を付けると、そのテーマで開く。
+    themes/ に無い名前のときは、原稿のテーマ（それも無ければ Boadilla）で開き、誤りの一覧に出す。
     Boadilla の書体は engine/fonts/kamishibai-fonts.css（make engine-fonts で作る）。無ければ手元の書体で出る。
 
   ページ
@@ -134,8 +135,8 @@ var Kamishibai = {};
    Fonts are inside CSS files, because a page opened from file:// cannot fetch font files. */
 /* Packed file (tools/pack_engine.py): this script is inline with data-packed="THEME"; the CSS, fonts,
    math and figure helpers are already in the file, so nothing is loaded and the theme is fixed */
-/* Kinds of statement a box (<block>, <alertblock>, <exampleblock>) may hold: its title starts with one of them.
-   tools/check_blocks.py reads this list */
+/* Kinds of statement a box (<block>, <alertblock>, <exampleblock>) may hold: its title starts with one of them,
+   or with its English name (KIND_EN) in a draft written in English. tools/check_blocks.py reads both lists */
 const BLOCK_KINDS = ["定義", "定理", "主定理", "補題", "系", "命題", "主張", "予想", "未解決問題", "問題", "主結果", "仮定", "公理"];
 const BLOCK_HEAD = new RegExp("^(" + BLOCK_KINDS.slice().sort((a, b) => b.length - a.length).join("|") + ")(\\s|\\d|（|$)");
 /* The same kinds in English (numbering and references; tools/numbering.py reads this list) */
@@ -151,9 +152,19 @@ if (!packed) {
   /* font stylesheets per theme (missing files are tolerated: the theme falls back to system fonts) */
   const FONT_CSS = { Madrid: ["fonts/ipa-pgothic.css", "fonts/cm-sans.css"] };
   const fontCss = FONT_CSS[Kamishibai.theme] || ["fonts/kamishibai-fonts.css"];
-  ["katex/katex.css"].concat(fontCss, ["base.css", "themes/" + Kamishibai.theme + ".css"]).forEach(function (f) {
+  /* A theme with no file (a mistyped ?theme= or <html theme>): open the draft again with a theme that is there
+     (its own for a wrong ?theme=, else Boadilla) and say so in the list of what the draft has wrong */
+  Kamishibai.themeLost = function () {
+    if (Kamishibai.theme === "Boadilla") return;   // nothing to fall back to
+    try { sessionStorage.setItem("kamishibai-theme-lost", Kamishibai.theme); } catch (e) {}
+    const rest = location.search.replace(/([?&])theme=[^&]*&?/, "$1").replace(/[?&]$/, "");
+    const next = q ? rest : rest + (rest ? "&" : "?") + "theme=Boadilla";
+    location.replace(location.pathname + next + location.hash);
+  };
+  ["katex/katex.css"].concat(fontCss, ["base.css"]).forEach(function (f) {
     document.write('<link rel="stylesheet" href="' + dir + f + '">');
   });
+  document.write('<link rel="stylesheet" href="' + dir + "themes/" + Kamishibai.theme + '.css" onerror="Kamishibai.themeLost()">');
   ["katex/katex.js", "figure.js"].forEach(function (f) {
     document.write('<script src="' + dir + f + '"><\/script>');
   });
@@ -275,6 +286,15 @@ function problem(type, page, text, el, L) {
   problems.push({ type: type, page: page, L: L, text: text, el: el, up: up });
   if (problemsChanged) problemsChanged();
 }
+try {
+  const lost = sessionStorage.getItem("kamishibai-theme-lost");
+  if (lost) {
+    /* a wrong <html theme> stays wrong until the draft is put right; a wrong ?theme= is said once */
+    if (lost !== root.getAttribute("theme") || Kamishibai.theme === lost) sessionStorage.removeItem("kamishibai-theme-lost");
+    if (Kamishibai.theme !== lost)
+      problem("theme", null, "テーマ「" + lost + "」が themes/ にありません（" + Kamishibai.theme + " で表示しています）");
+  }
+} catch (e) {}
 const pageOf = function (e) { const s = e.closest(".page"); return s ? +s.dataset.k : null; };
 const BOXES = "block, alertblock, exampleblock, later";
 const byLen = (a, b) => b.length - a.length, alt = l => l.slice().sort(byLen).join("|");
@@ -610,10 +630,11 @@ pages.forEach(function (pg, i) {
     });
     pg.prepend(ct, box, insts, meta);
     pg.querySelectorAll("qr").forEach(function (q) {
-      const img = $new("img"), cap = $new("div", "qcap");
-      img.src = q.getAttribute("src"); img.alt = "";
+      const img = $new("img"), cap = $new("div", "qcap"), src = q.getAttribute("src");
+      img.alt = "";
+      if (src) img.src = src; else problem("image", i, "qr に src（画像のファイル）がありません", q);
       while (q.firstChild) cap.appendChild(q.firstChild);
-      q.append(img, cap);
+      if (src) q.append(img, cap); else q.append(cap);
     });
   }
 
@@ -621,7 +642,7 @@ pages.forEach(function (pg, i) {
     const bt = $new("div", "bt"), bb = $new("div", "bb"), tp = pair(b, "title"), title = tp.ja;
     /* A box holds one statement (BLOCK_KINDS). While drafting, a box whose title names no kind is marked;
        tools/check_blocks.py checks the rest, and tools/pack_engine.py packs no draft that fails it */
-    if (!packed && !BLOCK_HEAD.test(title.trim())) {
+    if (!packed && !BLOCK_HEAD.test(title.trim()) && !HEAD_EN.test(title)) {
       b.classList.add("bad-box");
       console.warn("Kamishibai: page " + (i + 1) + ": a box titled \"" + title + "\" is not a statement (" + BLOCK_KINDS.join(", ") + ")");
       problem("block", i, "囲みの題が主張の種類（定義・定理など）で始まっていません「" + title + "」", b);
@@ -692,8 +713,40 @@ stage.querySelectorAll("[line]").forEach(function (e) {
 
 /* ===== Math (KaTeX): $…$, \(…\), $$…$$, \[…\]. No MathML (copying would repeat the text).
    Elements already holding rendered math (.katex, e.g. pre-rendered by a build) are skipped ===== */
+const DOLLAR = "\uE000", MATH_SKIP = ".katex, script, noscript, style, textarea, pre, code, option, svg";
+/* \$ in the text (outside a formula) is the character $: KaTeX's auto-render has no escape there, so it is kept as
+   a private-use character while the math is set, and dollars() puts the $ back */
+function escapedDollars(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), hits = [];
+  while (w.nextNode()) if (w.currentNode.nodeValue.indexOf("\\$") >= 0) hits.push(w.currentNode);
+  hits.forEach(function (t) {
+    if (!t.parentElement || t.parentElement.closest(MATH_SKIP)) return;
+    const s = t.nodeValue, CLOSE = { "$$": "$$", "$": "$", "\\(": "\\)", "\\[": "\\]" };
+    let out = "", i = 0;
+    while (i < s.length) {
+      const two = s.substr(i, 2);
+      if (two === "\\$") { out += DOLLAR; i += 2; continue; }
+      const open = CLOSE[two] ? two : s[i] === "$" ? "$" : "";
+      if (!open) { out += s[i++]; continue; }
+      let j = i + open.length, depth = 0;                   // the end of the formula as KaTeX finds it: outside braces, a \x is two characters
+      while (j < s.length && !(depth <= 0 && s.substr(j, CLOSE[open].length) === CLOSE[open])) {
+        if (s[j] === "\\") j++; else if (s[j] === "{") depth++; else if (s[j] === "}") depth--;
+        j++;
+      }
+      if (j >= s.length) { out += s.slice(i); break; }      // not closed: left as it is (reported as a symbol left over)
+      out += s.slice(i, j + CLOSE[open].length);
+      i = j + CLOSE[open].length;
+    }
+    if (out !== s) t.nodeValue = out;
+  });
+}
+function dollars(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) if (w.currentNode.nodeValue.indexOf(DOLLAR) >= 0) w.currentNode.nodeValue = w.currentNode.nodeValue.split(DOLLAR).join("$");
+}
 function math(root) {
   if (!window.renderMathInElement || !window.katex) return;
+  escapedDollars(root);
   const pre = [];
   root.querySelectorAll(".katex").forEach(function (k) {
     const p = k.parentElement;
@@ -790,6 +843,7 @@ Kamishibai.typeset = function (el) {
   references(el);
   jpPad(el);
   jaRuns(el);
+  dollars(el);
 };
 
 /* ===== What went wrong with the math and the images, for the list in edit mode (not in a packed file) =====
@@ -808,7 +862,8 @@ if (!packed) (function () {
   while (w.nextNode()) {
     const p = w.currentNode.parentElement, m = /\\[()\[\]]|\$/.exec(w.currentNode.nodeValue);
     if (m && p && !p.closest(".katex, .katex-error, script, style, noscript, textarea, pre, code, option, svg"))
-      bad(p, "数式の記号 " + m[0] + " が残っています（閉じていないか、数式の途中にタグがあります）「" + cut(norm(w.currentNode.nodeValue)) + "」");
+      bad(p, "数式の記号 " + m[0] + " が残っています（閉じていないか、数式の途中にタグがあります。金額などの文字の $ は \\$ と書きます）「"
+        + cut(norm(w.currentNode.nodeValue.split(DOLLAR).join("$"))) + "」");
   }
   stage.querySelectorAll("img[src]").forEach(function (g) {
     const lost = () => problem("image", pageOf(g), "読めない画像「" + cut(g.getAttribute("src")) + "」", g);
@@ -816,6 +871,7 @@ if (!packed) (function () {
     else if (!g.naturalWidth) { const t = new Image(); t.onerror = lost; t.src = g.src; }   // an SVG may have no width of its own
   });
 })();
+dollars(stage);   // after the check above, which must not take a \$ for a symbol left over
 
 /* Load every font now (math on pages not shown yet must be ready for the overview and printing) */
 document.fonts.forEach(function (f) { f.load().catch(function () {}); });
@@ -849,7 +905,7 @@ function pick(v, k, n) {
   if (v === undefined || v === null) return null;
   const p = v.split("|"), x = p[Math.min(k, p.length - 1)].trim();
   if (x === "*") return n;
-  if (!/^\d+$/.test(x)) { console.warn('kamishibai: cards="' + v + '": not a count ("n", "*", or "a|b" per figure)'); return null; }
+  if (!/^\d+$/.test(x)) { console.warn('Kamishibai: cards="' + v + '": not a count ("n", "*", or "a|b" per figure)'); return null; }
   return parseInt(x, 10);
 }
 /* state of figure k of flip f for the shown steps of its page (drop: without the last data-cards step) */
@@ -893,9 +949,9 @@ function setFlip(id, k, anim) {
     const a = state(f, k, true), b = state(f, k, false);
     show(g[k], a.t, a.ov, false); show(g[k], b.t, b.ov, anim);
   }
-  const btns = stage.querySelectorAll('[data-flip="' + id + '"] button');
+  const btns = stage.querySelectorAll('[data-flip="' + CSS.escape(id) + '"] button');
   btns.forEach((b, i) => b.classList.toggle("sub2", i !== k));
-  const c = stage.querySelector('[data-flipcap="' + id + '"]');
+  const c = stage.querySelector('[data-flipcap="' + CSS.escape(id) + '"]');
   if (c && c.dataset.caps !== undefined && btns[k]) {
     f.dataset.k = k;
     const en = hasEn && lang === "en", b = btns[k].cloneNode(true);
@@ -1030,6 +1086,8 @@ function shrinkPages() {
       });
       if (over) console.warn("Kamishibai: page " + (i + 1) + " (" + L + ") overflows even at " + FIT_MIN);
       if (over && !packed) problem("fit", i, "文字を " + Math.round(FIT_MIN * 100) + "% まで縮めても、ページに収まりません", null, hasEn ? L : null);
+      /* a page drawn smaller is listed too: the shrink keeps a talk from running off the page, it is not a way to write */
+      if (!over && z < 1 && !packed) problem("fit", i, "文字を " + Math.round(z * 100) + "% に縮めて収めています（文か図を直すと元の大きさに戻ります）", null, hasEn ? L : null);
       return { zoom: z, over: over };
     });
   });
@@ -1088,7 +1146,7 @@ function fullscreen() {
   if (d.fullscreenElement || d.webkitFullscreenElement) { if (exit) exit.call(d); }
   else if (enter) enter.call(el);
 }
-const mac = /Mac|iPhone|iPad/.test(navigator.platform), mod = mac ? "⌘" : "Ctrl+";
+const mac = /mac|iPhone|iPad/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent), mod = mac ? "⌘" : "Ctrl+";
 const st = { mode: "show", side: false, ptr: false, sel: false, op: false, out: "steps" };
 let editor = window.KamishibaiEditor || null;
 tools = $new("div", "tools");
@@ -1207,14 +1265,14 @@ function openTools(open) {
 }
 handle.addEventListener("click", function () { openTools(!body.classList.contains("tools-open")); handle.blur(); });
 /* Stroke added to Japanese text (--ja-stroke), changed by 0.1pt; remembered by the browser */
-const KEY = "kamishibai-ja-stroke";
+const KEY = "kamishibai-ja-stroke", STROKE_MAX = 1;   // more than 1pt fills the counters of the letters
 const base = (function () {
   const v = cssVar("--ja-stroke"), n = parseFloat(v);
   return isNaN(n) ? 0.2 : (/px$/.test(v) ? n * 0.75 : n);
 })();
 let stroke = base;
 function setStroke(pt, keep) {
-  pt = Math.max(0, Math.round(pt * 10) / 10);
+  pt = Math.min(STROKE_MAX, Math.max(0, Math.round(pt * 10) / 10));
   root.style.setProperty("--ja-stroke", pt + "pt");
   vals.forEach(v => { v.textContent = pt.toFixed(1); });
   try { if (keep) localStorage.setItem(KEY, pt); else localStorage.removeItem(KEY); } catch (e) {}
@@ -1276,7 +1334,7 @@ Kamishibai.setEditor = function (ed) {
    Kamishibai.setProblems(source, [{ type, page, text, el, lang }]), which replaces what that source gave before.
    Kamishibai.problems() gives the whole list. A choice turns to the page (in its language) and marks the place.
    Whether the list is open is kept for the tab, over a save and a reload. A packed file has no list */
-const PROBLEM_NAMES = { math: "数式", ref: "参照", number: "番号", block: "囲み", fit: "収まり", image: "画像", edit: "編集" };
+const PROBLEM_NAMES = { math: "数式", ref: "参照", number: "番号", block: "囲み", fit: "収まり", image: "画像", theme: "テーマ", edit: "編集" };
 const PKEY = "kamishibai-problems", others = {};
 const list = $new("div", "wrongs"), listHead = list.appendChild($new("div", "wh")), listBody = list.appendChild($new("div", "wl"));
 const listTitle = listHead.appendChild($new("span"));
@@ -1366,7 +1424,7 @@ Kamishibai.lang = function (L) { if (L !== undefined) setLang(L); return lang; }
 function langNote() {
   if (!hasEn || lang !== "en") return "";
   const n = c => stage.querySelectorAll(c).length;
-  const a = [["古い訳", n(".en-stale")], ["訳なし", n(".untr") + n(".L-ja.solo")], ["収まらない頁", n(".page.over-en")]].filter(x => x[1]);
+  const a = [["古い訳", n(".en-stale")], ["訳なし", n(".untr") + n(".L-ja.solo")], ["収まらないページ", n(".page.over-en")]].filter(x => x[1]);
   return a.length ? "　英語：" + a.map(x => x[0] + " " + x[1]).join("・") : "";
 }
 function toast(t, ms) {
@@ -1465,10 +1523,14 @@ addEventListener("click", function (e) {
 document.addEventListener("keydown", function (e) {
   const k = e.key, edit = body.classList.contains("edit");
   const keys = { KeyE: "edit", KeyP: "out", KeyB: "side", KeyF: "full", KeyK: "ptr", KeyI: "sel", KeyU: "op" };
-  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code]) { e.preventDefault(); tool(keys[e.code]); return; }
+  /* in a field of a slide (input, textarea, select) these keys stay the browser's and the field's */
+  const field = e.target && e.target.closest && e.target.closest("input, textarea, select");
+  if ((mac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && keys[e.code] && !field) { e.preventDefault(); tool(keys[e.code]); return; }
   if (e.metaKey || e.ctrlKey || e.altKey || body.classList.contains("op") || st.mode === "out") return;
   const t = e.target;
   if (t && t.closest && (t.closest("input, textarea, select") || t.isContentEditable)) return;
+  /* a button or link of a slide that holds the focus (reached with Tab) takes Space and Enter itself */
+  if ((k === " " || k === "Enter") && t && t.closest && stage.contains(t) && t.closest("button, a[href], summary")) return;
   if (body.classList.contains("side-on") && (k === "ArrowDown" || k === "ArrowUp")) {
     e.preventDefault();
     go(si + (k === "ArrowDown" ? 1 : -1), true);

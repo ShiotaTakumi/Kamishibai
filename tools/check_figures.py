@@ -37,10 +37,11 @@ CAPTION = [
 ]
 EMPTY_STEP = re.compile(r"""<span\b[^>]*\bstep\b[^>]*>\s*</span>""", re.I)
 SRC = re.compile(r"""^<(?:credit\b|p\b[^>]*\bclass=(["'])[^"']*\bsrc\b)""", re.I)
-ZOOM = re.compile(r"zoom:\s*([\d.]+)")
-FONT = re.compile(r"font-size[=:]\s*[\"']?([\d.]+)")
+ZOOM = re.compile(r"zoom:\s*(\d+(?:\.\d+)?|\.\d+)")
+FONT = re.compile(r"font-size[=:]\s*[\"']?(\d+(?:\.\d+)?|\.\d+)")
 MIN_TEXT_PX, MIN_ZOOM = 10.0, 0.5
-VOID = {"br", "img", "hr", "input", "meta", "link"}
+VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
+        "track", "wbr"}
 
 
 def children(body):

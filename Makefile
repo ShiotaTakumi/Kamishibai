@@ -34,24 +34,26 @@ engine-fonts: deps fonts
 engine-katex:
 	$(PY) tools/engine_katex.py
 
+# SRC is one path; it is quoted for the shell, so it may hold spaces (not for check-pack and clean, which
+# take its name apart in make).
 # a draft of the engine as one HTML file to hand out (next to it as NAME.dist.html; git-ignored);
 # e.g. make pack SRC=talk/talk.html THEME=Madrid; files outside the draft's folder and the folder of
 # engine/ need ALLOW=DIR (space-separated for more)
 SRC ?= engine/sample.html
 pack: deps fonts
-	$(VPY) tools/pack_engine.py $(SRC)$(if $(THEME), --theme $(THEME))$(foreach d,$(ALLOW), --allow $(d))
+	$(VPY) tools/pack_engine.py "$(SRC)"$(if $(THEME), --theme $(THEME))$(foreach d,$(ALLOW), --allow "$(d)")
 
 # show a draft of the engine as it is (no build) in the browser kept for slides; reloads its tab if open
 preview:
-	sh tools/open_slide.sh $(SRC)
+	sh tools/open_slide.sh "$(SRC)"
 
 # screenshots of pages of a draft of the engine (1280x720, page n = #s<n>) into $(SHOTS)/p<n>.png;
 # e.g. make shot SRC=talk/talk.html PAGES="4 12"
 SHOTS ?= shots
 shot: browsers
 	$(if $(PAGES),,$(error PAGES is empty: e.g. make shot SRC=talk/talk.html PAGES="4 12"))
-	mkdir -p $(SHOTS)
-	node tools/shot.mjs $(SRC) $(SHOTS) $(PAGES)
+	mkdir -p "$(SHOTS)"
+	node tools/shot.mjs "$(SRC)" "$(SHOTS)" $(PAGES)
 
 # the browsers of the layout check, pinned by Playwright (on Linux: add --with-deps)
 comma := ,
@@ -78,33 +80,36 @@ check: html browsers
 # the same for a draft of the engine, packed first: every page with all steps, every card of each
 # flip figure, the printed sheets and (Chromium) the PDF; e.g. make check-pack SRC=talk/talk.html THEME=Madrid
 check-pack: pack browsers
-	node tools/check_layout.mjs $(basename $(SRC)).dist.html --engines=$(ENGINES)
+	node tools/check_layout.mjs "$(basename $(SRC)).dist.html" --engines=$(ENGINES)
 
 # Japanese/English pairs of a draft: what has no English or an out-of-date one (exit 1 if any);
 # make lang-stamp SRC=… records the Japanese each English was made from (after the English is written).
 # lang, lang-stamp, order and numbers need only Python (no make deps)
 lang:
-	$(PY) tools/lang_pairs.py check $(SRC)
+	$(PY) tools/lang_pairs.py check "$(SRC)"
 
 lang-stamp:
-	$(PY) tools/lang_pairs.py stamp $(SRC)
+	$(PY) tools/lang_pairs.py stamp "$(SRC)"
 
 # warnings on the order of definitions, lemmas and theorems (never fails the build);
 # make order SRC=talk/talk.html reads a draft of the engine instead of html/slide.src.html;
 # GAP=n and SHORT=n set the thresholds (tools/check_order.py --gap, --short; defaults 3 and 2)
 order:
-	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),$(SRC),html/slide.src.html)$(if $(GAP), --gap $(GAP))$(if $(SHORT), --short $(SHORT))
+	$(PY) tools/check_order.py $(if $(filter command line,$(origin SRC)),"$(SRC)",html/slide.src.html)$(if $(GAP), --gap $(GAP))$(if $(SHORT), --short $(SHORT))
 
 # the numbers of the statements of a draft with <html numbering>, and what is wrong with them and with the references (exit 1 if any)
 numbers:
-	$(PY) tools/numbering.py $(SRC)
+	$(PY) tools/numbering.py "$(SRC)"
 
 # the tests of page-edit and the engine, in Chromium (tools/test/*-test.mjs); e.g. make test TESTS=tools/test/undo-test.mjs
 TESTS ?= $(wildcard tools/test/*-test.mjs)
-test: deps
-	tools/node_modules/.bin/playwright install chromium
+test: deps engine-fonts tools/node_modules/.chromium
 	$(foreach t,$(TESTS),node $(t) &&) true
+# Chromium for the tests, installed once for this tools/node_modules (again after npm ci)
+tools/node_modules/.chromium: tools/node_modules/.ok
+	tools/node_modules/.bin/playwright install chromium
+	touch $@
 
 # slide.html and the packed file of SRC (default engine/sample.dist.html)
 clean:
-	rm -f slide.html $(basename $(SRC)).dist.html
+	rm -f slide.html "$(basename $(SRC)).dist.html"

@@ -37,6 +37,28 @@ test("a draft with nothing wrong has no list and no sign", async draft => {
   ok(!await shown(d, BTN), "sign"); ok(!await shown(d, LIST), "list");
 });
 
+test("\\$ in the text is the character $, not the start of a formula", async draft => {
+  const d = await draft({ text: head() + `<cover><headline>題目</headline></cover>
+<slide title="一"><p id="a">\\$5 と \\$6 の間に $x\\$y$ と $\\text{a $b$}$ がある</p><p id="b"><code>\\$7</code></p></slide>
+` + TAIL, edit: false });
+  eq((await all(d)).length, 0, JSON.stringify(await all(d)));
+  const got = await d.page.evaluate(() => { const a = document.getElementById("a"), c = a.cloneNode(true); c.querySelectorAll(".katex").forEach(k => k.replaceWith("#"));
+    return [c.textContent, a.querySelectorAll(".katex").length, document.getElementById("b").textContent]; });
+  eq(got[0], "$5 と $6 の間に # と # がある"); eq(got[1], 2); eq(got[2], "\\$7");
+});
+
+test("a box titled with the English name of a kind is a statement; a page drawn smaller is listed", async draft => {
+  const d = await draft({ text: head().replace('lang="ja"', 'lang="en"') + `<cover><headline>Title</headline></cover>
+<slide title="One"><block title="Main Theorem 1 (Euler)">text</block><block title="lemma">text</block><block title="Theorems of note">text</block></slide>
+<slide title="Two">${Array.from({ length: 9 }, (_, k) => "<p>line " + (k + 1) + "</p>").join("")}</slide>
+` + TAIL, edit: false });
+  await settle(d, 2);
+  const got = await all(d);
+  eq(got.filter(p => p[2] === "block").map(p => p[3].replace(/^.*「|」$/g, "")).join(), "Theorems of note", JSON.stringify(got));
+  const fit = got.filter(p => p[2] === "fit");
+  eq(fit.length, 1, JSON.stringify(got)); eq(fit[0][0], 3); ok(/に縮めて収めています/.test(fit[0][3]), fit[0][3]);
+});
+
 test("each kind of mistake is found once, with its page", async draft => {
   const d = await draft({ text: BAD, edit: false });
   await settle(d, 6);
@@ -215,6 +237,66 @@ test("a packed file says nothing of it", async draft => {
   eq((await all(d)).length, 0);
   await d.key("Mod+e");
   ok(!await shown(d, BTN) && !await shown(d, LIST));
+});
+
+test("a figure switch whose id holds a quote works, and a qr with no src is listed", async draft => {
+  const d = await draft({ edit: false, text: head() + `<cover><headline>題目</headline><author>著者</author><qr>読む</qr></cover>
+<slide title="図"><flip id='a"b'><svg width="10" height="10"></svg><svg width="10" height="10"></svg></flip><switch for='a"b'><button>一</button><button>二</button></switch><p>文</p></slide>
+` + TAIL });
+  eq(JSON.stringify(await all(d)), JSON.stringify([[1, null, "image", "qr に src（画像のファイル）がありません"]]));
+  await d.page.evaluate(() => Kamishibai.go(1));
+  await d.page.click(".stage .page.on [data-flip] button:nth-child(2)");
+  eq(await d.page.evaluate(() => [...document.querySelectorAll(".stage .page.on .flip > svg")].map(g => g.classList.contains("cur")).join()), "false,true");
+  eq(d.log.filter(m => m.startsWith("pageerror")).length, 0, d.log.join(" | "));
+});
+
+test("a button of a slide that holds the focus takes Space itself", async draft => {
+  const d = await draft({ edit: false, text: head() + `<slide title="一"><p>文</p><button id="bt" onclick="window.hit = (window.hit || 0) + 1">押す</button></slide>
+<slide title="二"><p>文</p></slide>
+` + TAIL });
+  await d.page.focus("#bt");
+  await d.page.keyboard.press("Space");
+  eq(await d.page.evaluate(() => (window.hit || 0) + "," + Kamishibai.current()), "1,0");
+  await d.page.evaluate(() => document.activeElement.blur());
+  await d.page.keyboard.press("Space");
+  eq(await d.page.evaluate(() => Kamishibai.current()), 1);
+});
+
+const ONE = '<slide title="一"><p>文</p><input id="f"></slide>\n<slide title="二"><p>文</p></slide>\n' + TAIL;
+const themeNow = async d => {
+  await d.page.waitForFunction(() => window.Kamishibai && Kamishibai.theme === "Boadilla" && Kamishibai.ready);
+  return d.page.evaluate(async () => { await Kamishibai.ready; return Kamishibai.problems().filter(p => p.type === "theme").map(p => p.text).join("|") + " " + getComputedStyle(document.documentElement).getPropertyValue("--W").trim(); });
+};
+
+test("a theme with no file in ?theme= opens with the theme of the draft and is listed", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE, query: "?theme=Nope" }).catch(() => null);
+  if (d) eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+  else ok(false, "the draft did not open");
+});
+
+test("a theme with no file in <html theme> opens with Boadilla and stays listed", async draft => {
+  const d = await draft({ edit: false, text: head().replace('theme="Boadilla"', 'theme="Nope"') + ONE });
+  eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+  await d.page.reload();
+  eq(await themeNow(d), "テーマ「Nope」が themes/ にありません（Boadilla で表示しています） 1280px");
+});
+
+test("in a field of a slide the keys of the modes stay the field's", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE });
+  await d.page.focus("#f");
+  await d.page.keyboard.press(KEY + "+p");
+  eq(await d.page.evaluate(() => document.body.classList.contains("mode-out")), false);
+  await d.page.evaluate(() => document.activeElement.blur());
+  await d.page.keyboard.press(KEY + "+p");
+  eq(await d.page.evaluate(() => document.body.classList.contains("mode-out")), true);
+});
+
+test("the stroke of Japanese text stops at 1pt", async draft => {
+  const d = await draft({ edit: false, text: head() + ONE });
+  await d.page.evaluate(() => localStorage.setItem("kamishibai-ja-stroke", "7"));
+  await d.page.reload();
+  await d.page.waitForFunction(() => window.Kamishibai && Kamishibai.ready);
+  eq(await d.page.evaluate(() => document.documentElement.style.getPropertyValue("--ja-stroke")), "1pt");
 });
 
 await run(process.argv[2]);

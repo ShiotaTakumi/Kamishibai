@@ -4,6 +4,12 @@
 // showDirectoryPicker() hands out a folder made of the same calls (getDirectoryHandle, getFileHandle, getFile,
 // createWritable) on the real files of the temporary folder; everything above that is page-edit as it is, injected
 // into the page as Chrome does for a content script of world MAIN.
+//
+// The folders can be kept in IndexedDB as Chrome keeps real ones: put() stores a fake folder by its place and
+// options, and reading it back (IDBRequest.result) makes the folder again. Options of a fake folder: hang (none of
+// its methods ever settles, as a dead folder of an earlier Chrome), gone (isSameEntry fails with NotFoundError),
+// perm (what queryPermission answers, "granted" when not given). window.__picked counts the folder pickers shown;
+// window.__fail = {name, message} makes the next write fail with that DOMException.
 import { chromium } from "playwright";
 import { mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -71,17 +77,65 @@ async function draft(o, open) {
       },
       async createWritable() {
         const parts = [];
-        return { async write(x) { parts.push(x); }, async close() { await __fs("write", rel, b64(await new Blob(parts).arrayBuffer())); } };
+        return {
+          async write(x) { parts.push(x); },
+          async close() {
+            const f = window.__fail;
+            if (f) { window.__fail = null; throw new DOMException(f.message || "failed", f.name); }
+            await __fs("write", rel, b64(await new Blob(parts).arrayBuffer()));
+          }
+        };
       }
     });
-    const folder = (rel, n) => ({
-      kind: "directory", name: n,
-      async queryPermission() { return "granted"; },
-      async getDirectoryHandle(x) { if (await __fs("stat", rel + x) !== "dir") throw new Error("no folder " + x); return folder(rel + x + "/", x); },
-      async getFileHandle(x, o) { if (!(o && o.create) && await __fs("stat", rel + x) !== "file") throw new Error("no file " + x); return file(rel + x, x); }
+    const never = () => new Promise(() => {});
+    const folder = (rel, n, o = {}) => ({
+      kind: "directory", name: n, __rel: rel, __o: o,
+      queryPermission() { return o.hang ? never() : Promise.resolve(o.perm || "granted"); },
+      requestPermission() { if (o.hang) return never(); o.perm = "granted"; return Promise.resolve("granted"); },
+      isSameEntry(x) {
+        if (o.hang) return never();
+        if (o.gone) return Promise.reject(new DOMException("gone", "NotFoundError"));
+        return Promise.resolve(!!x && x.__rel === rel && x.name === n && !x.__o.gone);
+      },
+      async getDirectoryHandle(x) { if (o.hang) return never(); if (await __fs("stat", rel + x) !== "dir") throw new DOMException("no folder " + x, "NotFoundError"); return folder(rel + x + "/", x); },
+      async getFileHandle(x, p) { if (o.hang) return never(); if (!(p && p.create) && await __fs("stat", rel + x) !== "file") throw new DOMException("no file " + x, "NotFoundError"); return file(rel + x, x); }
     });
-    window.showDirectoryPicker = async () => folder("", name);
+    window.__folder = folder;
+    window.__picked = 0;
+    window.showDirectoryPicker = async () => { window.__picked++; return folder("", name); };
+    const pack = v => Array.isArray(v) ? v.map(pack) : v && v.kind === "directory" && v.__rel !== undefined ? { __fake: 1, rel: v.__rel, name: v.name, o: v.__o } : v;
+    const unpack = v => Array.isArray(v) ? v.map(unpack) : v && v.__fake ? folder(v.rel, v.name, v.o) : v;
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (v, k) { return put.call(this, pack(v), k); };
+    const res = Object.getOwnPropertyDescriptor(IDBRequest.prototype, "result");
+    Object.defineProperty(IDBRequest.prototype, "result", { configurable: true, get() { return unpack(res.get.call(this)); } });
   }, basename(dir));
+  d.name = basename(dir);
+  // Keep folders [rel, name, options] in store "dirs" of IndexedDB db (as page-edit does), and read the names kept.
+  d.keep = (list, db = "page-edit") => page.evaluate(([l, n]) => new Promise(function (ok, no) {
+    const r = indexedDB.open(n, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("dirs");
+    r.onerror = () => no(r.error);
+    r.onsuccess = function () {
+      const x = r.result, tx = x.transaction("dirs", "readwrite");
+      tx.objectStore("dirs").put(l.map(f => __folder(f[0], f[1], f[2] || {})), "list");
+      tx.oncomplete = () => { x.close(); ok(); };
+      tx.onabort = () => no(tx.error);
+    };
+  }), [list, db]);
+  d.kept = (db = "page-edit") => page.evaluate(n => new Promise(function (ok, no) {
+    const r = indexedDB.open(n);
+    r.onupgradeneeded = () => r.transaction.abort();
+    r.onerror = () => ok(null);
+    r.onsuccess = function () {
+      const x = r.result;
+      if (!x.objectStoreNames.contains("dirs")) { x.close(); ok(null); return; }
+      const q = x.transaction("dirs").objectStore("dirs").get("list");
+      q.onsuccess = () => { x.close(); ok((q.result || []).map(f => f.name + (f.__rel ? ":" + f.__rel : ""))); };
+      q.onerror = () => no(q.error);
+    };
+  }), db);
+  d.dbs = () => page.evaluate(async () => (await indexedDB.databases()).map(x => x.name).sort());
 
   d.bytes = () => readFileSync(path);
   d.text = () => readFileSync(path, "utf8");
@@ -100,13 +154,17 @@ async function draft(o, open) {
   d.ready = () => page.waitForFunction(() => window.Kamishibai && Kamishibai.ready && document.querySelector(".tools .dock"));
   d.reload = async function () { await page.reload({ waitUntil: "load" }); await d.ready(); await d.inject(); };
   // the page rebuilt by page-edit, n builds in all (activation is the first)
-  d.gen = () => page.evaluate(() => window.__slideEdit.gen);
+  d.gen = () => page.evaluate(() => window.__pageEdit.gen);
   d.built = async function (n) {
-    await page.waitForFunction(k => window.__slideEdit && __slideEdit.gen >= k && !__slideEdit.building && !__slideEdit.saving
+    await page.waitForFunction(k => window.__pageEdit && __pageEdit.gen >= k && !__pageEdit.building && !__pageEdit.saving
       && document.querySelector(".sed-bar") && document.querySelector(".tools .sed-undo"), n);
   };
   d.rebuilt = async function (act) { const g = await d.gen(); await act(); await d.built(g + 1); };
-  d.msg = () => page.evaluate(() => { const m = document.querySelector(".sed-msg"); return m && m.style.display !== "none" ? m.textContent : ""; });
+  // the message line, then the note that stays until it is closed (when they are shown)
+  d.msg = () => page.evaluate(function () {
+    const m = document.querySelector(".sed-msg"), n = document.querySelector(".sed-note"), t = n && n.querySelector(".sed-note-text");
+    return [m && m.style.display !== "none" ? m.textContent : "", n && n.style.display !== "none" && t ? t.textContent : ""].filter(Boolean).join(" ¦ ");
+  });
   d.enter = async function () {
     if (await page.evaluate(() => document.body.classList.contains("sed-on"))) return;
     const g = await d.gen();
