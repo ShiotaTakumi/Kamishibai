@@ -78,7 +78,7 @@ async function ask(c, when, kept, dead) {
   await unask(x => x.tab === c.tab);
   const a = { id: crypto.randomUUID(), tab: c.tab, win: c.win, popup: null, url: c.url, when: when, kept: kept, dead: dead };
   await keep("asks", a.id, a);
-  const W = 460, H = 420, o = { url: "folder.html#" + a.id, type: "popup", width: W, height: H, focused: true };
+  const W = 460, H = 640, o = { url: "folder.html#" + a.id, type: "popup", width: W, height: H, focused: true };
   const w = await chrome.windows.get(c.win).catch(() => null);
   if (w && w.width) { o.left = Math.max(0, Math.round(w.left + (w.width - W) / 2)); o.top = Math.max(0, Math.round(w.top + (w.height - H) / 3)); }
   const p = await chrome.windows.create(o);

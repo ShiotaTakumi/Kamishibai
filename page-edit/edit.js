@@ -43,7 +43,7 @@
    Cmd+E        leave edit mode (saves the text being edited); any tool of the show mode, or Cmd+P, leaves it too */
 (function pageEdit() {
   "use strict";
-  const VERSION = "4.1";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
+  const VERSION = "4.2";   // the same as "version" in manifest.json (checked by tools/test/edit-test.mjs)
   const S = window.__pageEdit || (window.__pageEdit = { gen: 0, edit: false });
 
   // WebSlide's tags, and the Kamishibai components (subtitle, proof, plan, later)

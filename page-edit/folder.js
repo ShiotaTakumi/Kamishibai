@@ -10,15 +10,53 @@ function button(text, main, run) {
   b.type = "button";
   b.textContent = text;
   if (main) b.className = "main";
-  b.addEventListener("click", async function () {
-    const all = $("buttons").querySelectorAll("button");
-    all.forEach(x => { x.disabled = true; });
-    show("");
-    try { await run(); } catch (e) { show(told(e)); }
-    all.forEach(x => { x.disabled = false; });
-  });
+  b.addEventListener("click", () => act(run));
   $("buttons").appendChild(b);
 }
+// One at a time: the button pressed, or the folder dropped.
+let busy = false;
+async function act(run) {
+  if (busy) return;
+  busy = true;
+  const all = $("buttons").querySelectorAll("button");
+  all.forEach(x => { x.disabled = true; });
+  show("");
+  try { await run(); } catch (e) { show(told(e)); }
+  all.forEach(x => { x.disabled = false; });
+  busy = false;
+}
+// A folder dropped on the window, anywhere in it. Nothing else is done with what is dropped: without this, Chrome would
+// show the folder in this window, and what is being asked for (or the permissions it holds) would be gone.
+let onDrop = null;
+addEventListener("dragover", function (e) {
+  e.preventDefault();
+  const takes = !!onDrop && !busy && e.dataTransfer.types.includes("Files");
+  e.dataTransfer.dropEffect = takes ? "copy" : "none";
+  $("drop").classList.toggle("over", takes);
+});
+addEventListener("dragleave", e => { if (!e.relatedTarget) $("drop").classList.remove("over"); });
+addEventListener("drop", function (e) {
+  e.preventDefault();
+  $("drop").classList.remove("over");
+  const items = [].filter.call(e.dataTransfer.items, x => x.kind === "file");
+  if (!onDrop || busy || !items.length) return;
+  // The handles are taken at once (after the event the items are empty) and outside act: for a folder Chrome does not
+  // give to pages it puts up a screen of its own first, and the buttons are not to wait for that.
+  Promise.all(items.map(x => x.getAsFileSystemHandle())).then(function (got) {
+    if (onDrop) act(() => onDrop(got));
+  }, function (e) {
+    show(e.name === "AbortError" ? "Chrome では、このフォルダは選べません。原稿のフォルダかプロジェクトのフォルダを入れてください" : told(e));
+  });
+});
+// The folder of the page at url, as the folder pickers take it ("/a/b"; on Windows "C:\\a\\b" or "\\\\host\\a").
+function folderPath(url) {
+  const u = new URL(url), p = "/" + partsOf(url).slice(0, -1).join("/");
+  if (u.hostname) return ("//" + u.hostname + p).replace(/\//g, "\\");
+  return /^\/[A-Za-z]:/.test(p) ? (p.slice(1) + (p.length === 3 ? "/" : "")).replace(/\//g, "\\") : p;
+}
+const PASTE = /Mac/.test(navigator.platform) ? "⌘⇧G、⌘V、return の順に押すと、この原稿のフォルダへ移れます"
+  : /Win/.test(navigator.platform) ? "「フォルダー」の欄に Ctrl+V で貼ると、この原稿のフォルダを指せます"
+  : "場所の欄（Ctrl+L で出ます）に Ctrl+V で貼ると、この原稿のフォルダへ移れます";
 const told = e => e.name === "AbortError" ? "フォルダを選ぶ画面を閉じました。もう一度選べます"
   : e.name === "NotFoundError" ? "フォルダが見つかりません。選び直してください（NotFoundError）"
   : String(e.message || e);
@@ -54,13 +92,25 @@ async function main() {
     await askFor(x.dir, "フォルダ「" + x.dir.name + "」の編集が許可されませんでした");
     await finish(a, await use(x.dir));
   }));
-  button(kept.length ? "別のフォルダを選ぶ" : "フォルダを選ぶ", !kept.length, async function () {
-    const d = await showDirectoryPicker({ id: "page-edit", mode: "readwrite" });
-    await askFor(d, "フォルダ「" + d.name + "」の書き込みが許可されませんでした");
+  const take = async function (d) {   // a folder not kept yet; a wrong one is refused before Chrome asks anything
     const f = await use(d);
+    await askFor(d, "フォルダ「" + d.name + "」の書き込みが許可されませんでした");
     await keepDir(d);
     await finish(a, f);
+  };
+  const choose = kept.length ? "別のフォルダを選ぶ" : "フォルダを選ぶ", path = folderPath(a.url), own = partsOf(a.url).slice(-2)[0];
+  button(choose, !kept.length, async function () {
+    // Chrome opens the picker at no path that is given to it, so the path is copied, to be pasted there
+    await navigator.clipboard.writeText(path).catch(() => {});
+    await take(await showDirectoryPicker({ id: "page-edit", mode: "readwrite" }));
   });
+  $("hint").textContent = "「" + choose + "」を押すと、この原稿のフォルダのパスをコピーします。選ぶ画面で " + PASTE + "。";
+  $("drop").textContent = (own === file ? "原稿を含むフォルダ" : "フォルダ「" + own + "」か、それを含むプロジェクトのフォルダ") + "を、ここへドラッグしても選べます";
+  onDrop = async function (got) {
+    const dirs = got.filter(x => x && x.kind === "directory");
+    if (dirs.length !== 1) throw new Error(dirs.length ? "フォルダを一つだけ入れてください" : "ファイルではなく、原稿を含むフォルダを入れてください");
+    await take(dirs[0]);
+  };
   button("やめる", false, () => window.close());   // files.js tells the page
 }
 
@@ -72,7 +122,9 @@ async function finish(a, f) {
   // stay as the one window that holds the permissions, or leave that to the one there is
   await navigator.locks.request("keeper", { ifAvailable: true }, async function (lock) {
     if (!lock) return;
+    onDrop = null;
     $("buttons").replaceChildren();
+    $("drop").textContent = $("hint").textContent = "";
     show("");
     $("head").textContent = "page-edit が原稿を編集しています";
     $("path").textContent = "";
