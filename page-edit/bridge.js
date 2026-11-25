@@ -23,18 +23,49 @@
     if (early.has(id)) { ok(early.get(id)); early.delete(id); } else asked.set(id, ok);
   });
 
+  // The window that keeps the permission is minimized, and the renderer process of the extension, which the service
+  // worker shares, is then run at the lowest priority: on a busy machine a save took tens of seconds. An empty page of
+  // the extension, shown in a draft in front, has that process run at the normal one. Nothing is seen of it, and it
+  // has no script. It is there while a request runs, and stays once the draft is known to be in an allowed folder. The
+  // page built again after a save has lost it: put back by the next request.
+  let kept = false;   // the draft is in an allowed folder
+  let running = 0;    // requests not yet answered
+  let frame = null;
+  function awake() {
+    if (document.readyState === "loading" || frame && frame.isConnected) return;
+    let url;
+    try { url = chrome.runtime.getURL("awake.html"); } catch (e) { return; }   // the extension has been renewed
+    frame = document.createElement("iframe");
+    frame.src = url;
+    frame.tabIndex = -1;
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "all: initial; position: fixed; right: 0; bottom: 0; width: 1px; height: 1px; border: 0; opacity: 0; pointer-events: none";
+    document.documentElement.append(frame);
+  }
+
+  function asleep() { if (!kept && !running && frame) { frame.remove(); frame = null; } }
+
   // One request of the page. What shows a window or changes the list of folders needs the author's click or key.
   async function run(req, say) {
+    running++;
+    try { return await one(req, say); } finally { running--; asleep(); }
+  }
+  async function one(req, say) {
     const op = String(req.op), acted = navigator.userActivation.isActive;
     if ((op === "dirs" || op === "forget" || op === "front" || op === "export") && !acted) throw new Error("クリックかキーの操作の直後にだけ使えます");
     const q = Object.assign({}, req, { op: op, ask: !!req.ask && acted });
     for (;;) {
+      awake();
       const when = Date.parse(document.lastModified);
       q.when = isNaN(when) ? 0 : when;
       const r = await send(q);
-      if (!r.wait) return r;
+      if (!r.wait) {
+        if (r.text !== undefined) kept = true;
+        return r;
+      }
       say(r.say);
       if (!await answered(r.wait)) throw { name: "AbortError", message: "no folder was chosen" };
+      kept = true;
       q.ask = false; q.fresh = false;
     }
   }

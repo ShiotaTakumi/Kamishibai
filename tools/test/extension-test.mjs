@@ -11,15 +11,28 @@ import { test, run, eq, ok, KEY, ROOT } from "./harness.mjs";
 
 const ID = "ffghpaoabifdechnglinhlknnlgiadch";   // from the key in manifest.json
 const EXT = join(ROOT, "page-edit");
-// what a script of a page can do by itself, before anything is clicked
+// what a script of a page can do by itself, before anything is clicked. A draft in an allowed folder is built again as
+// soon as it is opened, and the script runs again in the same window, where the bridge takes no new port: what the first
+// run began stays, and its port with it
 const ATTEMPT = `<script>
-window.request = req => new Promise(function (done) {
-  const c = new MessageChannel();
-  c.port1.onmessage = e => { if (e.data.hello) c.port1.postMessage({ id: 1, req: req }); else if (!e.data.say) done(e.data); };
+if (!window.tried) {
+  const c = new MessageChannel(), waiting = new Map();
+  const port = new Promise(function (ok) {
+    c.port1.onmessage = function (e) {
+      const d = e.data;
+      if (d.hello) ok(c.port1); else if (!d.say) { waiting.get(d.id)(d); waiting.delete(d.id); }
+    };
+  });
   postMessage({ pageEdit: "link" }, "*", [c.port2]);
-  setTimeout(() => done({ timeout: true }), 2000);
-});
-window.tried = Promise.all([{ op: "dirs" }, { op: "forget", id: null }, { op: "export", ask: true }, { op: "open", ask: true, fresh: true }].map(request));
+  let n = 0;
+  window.request = req => new Promise(async function (done) {
+    setTimeout(() => done({ timeout: true }), 10000);
+    const p = await port, id = ++n;
+    waiting.set(id, done);
+    p.postMessage({ id: id, req: req });
+  });
+  window.tried = Promise.all([{ op: "dirs" }, { op: "forget", id: null }, { op: "export", ask: true }, { op: "open", ask: true, fresh: true }].map(request));
+}
 <\/script>`;
 const doc = (text, more = "") => `<!DOCTYPE html>
 <html lang="ja" theme="Boadilla"><head><meta charset="utf-8"><title>t</title>
@@ -100,6 +113,13 @@ test("a folder chosen in the extension's window: the draft is edited, the window
   await h.edit(a, "first", "second");
   await h.until("a.html", doc("second"));
   eq(await h.sw.evaluate(async () => (await chrome.windows.getAll({ windowTypes: ["popup"] })).map(w => w.state).join()), "minimized");
+  // the empty page of the extension that keeps it awake, once and unseen, also after the rebuilds
+  const awake = async p => { await p.waitForTimeout(2500); return p.frames().map(f => f.url()).filter(u => /^chrome-ext/.test(u)).join(); };
+  eq(await awake(a), `chrome-extension://${ID}/awake.html`, "while editing");
+  await h.edit(a, "second", "third");
+  await h.until("a.html", doc("third"));
+  eq(await awake(a), `chrome-extension://${ID}/awake.html`, "after a save");
+  eq(await a.evaluate(() => { const f = document.querySelector("html > iframe"), c = getComputedStyle(f); return [f.tabIndex, f.ariaHidden, c.position, c.opacity, c.pointerEvents, f.offsetWidth].join(); }), "-1,true,fixed,0,none,1");
 
   const b = await h.show("b.html", doc("other"));
   await b.keyboard.press(KEY + "+e");
@@ -166,6 +186,7 @@ test("a script of the page gets no handle, no other file, no list, and shows no 
   await b.goto(pathToFileURL(join(h.dir, "out.html")).href);
   const o = await b.evaluate(() => Promise.all([{ op: "read" }, { op: "write", text: "x", was: {} }].map(request)));
   ok(o.every(x => x.error && x.error.name === "NotAllowedError"), JSON.stringify(o));
+  await b.waitForFunction(() => !document.querySelector("html > iframe"));   // and it keeps nothing of the extension
 
   await b.goto(pathToFileURL(join(h.root, "b.html")).href);
   await b.waitForFunction(() => window.__pageEdit);
